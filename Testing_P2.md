@@ -321,9 +321,6 @@ Open browser console on localhost:3000 — after login you should see:
 ### 5.0 Self-Test Setup
 
 - [x] 5.0.1 Go to https://webhook.site — copy your unique URL
-- [x] 5.0.2 Set `BACKEND_WEBHOOK_URL=https://webhook.site/your-id` in `.env`
-- [x] 5.0.3 Set `BACKEND_API_KEY=test-api-key-for-self-testing` in `.env`
-- [x] 5.0.4 Restart the dev server
 
 ### 5.1 Task Sync — Simulate Backend Pushing Tasks (Incoming)
 
@@ -362,13 +359,7 @@ Open browser console on localhost:3000 — after login you should see:
 - [ ] 5.4.3 Invalid task/attempt ID → 404
 - [ ] 5.4.4 Invalid API key → 401
 
-### 5.5 Tag/Label Sync
-
-- [ ] 5.5.1 Backend calls `POST /api/users/tags` → tag assigned, channel access granted
-- [ ] 5.5.2 Admin assigns tag in hub → outgoing webhook notifies backend (check webhook.site)
-- [ ] 5.5.3 Invalid user/tag → appropriate error response
-
-### 5.6 Handoff to Backend Team (after all self-tests pass)
+### 5.5 Handoff to Backend Team (after all self-tests pass)
 
 - [ ] 5.6.1 Prepare API spec doc with exact endpoints, payloads, headers, auth
 - [ ] 5.6.2 Include webhook.site screenshots as payload examples

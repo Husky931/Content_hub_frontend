@@ -22,16 +22,16 @@ interface PublishParams {
  * Publish an event to the WebSocket server for broadcasting.
  * Fails silently if WS server is unavailable (non-blocking).
  */
-export async function wsPublish({ room, event, data }: PublishParams): Promise<void> {
+export async function wsPublish({room, event, data}: PublishParams): Promise<void> {
   try {
     const res = await fetch(`${WS_SERVER_URL}/emit`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": WS_INTERNAL_API_KEY,
+        "X-API-Key": WS_INTERNAL_API_KEY
       },
-      body: JSON.stringify({ room, event, data }),
-      signal: AbortSignal.timeout(3000), // 3s timeout — don't block API response
+      body: JSON.stringify({room, event, data}),
+      signal: AbortSignal.timeout(3000) // 3s timeout — don't block API response
     });
 
     if (!res.ok) {
@@ -50,7 +50,7 @@ export function publishMessage(channelSlug: string, message: unknown) {
   return wsPublish({
     room: `channel:${channelSlug}`,
     event: "message:new",
-    data: message,
+    data: message
   });
 }
 
@@ -59,7 +59,7 @@ export function publishSystemMessage(channelSlug: string, message: unknown) {
   return wsPublish({
     room: `channel:${channelSlug}`,
     event: "message:system",
-    data: message,
+    data: message
   });
 }
 
@@ -68,7 +68,7 @@ export function publishTaskUpdate(channelSlug: string, task: unknown) {
   return wsPublish({
     room: `channel:${channelSlug}`,
     event: "task:updated",
-    data: task,
+    data: task
   });
 }
 
@@ -77,7 +77,7 @@ export function publishNotification(userId: string, notification: unknown) {
   return wsPublish({
     room: `user:${userId}`,
     event: "notification:new",
-    data: notification,
+    data: notification
   });
 }
 
@@ -86,6 +86,6 @@ export function publishWalletUpdate(userId: string, wallet: unknown) {
   return wsPublish({
     room: `user:${userId}`,
     event: "wallet:updated",
-    data: wallet,
+    data: wallet
   });
 }
