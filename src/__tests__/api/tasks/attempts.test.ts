@@ -8,6 +8,14 @@ jest.mock("@/db", () => ({
 jest.mock("@/lib/auth", () => ({
   getAuthFromCookies: jest.fn(),
 }));
+jest.mock("@/lib/ws-publish", () => ({
+  publishSystemMessage: jest.fn().mockResolvedValue(undefined),
+  publishTaskUpdate: jest.fn().mockResolvedValue(undefined),
+  publishNotification: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock("@/lib/backend-webhook", () => ({
+  webhookAttemptSubmitted: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { db } from "@/db";
 import { getAuthFromCookies } from "@/lib/auth";
@@ -132,7 +140,7 @@ describe("POST /api/tasks/[taskId]/attempts", () => {
     // Get submitter info
     mockSelect([{ username: "creator1", displayName: "Creator One" }]);
     // Insert system message
-    mockInsert([]);
+    mockInsert([{ id: "msg-1", createdAt: new Date() }]);
     // Get channel slug
     mockSelect([{ slug: "voiceover-basic" }]);
     // Insert notification (task creator)

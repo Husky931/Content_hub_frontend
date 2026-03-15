@@ -8,6 +8,15 @@ jest.mock("@/db", () => ({
 jest.mock("@/lib/auth", () => ({
   getAuthFromCookies: jest.fn(),
 }));
+jest.mock("@/lib/ws-publish", () => ({
+  publishSystemMessage: jest.fn().mockResolvedValue(undefined),
+  publishTaskUpdate: jest.fn().mockResolvedValue(undefined),
+  publishNotification: jest.fn().mockResolvedValue(undefined),
+  publishWalletUpdate: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock("@/lib/backend-webhook", () => ({
+  webhookTaskCompleted: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { db } from "@/db";
 import { getAuthFromCookies } from "@/lib/auth";
@@ -39,7 +48,8 @@ function makeDeleteReq() {
 
 function mockSelect(rows: any[]) {
   const limitMock = jest.fn().mockResolvedValue(rows);
-  const whereMock = jest.fn().mockReturnValue({ limit: limitMock });
+  const whereResult = Object.assign(Promise.resolve(rows), { limit: limitMock });
+  const whereMock = jest.fn().mockReturnValue(whereResult);
   const innerJoinMock = jest.fn().mockReturnValue({ where: whereMock, orderBy: jest.fn().mockResolvedValue(rows) });
   const fromMock = jest.fn().mockReturnValue({
     where: whereMock,
@@ -175,7 +185,7 @@ describe("PATCH /api/tasks/[taskId]/attempts/[attemptId]", () => {
     // Create ledger entry
     mockInsert([]);
     // Post system message
-    mockInsert([]);
+    mockInsert([{ id: "msg-1", createdAt: new Date() }]);
     // Notify creator
     mockInsert([]);
 
@@ -196,7 +206,7 @@ describe("PATCH /api/tasks/[taskId]/attempts/[attemptId]", () => {
     mockSelect([{ username: "creator1", displayName: "Creator One" }]); // submitter
     mockSelect([{ slug: "voiceover-basic" }]); // channel
     // System message + notification
-    mockInsert([]);
+    mockInsert([{ id: "msg-2", createdAt: new Date() }]);
     mockInsert([]);
 
     const res = await PATCH(

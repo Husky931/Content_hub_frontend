@@ -8,6 +8,10 @@ jest.mock("@/db", () => ({
 jest.mock("@/lib/auth", () => ({
   getAuthFromCookies: jest.fn(),
 }));
+jest.mock("@/lib/ws-publish", () => ({
+  publishSystemMessage: jest.fn().mockResolvedValue(undefined),
+  publishTaskUpdate: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { db } from "@/db";
 import { getAuthFromCookies } from "@/lib/auth";
@@ -163,7 +167,7 @@ describe("PATCH /api/tasks/[taskId]", () => {
     // Publisher name
     mockSelect([{ username: "admin", displayName: "Admin" }]);
     // Insert system message
-    mockInsert([]);
+    mockInsert([{ id: "msg-1", createdAt: new Date() }]);
     // Tagged users for notification
     mockSelect([{ userId: "c1" }]);
     // Insert notifications
@@ -178,7 +182,9 @@ describe("PATCH /api/tasks/[taskId]", () => {
   it("successfully archives active task", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "admin-1", role: "admin" });
     mockSelect([{ ...sampleTask, status: "active" }]);
-    mockUpdate([{ ...sampleTask, status: "archived" }]);
+    mockUpdate([{ ...sampleTask, status: "archived", title: "Record Greeting" }]);
+    // Channel slug lookup for publishTaskUpdate
+    mockSelect([{ slug: "voiceover-basic" }]);
 
     const res = await PATCH(makePatchReq({ status: "archived" }), { params: paramsPromise });
     expect(res.status).toBe(200);
@@ -187,7 +193,9 @@ describe("PATCH /api/tasks/[taskId]", () => {
   it("allows task creator to archive their own active task", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "mod-1", role: "creator" });
     mockSelect([{ ...sampleTask, status: "active", createdById: "mod-1" }]);
-    mockUpdate([{ ...sampleTask, status: "archived" }]);
+    mockUpdate([{ ...sampleTask, status: "archived", title: "Record Greeting" }]);
+    // Channel slug lookup for publishTaskUpdate
+    mockSelect([{ slug: "voiceover-basic" }]);
 
     const res = await PATCH(makePatchReq({ status: "archived" }), { params: paramsPromise });
     expect(res.status).toBe(200);

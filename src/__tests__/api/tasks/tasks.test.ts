@@ -8,6 +8,10 @@ jest.mock("@/db", () => ({
 jest.mock("@/lib/auth", () => ({
   getAuthFromCookies: jest.fn(),
 }));
+jest.mock("@/lib/ws-publish", () => ({
+  publishSystemMessage: jest.fn().mockResolvedValue(undefined),
+  publishTaskUpdate: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { db } from "@/db";
 import { getAuthFromCookies } from "@/lib/auth";
@@ -236,7 +240,7 @@ describe("POST /api/tasks", () => {
     // Get creator display name
     mockSelect([{ username: "mod1", displayName: "Mod One" }]);
     // Insert system message
-    mockInsert([]);
+    mockInsert([{ id: "msg-1", createdAt: new Date() }]);
     // Notify tagged users
     mockSelect([{ userId: "c1" }, { userId: "c2" }]);
     mockInsert([]); // insert notifications

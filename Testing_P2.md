@@ -225,16 +225,14 @@
 
 ### 4.0 Setup & Startup (Local)
 
-1. Start WS server (Terminal 1):
-2. Start frontend (Terminal 2):
-3. Verify WS server is running:
+Verify WS server is running:
 
 ```bash
 curl http://localhost:3001/health
 # Expected: {"status":"ok","connections":0}
 ```
 
-4. Open browser console on localhost:3000 — after login you should see:
+Open browser console on localhost:3000 — after login you should see:
 
 ```
 [ws] Connected to real-time server
@@ -310,9 +308,9 @@ curl http://localhost:3001/health
 - [x] 4.8.1 `GET https://contenthub-ws.fly.dev/health` returns `{"status":"ok",...}`
 - [x] 4.8.2 After logging in, browser console shows `[ws] Connected to real-time server` (connecting to Fly.io)
 - [x] 4.8.3 If JWT_SECRET mismatch → browser console shows `[ws] Connection error: Invalid token`
-- [ ] 4.8.4 Repeat 4.1–4.3 key tests — messages, system messages, task card updates via Fly.io
-- [ ] 4.8.5 Repeat 4.4–4.6 — notifications, page updates, wallet via Fly.io
-- [ ] 4.8.6 Repeat 4.7.3–4.7.4 — reconnection + auto-rejoin works via Fly.io
+- [x] 4.8.4 Repeat 4.1–4.3 key tests — messages, system messages, task card updates via Fly.io
+- [x] 4.8.5 Repeat 4.4–4.6 — notifications, page updates, wallet via Fly.io
+- [x] 4.8.6 Repeat 4.7.3–4.7.4 — reconnection + auto-rejoin works via Fly.io
 
 ---
 
@@ -327,7 +325,7 @@ curl http://localhost:3001/health
 - [x] 5.0.3 Set `BACKEND_API_KEY=test-api-key-for-self-testing` in `.env`
 - [x] 5.0.4 Restart the dev server
 
-### 4.1 Task Sync — Simulate Backend Pushing Tasks (Incoming)
+### 5.1 Task Sync — Simulate Backend Pushing Tasks (Incoming)
 
 - [ ] 5.1.1 Run: `pnpm tsx src/scripts/test-sync.ts sync-task` — task appears in target channel
 - [ ] 5.1.2 Task card shows in channel feed with correct title, description, bounty
