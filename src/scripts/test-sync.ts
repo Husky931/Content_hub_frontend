@@ -15,6 +15,7 @@
  */
 
 import "dotenv/config";
+import crypto from "crypto";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const API_KEY = process.env.BACKEND_API_KEY || "test-api-key";
@@ -48,12 +49,12 @@ async function testSyncTask() {
 
   // 1. Valid task sync — includes all fields matching admin UI task creation
   const deadlineDate = new Date();
-  deadlineDate.setDate(deadlineDate.getDate() + 3); // 3 days from now
+  deadlineDate.setDate(deadlineDate.getDate() + 4); // 3 days from now
 
   const {status, data} = await post("/api/tasks/sync", {
-    channelSlug: "translate-hebrew",
-    title: `[Synced] Translate Hebrew Test ${Date.now()}`,
-    titleCn: `[同步] 希伯来语翻译测试 ${Date.now()}`,
+    channelSlug: "ai-video",
+    title: `[Synced] First AI video task`,
+    titleCn: `[同步] 希伯来语翻译测试}`,
     description: "Record a 30-second voice sample reading the provided script in a quiet environment.",
     descriptionCn: "在安静的环境中录制一段30秒的语音样本，朗读所提供的脚本。",
     bountyUsd: "25.00",
@@ -62,7 +63,7 @@ async function testSyncTask() {
     bonusBountyRmb: "72.00",
     maxAttempts: 3,
     deadline: deadlineDate.toISOString(),
-    externalId: `ext-${Date.now()}`
+    externalId: `ext-${crypto.randomBytes(4).toString("hex")}`
   });
 
   if (status === 201) {

@@ -4,6 +4,9 @@ import { verifyJWT } from "@/lib/auth";
 // Routes that don't require authentication
 const publicRoutes = ["/login", "/signup", "/", "/api/auth/signup", "/api/auth/login", "/api/auth/verify"];
 
+// Routes that accept X-API-Key header instead of JWT (backend-to-backend)
+const apiKeyRoutes = ["/api/tasks/sync", "/api/automod/review"];
+
 // Routes that require specific roles
 const adminRoutes = ["/admin"];
 const modRoutes = ["/mod"];
@@ -19,6 +22,14 @@ export async function middleware(req: NextRequest) {
   // Allow static files and Next.js internals
   if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname.includes(".")) {
     return NextResponse.next();
+  }
+
+  // Allow backend API key auth for specific routes (they validate the key themselves)
+  if (apiKeyRoutes.some((route) => pathname === route)) {
+    const apiKey = req.headers.get("x-api-key");
+    if (apiKey) {
+      return NextResponse.next();
+    }
   }
 
   // Check auth token

@@ -316,16 +316,14 @@ Open browser console on localhost:3000 — after login you should see:
 
 ## 5. Edtech Backend Integration (Self-Test with Simulated Webhooks)
 
-> **Strategy:** Test everything yourself first using webhook.site + test-sync.ts. No backend team needed until you're ready to hand off the spec.
-
 ### 5.0 Self-Test Setup
 
 - [x] 5.0.1 Go to https://webhook.site — copy your unique URL
 
 ### 5.1 Task Sync — Simulate Backend Pushing Tasks (Incoming)
 
-- [ ] 5.1.1 Run: `pnpm tsx src/scripts/test-sync.ts sync-task` — task appears in target channel
-- [ ] 5.1.2 Task card shows in channel feed with correct title, description, bounty
+- [x] 5.1.1 Run: `pnpm tsx src/scripts/test-sync.ts sync-task` — task appears in target channel
+- [x] 5.1.2 Task card shows in channel feed with correct title, description, bounty
 - [ ] 5.1.3 System message posted: "New task synced: [Title]"
 - [ ] 5.1.4 Task has `source: 'backend'` flag
 - [ ] 5.1.5 Run with invalid API key → 401 rejected
