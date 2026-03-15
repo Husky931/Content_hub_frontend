@@ -1,0 +1,130 @@
+import "dotenv/config";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import { eq, inArray } from "drizzle-orm";
+import {
+  appeals,
+  ledgerEntries,
+  notifications,
+  attempts,
+  tasks,
+  messages,
+  channelMods,
+  channels,
+  userTags,
+  tags,
+} from "./schema";
+
+async function resetTestData() {
+  const DATABASE_URL = process.env.DATABASE_URL;
+  if (!DATABASE_URL) {
+    throw new Error("DATABASE_URL is required");
+  }
+
+  const sql = neon(DATABASE_URL);
+  const db = drizzle(sql);
+
+  console.log("Clearing task-channel test data...\n");
+
+  // 1. Find all task-type channel IDs
+  const taskChannels = await db
+    .select({ id: channels.id, name: channels.name })
+    .from(channels)
+    .where(eq(channels.type, "task"));
+
+  const taskChannelIds = taskChannels.map((c) => c.id);
+  console.log(
+    `  Found ${taskChannels.length} task channel(s): ${taskChannels.map((c) => `#${c.name}`).join(", ") || "(none)"}`
+  );
+
+  // 2. Delete in FK-safe order (all tables, since tasks/attempts always belong to task channels)
+  console.log("  Deleting appeals...");
+  const d1 = await db.delete(appeals).returning({ id: appeals.id });
+  console.log(`    ${d1.length} rows deleted`);
+
+  console.log("  Deleting ledger entries...");
+  const d2 = await db.delete(ledgerEntries).returning({ id: ledgerEntries.id });
+  console.log(`    ${d2.length} rows deleted`);
+
+  console.log("  Deleting notifications...");
+  const d3 = await db.delete(notifications).returning({ id: notifications.id });
+  console.log(`    ${d3.length} rows deleted`);
+
+  console.log("  Deleting attempts...");
+  const d4 = await db.delete(attempts).returning({ id: attempts.id });
+  console.log(`    ${d4.length} rows deleted`);
+
+  console.log("  Deleting tasks...");
+  const d5 = await db.delete(tasks).returning({ id: tasks.id });
+  console.log(`    ${d5.length} rows deleted`);
+
+  // 3. Delete messages & mods only for task channels
+  if (taskChannelIds.length > 0) {
+    console.log("  Deleting messages in task channels...");
+    const d6 = await db
+      .delete(messages)
+      .where(inArray(messages.channelId, taskChannelIds))
+      .returning({ id: messages.id });
+    console.log(`    ${d6.length} rows deleted`);
+
+    console.log("  Deleting channel mods for task channels...");
+    const d7 = await db
+      .delete(channelMods)
+      .where(inArray(channelMods.channelId, taskChannelIds))
+      .returning({ channelId: channelMods.channelId });
+    console.log(`    ${d7.length} rows deleted`);
+
+    console.log("  Deleting task channels...");
+    const d8 = await db
+      .delete(channels)
+      .where(eq(channels.type, "task"))
+      .returning({ id: channels.id });
+    console.log(`    ${d8.length} rows deleted`);
+  }
+
+  // 4. Delete tags (clear userTags first due to FK)
+  console.log("  Deleting user-tag assignments...");
+  const d9 = await db.delete(userTags).returning({ id: userTags.id });
+  console.log(`    ${d9.length} rows deleted`);
+
+  console.log("  Deleting tags...");
+  const d10 = await db.delete(tags).returning({ id: tags.id });
+  console.log(`    ${d10.length} rows deleted`);
+
+  // 5. Re-seed the standard special & discussion channels if missing
+  console.log("\n  Re-seeding standard channels if missing...");
+
+  const standardChannels = [
+    // Special channels
+    { name: "announcements", nameCn: "公告", slug: "announcements", type: "special" as const, description: "System-wide updates, read-only for creators", descriptionCn: "系统公告，创作者只读", isFixed: true, sortOrder: 0 },
+    { name: "beginner-training", nameCn: "新手训练", slug: "beginner-training", type: "special" as const, description: "New user training and orientation", descriptionCn: "新用户培训和入门", isFixed: true, sortOrder: 1 },
+    { name: "appeals", nameCn: "申诉", slug: "appeals", type: "special" as const, description: "Dispute resolution for rejected tasks", descriptionCn: "被拒任务的争议解决", isFixed: true, sortOrder: 2 },
+    { name: "payment-issues", nameCn: "支付问题", slug: "payment-issues", type: "special" as const, description: "Private payment discussions - only visible to supermods and admins", descriptionCn: "私密支付讨论 - 仅超级管理员和管理员可见", isFixed: true, sortOrder: 3 },
+    // Discussion channels
+    { name: "general", nameCn: "综合讨论", slug: "general", type: "discussion" as const, description: "Open discussion for all users", descriptionCn: "所有用户的开放讨论", sortOrder: 20 },
+    { name: "feedback", nameCn: "反馈", slug: "feedback", type: "discussion" as const, description: "Product feedback and suggestions", descriptionCn: "产品反馈和建议", sortOrder: 21 },
+    { name: "tips", nameCn: "技巧分享", slug: "tips", type: "discussion" as const, description: "Best practices and creator tips", descriptionCn: "最佳实践和创作者技巧", sortOrder: 22 },
+    { name: "off-topic", nameCn: "闲聊", slug: "off-topic", type: "discussion" as const, description: "Casual chat", descriptionCn: "休闲聊天", sortOrder: 23 },
+  ];
+
+  const existing = await db.select({ slug: channels.slug }).from(channels);
+  const existingSlugs = new Set(existing.map((c) => c.slug));
+
+  const toInsert = standardChannels.filter((c) => !existingSlugs.has(c.slug));
+  if (toInsert.length > 0) {
+    const inserted = await db.insert(channels).values(toInsert).returning();
+    for (const ch of inserted) {
+      console.log(`    Re-created: #${ch.name} (${ch.type})`);
+    }
+  } else {
+    console.log("    All standard channels already exist.");
+  }
+
+  console.log("\nDone! Task channels, tasks, attempts, appeals, ledger entries, notifications, and tags cleared.");
+  console.log("Users, sessions, invite codes, and standard channels are preserved.");
+}
+
+resetTestData().catch((err) => {
+  console.error("Reset failed:", err);
+  process.exit(1);
+});
