@@ -205,7 +205,10 @@ export default function ChannelPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMessages((prev) => [...prev, data.message]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === data.message.id)) return prev;
+          return [...prev, data.message];
+        });
         setNewMessage("");
       }
     } catch {

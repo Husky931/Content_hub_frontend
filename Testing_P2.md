@@ -307,22 +307,9 @@ curl http://localhost:3001/health
 
 ### 4.8 Deployed Verification (Fly.io)
 
-Switch to deployed WS server and repeat key tests.
-
-1. Set in `frontend/.env`:
-
-```
-NEXT_PUBLIC_WS_URL=wss://contenthub-ws.fly.dev
-WS_SERVER_URL=https://contenthub-ws.fly.dev
-WS_INTERNAL_API_KEY=<same key set in Fly.io secrets>
-```
-
-2. Ensure Fly.io secrets match (`fly secrets list -a contenthub-ws`).
-3. Restart frontend.
-
 - [x] 4.8.1 `GET https://contenthub-ws.fly.dev/health` returns `{"status":"ok",...}`
-- [ ] 4.8.2 After logging in, browser console shows `[ws] Connected to real-time server` (connecting to Fly.io)
-- [] 4.8.3 If JWT_SECRET mismatch → browser console shows `[ws] Connection error: Invalid token`
+- [x] 4.8.2 After logging in, browser console shows `[ws] Connected to real-time server` (connecting to Fly.io)
+- [x] 4.8.3 If JWT_SECRET mismatch → browser console shows `[ws] Connection error: Invalid token`
 - [ ] 4.8.4 Repeat 4.1–4.3 key tests — messages, system messages, task card updates via Fly.io
 - [ ] 4.8.5 Repeat 4.4–4.6 — notifications, page updates, wallet via Fly.io
 - [ ] 4.8.6 Repeat 4.7.3–4.7.4 — reconnection + auto-rejoin works via Fly.io
