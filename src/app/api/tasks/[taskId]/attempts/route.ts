@@ -166,33 +166,36 @@ export async function POST(
       );
     }
 
-    // Real-time: broadcast system message + task update to channel
+    // Real-time: broadcast system message + task update to channel (must await on serverless)
     if (channel?.slug) {
-      publishSystemMessage(channel.slug, {
-        id: sysMsg.id,
-        type: "system",
-        content: sysContent,
-        createdAt: sysMsg.createdAt,
-      });
-      // Trigger task card refresh so all users see updated attempt count
-      publishTaskUpdate(channel.slug, { id: taskId, status: task.status, title: task.title });
+      await Promise.all([
+        publishSystemMessage(channel.slug, {
+          id: sysMsg.id,
+          type: "system",
+          content: sysContent,
+          createdAt: sysMsg.createdAt,
+        }),
+        publishTaskUpdate(channel.slug, { id: taskId, status: task.status, title: task.title }),
+      ]);
     }
 
     // Real-time: notify mods via bell badge
+    const notifyPromises: Promise<void>[] = [];
     if (task.createdById !== auth.userId) {
-      publishNotification(task.createdById, {
+      notifyPromises.push(publishNotification(task.createdById, {
         type: "attempt_submitted",
         title: "New attempt submitted",
         unreadCount: -1,
-      });
+      }));
     }
     for (const modId of modIdsToNotify) {
-      publishNotification(modId, {
+      notifyPromises.push(publishNotification(modId, {
         type: "attempt_submitted",
         title: "New attempt submitted",
         unreadCount: -1,
-      });
+      }));
     }
+    await Promise.all(notifyPromises);
 
     // Outgoing webhook to Edtech backend
     webhookAttemptSubmitted({

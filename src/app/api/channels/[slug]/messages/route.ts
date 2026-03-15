@@ -90,8 +90,8 @@ export async function POST(
       user: msgUser,
     };
 
-    // Broadcast to channel via WebSocket (non-blocking)
-    publishMessage(slug, messagePayload);
+    // Broadcast to channel via WebSocket (must await on serverless)
+    await publishMessage(slug, messagePayload);
 
     return NextResponse.json({ message: messagePayload });
   } catch (error) {

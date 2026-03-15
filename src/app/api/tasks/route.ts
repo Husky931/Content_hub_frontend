@@ -314,9 +314,11 @@ export async function POST(req: NextRequest) {
       // Notify users who have the required tag (if any)
       await notifyChannelUsers(channel, newTask.id, title);
 
-      // Real-time broadcast
-      publishSystemMessage(channel.slug, { id: sysMsg.id, type: "system", content: sysContent, createdAt: sysMsg.createdAt });
-      publishTaskUpdate(channel.slug, { id: newTask.id, status: "active", title });
+      // Real-time broadcast (must await on serverless)
+      await Promise.all([
+        publishSystemMessage(channel.slug, { id: sysMsg.id, type: "system", content: sysContent, createdAt: sysMsg.createdAt }),
+        publishTaskUpdate(channel.slug, { id: newTask.id, status: "active", title }),
+      ]);
     }
 
     return NextResponse.json({ task: newTask }, { status: 201 });

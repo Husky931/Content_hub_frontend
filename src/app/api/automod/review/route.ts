@@ -117,15 +117,17 @@ export async function POST(req: NextRequest) {
         data: { taskId, attemptId, channelSlug },
       });
 
-      // Real-time
+      // Real-time (must await on serverless)
+      const autoRejectPublishes: Promise<void>[] = [];
       if (channelSlug) {
-        publishSystemMessage(channelSlug, { id: rejectSysMsg.id, type: "system", content: sysContent, createdAt: rejectSysMsg.createdAt });
+        autoRejectPublishes.push(publishSystemMessage(channelSlug, { id: rejectSysMsg.id, type: "system", content: sysContent, createdAt: rejectSysMsg.createdAt }));
       }
-      publishNotification(attempt.userId, {
+      autoRejectPublishes.push(publishNotification(attempt.userId, {
         type: "task_rejected",
         title: "Submission auto-rejected",
         unreadCount: -1,
-      });
+      }));
+      await Promise.all(autoRejectPublishes);
     } else {
       // Auto-approve — mark as needing human review with a note
       // We don't fully approve here; instead, flag it for fast-track review
@@ -139,7 +141,7 @@ export async function POST(req: NextRequest) {
       }).returning();
 
       if (channelSlug) {
-        publishSystemMessage(channelSlug, { id: approveSysMsg.id, type: "system", content: approveSysContent, createdAt: approveSysMsg.createdAt });
+        await publishSystemMessage(channelSlug, { id: approveSysMsg.id, type: "system", content: approveSysContent, createdAt: approveSysMsg.createdAt });
       }
     }
 

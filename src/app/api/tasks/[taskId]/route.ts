@@ -180,8 +180,10 @@ export async function PATCH(
           }).returning();
 
           // Real-time broadcast (done here where we have the DB message data)
-          publishSystemMessage(channel.slug, { id: draftSysMsg.id, type: "system", content: draftSysContent, createdAt: draftSysMsg.createdAt });
-          publishTaskUpdate(channel.slug, { id: taskId, status: "active", title: existingTask.title });
+          await Promise.all([
+            publishSystemMessage(channel.slug, { id: draftSysMsg.id, type: "system", content: draftSysContent, createdAt: draftSysMsg.createdAt }),
+            publishTaskUpdate(channel.slug, { id: taskId, status: "active", title: existingTask.title }),
+          ]);
 
           // Notify users who have the required tag
           if (channel.requiredTagId) {
@@ -247,7 +249,7 @@ export async function PATCH(
         .where(eq(channels.id, existingTask.channelId))
         .limit(1);
       if (ch?.slug) {
-        publishTaskUpdate(ch.slug, { id: taskId, status: body.status, title: updated.title });
+        await publishTaskUpdate(ch.slug, { id: taskId, status: body.status, title: updated.title });
       }
     }
 

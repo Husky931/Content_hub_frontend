@@ -82,7 +82,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Emit socket event so navbar badge updates in real time
-    publishNotification(auth.userId, { type: "read" });
+    await publishNotification(auth.userId, { type: "read" });
 
     return NextResponse.json({ success: true });
   } catch (error) {

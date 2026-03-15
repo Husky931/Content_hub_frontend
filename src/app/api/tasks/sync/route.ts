@@ -153,8 +153,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Real-time broadcast
-    publishSystemMessage(channelSlug, { id: sysMsg.id, type: "system", content: sysContent, createdAt: sysMsg.createdAt });
-    publishTaskUpdate(channelSlug, { id: newTask.id, status: "active", title });
+    await Promise.all([
+      publishSystemMessage(channelSlug, { id: sysMsg.id, type: "system", content: sysContent, createdAt: sysMsg.createdAt }),
+      publishTaskUpdate(channelSlug, { id: newTask.id, status: "active", title }),
+    ]);
 
     return NextResponse.json(
       {

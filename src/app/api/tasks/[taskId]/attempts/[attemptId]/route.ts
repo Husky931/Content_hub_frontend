@@ -228,31 +228,37 @@ export async function PATCH(
         data: { taskId, attemptId, channelSlug },
       });
 
-      // Real-time: broadcast system message, task update, notification, wallet update
+      // Real-time: broadcast system message, task update, notification, wallet update (must await on serverless)
+      const approvePublishes: Promise<void>[] = [];
       if (channelSlug) {
-        publishSystemMessage(channelSlug, {
-          id: approveSysMsg.id,
-          type: "system",
-          content: approveContent,
-          createdAt: approveSysMsg.createdAt,
-        });
-        publishTaskUpdate(channelSlug, { id: taskId, status: "approved" });
+        approvePublishes.push(
+          publishSystemMessage(channelSlug, {
+            id: approveSysMsg.id,
+            type: "system",
+            content: approveContent,
+            createdAt: approveSysMsg.createdAt,
+          }),
+          publishTaskUpdate(channelSlug, { id: taskId, status: "approved" }),
+        );
       }
-      publishNotification(attempt.userId, {
-        type: "task_approved",
-        title: "Task approved!",
-        unreadCount: -1, // client will refetch
-      });
-      // Notify auto-rejected users
-      for (const a of otherSubmitted) {
-        publishNotification(a.userId, {
-          type: "task_rejected",
-          title: "Submission not selected",
+      approvePublishes.push(
+        publishNotification(attempt.userId, {
+          type: "task_approved",
+          title: "Task approved!",
           unreadCount: -1,
-        });
+        }),
+      );
+      for (const a of otherSubmitted) {
+        approvePublishes.push(
+          publishNotification(a.userId, {
+            type: "task_rejected",
+            title: "Submission not selected",
+            unreadCount: -1,
+          }),
+        );
       }
-      // Signal wallet update — client will refetch balance
-      publishWalletUpdate(attempt.userId, { changed: true });
+      approvePublishes.push(publishWalletUpdate(attempt.userId, { changed: true }));
+      await Promise.all(approvePublishes);
 
       // Outgoing webhook to Edtech backend
       webhookTaskCompleted({
@@ -282,16 +288,22 @@ export async function PATCH(
         data: { taskId, attemptId, channelSlug },
       });
 
-      // Real-time: broadcast system message, task update, + notification
+      // Real-time: broadcast system message, task update, + notification (must await on serverless)
+      const rejectPublishes: Promise<void>[] = [];
       if (channelSlug) {
-        publishSystemMessage(channelSlug, { id: rejectSysMsg.id, type: "system", content: rejectionMsg, createdAt: rejectSysMsg.createdAt });
-        publishTaskUpdate(channelSlug, { id: taskId, status: task.status, title: task.title });
+        rejectPublishes.push(
+          publishSystemMessage(channelSlug, { id: rejectSysMsg.id, type: "system", content: rejectionMsg, createdAt: rejectSysMsg.createdAt }),
+          publishTaskUpdate(channelSlug, { id: taskId, status: task.status, title: task.title }),
+        );
       }
-      publishNotification(attempt.userId, {
-        type: "task_rejected",
-        title: "Submission rejected",
-        unreadCount: -1,
-      });
+      rejectPublishes.push(
+        publishNotification(attempt.userId, {
+          type: "task_rejected",
+          title: "Submission rejected",
+          unreadCount: -1,
+        }),
+      );
+      await Promise.all(rejectPublishes);
     }
 
     return NextResponse.json({ attempt: updatedAttempt });
