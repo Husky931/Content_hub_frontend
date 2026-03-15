@@ -111,6 +111,8 @@ export default function ChannelPage() {
   const [sending, setSending] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const tasksFetchRef = useRef<AbortController | null>(null);
+  const fetchTasksRef = useRef<() => void>(() => {});
 
   const fetchData = () => {
     if (!slug) return;
@@ -125,11 +127,18 @@ export default function ChannelPage() {
 
   const fetchTasks = () => {
     if (!slug) return;
-    fetch(`/api/tasks?channel=${slug}`)
+    // Cancel any in-flight task fetch to prevent stale responses from overwriting fresh data
+    tasksFetchRef.current?.abort();
+    const controller = new AbortController();
+    tasksFetchRef.current = controller;
+    fetch(`/api/tasks?channel=${slug}`, { signal: controller.signal, cache: "no-store" })
       .then((res) => res.json())
       .then((data) => setTasks(data.tasks || []))
-      .catch(() => {});
+      .catch((err) => {
+        if (err.name !== "AbortError") console.warn("[tasks] fetch failed:", err);
+      });
   };
+  fetchTasksRef.current = fetchTasks;
 
   useEffect(() => {
     fetchData();
@@ -162,7 +171,7 @@ export default function ChannelPage() {
     };
 
     const handleTaskUpdate = () => {
-      fetchTasks();
+      fetchTasksRef.current();
     };
 
     const setup = (socket: NonNullable<ReturnType<typeof getSocket>>) => {
