@@ -28,7 +28,7 @@ export default function SignupPage() {
     if (result.error) {
       setError(result.error);
     } else {
-      setSuccess("Account created! Check your email (or dev console) to verify your account.");
+      setSuccess("Account created! Check your email to verify your account.");
       if (result.devVerifyUrl) {
         setDevVerifyUrl(result.devVerifyUrl);
       }
