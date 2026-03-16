@@ -344,7 +344,7 @@ Open browser console on localhost:3000 — after login you should see:
 - [x] 5.2.3 Check webhook.site → `attempt.submitted` event received with correct payload
 - [x] 5.2.4 Run: `pnpm tsx src/scripts/test-sync.ts automod [taskId] [attemptId]` with `status: "rejected"` → attempt rejected, creator notified
 - [x] 5.2.5 Creator submits new attempt → second `attempt.submitted` on webhook.site
-- [ ] 5.2.6 Run automod with `status: "approved"` → system message "Auto-check: approved" but attempt stays "submitted" (pending human review)
+- [x] 5.2.6 Run automod with `status: "approved"` → system message "Auto-check: approved" but attempt stays "submitted" (pending human review)
 - [x] 5.2.7 Log in as mod → approve the attempt
 - [x] 5.2.8 Check webhook.site → `task.completed` event received with taskId, userId, bounty
 - [x] 5.2.9 Creator's wallet updated, all other attempts auto-rejected
@@ -359,18 +359,17 @@ Open browser console on localhost:3000 — after login you should see:
 
 ### 5.4 Auto-Mod Review — Simulate Backend QA (Incoming)
 
-- [ ] 5.4.1 Auto-reject: system message "Auto-check: rejected — [reason]"
-- [ ] 5.4.2 Auto-approve: system message "Auto-check: approved (confidence: X%)" — attempt stays "submitted"
-- [ ] 5.4.3 Invalid task/attempt ID → 404
-- [ ] 5.4.4 Invalid API key → 401
+- [x] 5.4.1 Auto-reject: system message "Auto-check: rejected — [reason]"
+- [x] 5.4.2 Auto-approve: system message "Auto-check: approved (confidence: X%)" — attempt stays "submitted"
+- [x] 5.4.3 Invalid task/attempt ID → 404
+- [x] 5.4.4 Invalid API key → 401
 
 ### 5.5 Handoff to Backend Team (after all self-tests pass)
 
-- [ ] 5.6.1 Prepare API spec doc with exact endpoints, payloads, headers, auth
-- [ ] 5.6.2 Include webhook.site screenshots as payload examples
-- [ ] 5.6.3 Share with backend team — ask for: (1) their webhook receiver URL, (2) agreed API key, (3) auto-QA plans
-- [ ] 5.6.4 Replace webhook.site URL with real backend URL
-- [ ] 5.6.5 Re-run round-trip test with real backend
+- [x] 5.5.1 Prepare API spec doc with exact endpoints, payloads, headers, auth
+- [x] 5.5.2 Include webhook.site screenshots as payload examples
+- [x] 5.5.3 Share with backend team — ask for: (1) their webhook receiver URL, (2) agreed API key, (3) auto-QA plans
+- [ ] 5.5.5 Re-run round-trip test with real backend
 
 ---
 
@@ -400,10 +399,3 @@ Open browser console on localhost:3000 — after login you should see:
 - [ ] 6c.3 `pnpm db:push` pushes schema changes
 
 ---
-
-#### Post Testing:
-
-- [ ] Self-test the full round-trip (see Section 4)
-- [ ] After all self-tests pass: prepare API spec doc for backend team
-- [ ] Backend team call: share spec, get their real webhook URL, agree on shared API key
-- [ ] Replace `BACKEND_WEBHOOK_URL` with real backend URL
