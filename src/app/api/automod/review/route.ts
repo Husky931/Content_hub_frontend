@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { tasks, attempts, channels, messages, notifications } from "@/db/schema";
+import { tasks, attempts, channels, messages, notifications, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { publishSystemMessage, publishNotification, publishTaskUpdate } from "@/lib/ws-publish";
 
@@ -85,6 +85,14 @@ export async function POST(req: NextRequest) {
       .limit(1);
     const channelSlug = channel?.slug;
 
+    // Get submitter info
+    const [submitter] = await db
+      .select({ username: users.username, displayName: users.displayName })
+      .from(users)
+      .where(eq(users.id, attempt.userId))
+      .limit(1);
+    const displayName = submitter?.displayName || submitter?.username || "Unknown";
+
     if (status === "rejected") {
       // Auto-reject the attempt
       await db
@@ -98,7 +106,7 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(attempts.id, attemptId));
 
-      const sysContent = `Auto-check: rejected${reason ? ` — ${reason}` : ""}${confidence != null ? ` (confidence: ${Math.round(confidence * 100)}%)` : ""}`;
+      const sysContent = `Auto-check: ${displayName}'s submission rejected${reason ? ` — ${reason}` : ""}${confidence != null ? ` (confidence: ${Math.round(confidence * 100)}%)` : ""}`;
 
       // System message
       const [rejectSysMsg] = await db.insert(messages).values({
@@ -134,7 +142,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Auto-approve — mark as needing human review with a note
       // We don't fully approve here; instead, flag it for fast-track review
-      const approveSysContent = `Auto-check: approved${confidence != null ? ` (confidence: ${Math.round(confidence * 100)}%)` : ""} — pending human review`;
+      const approveSysContent = `Auto-check: ${displayName}'s submission approved${confidence != null ? ` (confidence: ${Math.round(confidence * 100)}%)` : ""} — pending human review`;
 
       const [approveSysMsg] = await db.insert(messages).values({
         channelId: task.channelId,

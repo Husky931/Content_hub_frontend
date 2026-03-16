@@ -342,8 +342,8 @@ Open browser console on localhost:3000 — after login you should see:
 - [x] 5.2.1 Sync a task via backend-task-creator (with attachments + checklist)
 - [x] 5.2.2 Log in as creator → submit an attempt on the synced task (can see reference attachments + checklist)
 - [x] 5.2.3 Check webhook.site → `attempt.submitted` event received with correct payload
-- [ ] 5.2.4 Run: `pnpm tsx src/scripts/test-sync.ts automod [taskId] [attemptId]` with `status: "rejected"` → attempt rejected, creator notified
-- [ ] 5.2.5 Creator submits new attempt → second `attempt.submitted` on webhook.site
+- [x] 5.2.4 Run: `pnpm tsx src/scripts/test-sync.ts automod [taskId] [attemptId]` with `status: "rejected"` → attempt rejected, creator notified
+- [x] 5.2.5 Creator submits new attempt → second `attempt.submitted` on webhook.site
 - [ ] 5.2.6 Run automod with `status: "approved"` → system message "Auto-check: approved" but attempt stays "submitted" (pending human review)
 - [x] 5.2.7 Log in as mod → approve the attempt
 - [x] 5.2.8 Check webhook.site → `task.completed` event received with taskId, userId, bounty
