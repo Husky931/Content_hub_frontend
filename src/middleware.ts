@@ -26,10 +26,11 @@ export async function middleware(req: NextRequest) {
 
   // Handle CORS preflight for backend integration routes
   if (apiKeyRoutes.some((route) => pathname === route) && req.method === "OPTIONS") {
+    const corsOrigin = process.env.BACKEND_CORS_ORIGIN || "*";
     return new NextResponse(null, {
       status: 204,
       headers: {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": corsOrigin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, X-API-Key",
       },

@@ -6,8 +6,10 @@ import { publishSystemMessage, publishTaskUpdate } from "@/lib/ws-publish";
 
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
 
+const BACKEND_CORS_ORIGIN = process.env.BACKEND_CORS_ORIGIN || "*";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": BACKEND_CORS_ORIGIN,
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, X-API-Key",
 };
