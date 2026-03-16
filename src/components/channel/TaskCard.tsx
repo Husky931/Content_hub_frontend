@@ -33,6 +33,7 @@ interface TaskCardProps {
     myAttempt?: MyAttempt | null;
     submittedCount?: number;
     reviewClaimedBy?: string | null;
+    source?: string | null;
     checklist?: { label: string }[] | null;
     attachments?: { name: string; url: string; type: string; size: number }[] | null;
   };
@@ -204,6 +205,11 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}>
           {statusStyle.label}
         </span>
+        {task.source === "backend" && (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">
+            SYNCED
+          </span>
+        )}
         {task.bonusBountyUsd && parseFloat(task.bonusBountyUsd) > 0 && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
             TIERED

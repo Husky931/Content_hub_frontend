@@ -96,6 +96,7 @@ export async function GET(req: NextRequest) {
         maxAttempts: tasks.maxAttempts,
         deadline: tasks.deadline,
         createdAt: tasks.createdAt,
+        source: tasks.source,
         checklist: tasks.checklist,
         attachments: tasks.attachments,
         channelName: channels.name,

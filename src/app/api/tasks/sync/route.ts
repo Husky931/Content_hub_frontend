@@ -1,10 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { tasks, channels, users, messages, notifications, userTags } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { publishSystemMessage, publishTaskUpdate } from "@/lib/ws-publish";
 
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-API-Key",
+};
+
+/** OPTIONS /api/tasks/sync — CORS preflight */
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+/**
+ * GET /api/tasks/sync — list available task channels for backend integration.
+ * Auth: X-API-Key header.
+ */
+export async function GET(req: NextRequest) {
+  if (!BACKEND_API_KEY) {
+    return NextResponse.json({ error: "Backend integration not configured" }, { status: 503, headers: corsHeaders });
+  }
+  const apiKey = req.headers.get("x-api-key");
+  if (apiKey !== BACKEND_API_KEY) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+  }
+
+  const taskChannels = await db
+    .select({ slug: channels.slug, name: channels.name, nameCn: channels.nameCn })
+    .from(channels)
+    .where(eq(channels.type, "task"))
+    .orderBy(asc(channels.sortOrder));
+
+  return NextResponse.json({ channels: taskChannels }, { headers: corsHeaders });
+}
 
 /**
  * POST /api/tasks/sync — incoming endpoint for Edtech backend to push new tasks.
@@ -25,6 +58,8 @@ const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
  *   maxAttempts?: number,
  *   deadline?: string (ISO),
  *   externalId?: string,          // backend's task ID for correlation
+ *   checklist?: { label: string }[],   // review checklist items
+ *   attachments?: { name: string, url: string, type: string, size: number }[],  // reference files
  * }
  */
 export async function POST(req: NextRequest) {
@@ -33,13 +68,13 @@ export async function POST(req: NextRequest) {
     if (!BACKEND_API_KEY) {
       return NextResponse.json(
         { error: "Backend integration not configured" },
-        { status: 503 }
+        { status: 503, headers: corsHeaders }
       );
     }
 
     const apiKey = req.headers.get("x-api-key");
     if (apiKey !== BACKEND_API_KEY) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
     }
 
     const body = await req.json();
@@ -56,13 +91,15 @@ export async function POST(req: NextRequest) {
       maxAttempts,
       deadline,
       externalId,
+      checklist,
+      attachments,
     } = body;
 
     // Validate required fields
     if (!channelSlug || !title || !description) {
       return NextResponse.json(
         { error: "channelSlug, title, and description are required" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -76,14 +113,14 @@ export async function POST(req: NextRequest) {
     if (!channel) {
       return NextResponse.json(
         { error: `Channel '${channelSlug}' not found` },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       );
     }
 
     if (channel.type !== "task") {
       return NextResponse.json(
         { error: "Target channel must be a task channel" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -97,7 +134,7 @@ export async function POST(req: NextRequest) {
     if (!admin) {
       return NextResponse.json(
         { error: "No admin user found to assign as task creator" },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -120,6 +157,8 @@ export async function POST(req: NextRequest) {
         status: "active",
         source: "backend",
         externalId: externalId || null,
+        checklist: Array.isArray(checklist) ? checklist : null,
+        attachments: Array.isArray(attachments) ? attachments : null,
       })
       .returning();
 
@@ -167,13 +206,13 @@ export async function POST(req: NextRequest) {
           channelSlug,
         },
       },
-      { status: 201 }
+      { status: 201, headers: corsHeaders }
     );
   } catch (error) {
     console.error("Task sync error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

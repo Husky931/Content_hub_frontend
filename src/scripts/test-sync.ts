@@ -63,7 +63,16 @@ async function testSyncTask() {
     bonusBountyRmb: "72.00",
     maxAttempts: 3,
     deadline: deadlineDate.toISOString(),
-    externalId: `ext-${crypto.randomBytes(4).toString("hex")}`
+    externalId: `ext-${crypto.randomBytes(4).toString("hex")}`,
+    checklist: [
+      { label: "Audio is clear with no background noise" },
+      { label: "Script read completely without errors" },
+      { label: "Recording is at least 30 seconds long" }
+    ],
+    attachments: [
+      { name: "sample-script.txt", url: "https://example.com/scripts/sample.txt", type: "text/plain", size: 1024 },
+      { name: "recording-guide.pdf", url: "https://example.com/guides/recording.pdf", type: "application/pdf", size: 52400 }
+    ]
   });
 
   if (status === 201) {

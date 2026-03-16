@@ -24,6 +24,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Handle CORS preflight for backend integration routes
+  if (apiKeyRoutes.some((route) => pathname === route) && req.method === "OPTIONS") {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, X-API-Key",
+      },
+    });
+  }
+
   // Allow backend API key auth for specific routes (they validate the key themselves)
   if (apiKeyRoutes.some((route) => pathname === route)) {
     const apiKey = req.headers.get("x-api-key");
