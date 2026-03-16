@@ -96,7 +96,7 @@ const activeTask = {
   reviewClaimedById: "mod-1",
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => jest.resetAllMocks());
 
 // ── PATCH (Review) Tests ───────────────────────────────────────────────────
 
@@ -175,7 +175,9 @@ describe("PATCH /api/tasks/[taskId]/attempts/[attemptId]", () => {
     // mod assignment not checked for admin
     mockUpdate([{ ...submittedAttempt, status: "approved" }]); // update attempt
     // Get submitter info
-    mockSelect([{ username: "creator1", displayName: "Creator One" }]);
+    mockSelect([{ username: "creator1", displayName: "Creator One", email: "c1@test.com" }]);
+    // Get reviewer info (for webhook enrichment)
+    mockSelect([{ username: "mod_admin" }]);
     // Get channel slug
     mockSelect([{ slug: "voiceover-basic" }]);
     // Other submitted attempts
@@ -203,7 +205,8 @@ describe("PATCH /api/tasks/[taskId]/attempts/[attemptId]", () => {
     mockSelect([submittedAttempt]); // attempt
     mockSelect([activeTask]); // task
     mockUpdate([{ ...submittedAttempt, status: "rejected" }]); // update attempt
-    mockSelect([{ username: "creator1", displayName: "Creator One" }]); // submitter
+    mockSelect([{ username: "creator1", displayName: "Creator One", email: "c1@test.com" }]); // submitter
+    mockSelect([{ username: "mod_admin" }]); // reviewer
     mockSelect([{ slug: "voiceover-basic" }]); // channel
     // System message + notification
     mockInsert([{ id: "msg-2", createdAt: new Date() }]);

@@ -399,3 +399,7 @@ Open browser console on localhost:3000 — after login you should see:
 - [ ] 6c.3 `pnpm db:push` pushes schema changes
 
 ---
+
+### 7 Final:
+
+- Change password / delete account

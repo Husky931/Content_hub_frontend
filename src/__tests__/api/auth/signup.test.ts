@@ -6,6 +6,9 @@ import { POST } from "@/app/api/auth/signup/route";
 jest.mock("@/db", () => ({
   db: { select: jest.fn(), insert: jest.fn(), update: jest.fn() },
 }));
+jest.mock("@/lib/email", () => ({
+  sendVerificationEmail: jest.fn().mockResolvedValue({ success: true }),
+}));
 
 import { db } from "@/db";
 
