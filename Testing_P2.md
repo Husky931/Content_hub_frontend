@@ -345,17 +345,17 @@ Open browser console on localhost:3000 — after login you should see:
 - [ ] 5.2.4 Run: `pnpm tsx src/scripts/test-sync.ts automod [taskId] [attemptId]` with `status: "rejected"` → attempt rejected, creator notified
 - [ ] 5.2.5 Creator submits new attempt → second `attempt.submitted` on webhook.site
 - [ ] 5.2.6 Run automod with `status: "approved"` → system message "Auto-check: approved" but attempt stays "submitted" (pending human review)
-- [ ] 5.2.7 Log in as mod → approve the attempt
-- [ ] 5.2.8 Check webhook.site → `task.completed` event received with taskId, userId, bounty
-- [ ] 5.2.9 Creator's wallet updated, all other attempts auto-rejected
+- [x] 5.2.7 Log in as mod → approve the attempt
+- [x] 5.2.8 Check webhook.site → `task.completed` event received with taskId, userId, bounty
+- [x] 5.2.9 Creator's wallet updated, all other attempts auto-rejected
 
 ### 5.3 Outgoing Webhook Payload Verification (on webhook.site)
 
-- [ ] 5.3.1 `attempt.submitted` payload contains: task_id, attempt_id, user_id, deliverables, timestamp
-- [ ] 5.3.2 `attempt.submitted` headers contain: `X-Webhook-Event: attempt.submitted`, `X-API-Key`
-- [ ] 5.3.3 `task.completed` payload contains: task_id, user_id, bounty_usd, bounty_rmb, attempt_id, timestamp
-- [ ] 5.3.4 `task.completed` headers contain: `X-Webhook-Event: task.completed`, `X-API-Key`
-- [ ] 5.3.5 Unset `BACKEND_WEBHOOK_URL` → webhooks skipped silently (no errors in logs)
+- [x] 5.3.1 `attempt.submitted` payload contains: task_id, attempt_id, user_id, deliverables, timestamp
+- [x] 5.3.2 `attempt.submitted` headers contain: `X-Webhook-Event: attempt.submitted`, `X-API-Key`
+- [x] 5.3.3 `task.completed` payload contains: task_id, user_id, bounty_usd, bounty_rmb, attempt_id, timestamp
+- [x] 5.3.4 `task.completed` headers contain: `X-Webhook-Event: task.completed`, `X-API-Key`
+- [x] 5.3.5 Unset `BACKEND_WEBHOOK_URL` → webhooks skipped silently (no errors in logs)
 
 ### 5.4 Auto-Mod Review — Simulate Backend QA (Incoming)
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { tasks, attempts, channels, messages, notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { publishSystemMessage, publishNotification } from "@/lib/ws-publish";
+import { publishSystemMessage, publishNotification, publishTaskUpdate } from "@/lib/ws-publish";
 
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
 
@@ -120,7 +120,10 @@ export async function POST(req: NextRequest) {
       // Real-time (must await on serverless)
       const autoRejectPublishes: Promise<void>[] = [];
       if (channelSlug) {
-        autoRejectPublishes.push(publishSystemMessage(channelSlug, { id: rejectSysMsg.id, type: "system", content: sysContent, createdAt: rejectSysMsg.createdAt }));
+        autoRejectPublishes.push(
+          publishSystemMessage(channelSlug, { id: rejectSysMsg.id, type: "system", content: sysContent, createdAt: rejectSysMsg.createdAt }),
+          publishTaskUpdate(channelSlug, { id: taskId, status: task.status, title: task.title }),
+        );
       }
       autoRejectPublishes.push(publishNotification(attempt.userId, {
         type: "task_rejected",
