@@ -132,11 +132,18 @@ export async function PATCH(
 
     // Get submitter info
     const [submitter] = await db
-      .select({ username: users.username, displayName: users.displayName })
+      .select({ username: users.username, displayName: users.displayName, email: users.email })
       .from(users)
       .where(eq(users.id, attempt.userId))
       .limit(1);
     const displayName = submitter.displayName || submitter.username;
+
+    // Get reviewer info for webhook
+    const [reviewer] = await db
+      .select({ username: users.username })
+      .from(users)
+      .where(eq(users.id, auth.userId))
+      .limit(1);
 
     // Get channel slug for notification navigation
     const [channel] = await db
@@ -263,10 +270,20 @@ export async function PATCH(
       // Outgoing webhook to Edtech backend
       webhookTaskCompleted({
         taskId,
+        attemptId,
         userId: attempt.userId,
         bountyUsd: task.bountyUsd,
         bountyRmb: task.bountyRmb,
-        attemptId,
+        username: submitter.username,
+        displayName: submitter.displayName,
+        email: submitter.email,
+        externalId: task.externalId,
+        taskTitle: task.title,
+        channelSlug: channelSlug || null,
+        bonusBountyUsd: task.bonusBountyUsd,
+        bonusBountyRmb: task.bonusBountyRmb,
+        reviewerUsername: reviewer.username,
+        deliverables: attempt.deliverables,
       });
     } else {
       // Rejected

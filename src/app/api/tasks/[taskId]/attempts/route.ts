@@ -108,9 +108,9 @@ export async function POST(
       })
       .returning();
 
-    // Get user info for system message
+    // Get user info for system message + webhook
     const [submitter] = await db
-      .select({ username: users.username, displayName: users.displayName })
+      .select({ username: users.username, displayName: users.displayName, email: users.email })
       .from(users)
       .where(eq(users.id, auth.userId))
       .limit(1);
@@ -203,6 +203,16 @@ export async function POST(
       attemptId: newAttempt.id,
       userId: auth.userId,
       deliverables: newAttempt.deliverables,
+      username: submitter.username,
+      displayName: submitter.displayName,
+      email: submitter.email,
+      externalId: task.externalId,
+      taskTitle: task.title,
+      channelSlug: channel?.slug || null,
+      bountyUsd: task.bountyUsd,
+      bountyRmb: task.bountyRmb,
+      attemptNumber: attemptCount.count + 1,
+      maxAttempts: task.maxAttempts,
     });
 
     return NextResponse.json({ attempt: newAttempt }, { status: 201 });

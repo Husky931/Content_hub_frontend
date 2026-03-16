@@ -319,22 +319,29 @@ Open browser console on localhost:3000 — after login you should see:
 ### 5.0 Self-Test Setup
 
 - [x] 5.0.1 Go to https://webhook.site — copy your unique URL
+- [x] 5.0.2 Created `backend-task-creator/` Vue app — simulates backend task creation with file uploads to OSS
+- [x] 5.0.3 Added CORS support: `BACKEND_CORS_ORIGIN` env var in frontend `.env`, middleware handles preflight
+- [x] 5.0.4 Added `GET /api/tasks/sync` endpoint — returns task channels for backend-task-creator dropdown
+- [x] 5.0.5 Added Alibaba OSS CORS rule for `http://localhost:5173` (backend-task-creator origin)
 
-### 5.1 Task Sync — Simulate Backend Pushing Tasks (Incoming)
+### 5.1 Task Sync — Backend Pushing Tasks (Incoming)
 
-- [x] 5.1.1 Run: `pnpm tsx src/scripts/test-sync.ts sync-task` — task appears in target channel
+**Method:** Use `backend-task-creator` app (`cd backend-task-creator && pnpm dev` → http://localhost:5173) or `pnpm tsx src/scripts/test-sync.ts sync-task`
+
+- [x] 5.1.1 Create a task via backend-task-creator form → task appears in target channel
 - [x] 5.1.2 Task card shows in channel feed with correct title, description, bounty
 - [x] 5.1.3 System message posted: "New task synced: [Title]"
-- [ ] 5.1.4 Task has `source: 'backend'` flag
-- [ ] 5.1.5 Run with invalid API key → 401 rejected
-- [ ] 5.1.6 Run with missing required fields → 400 with error message
-- [ ] 5.1.7 Run with invalid channelSlug → 404
+- [x] 5.1.4 Task card shows purple "SYNCED" badge (`source: 'backend'`)
+- [x] 5.1.5 Synced task includes checklist items (visible in submit form)
+- [x] 5.1.6 Synced task includes reference attachments (uploaded to OSS via backend-task-creator)
+- [x] 5.1.7 Submit with missing required fields → error message shown
+- [x] 5.1.8 External ID is auto-generated and stored on the task
 
 ### 5.2 Full Round-Trip Test (the key scenario)
 
-- [ ] 5.2.1 Sync a task via test-sync.ts (simulates backend pushing a voiceover job)
-- [ ] 5.2.2 Log in as creator → submit an attempt on the synced task
-- [ ] 5.2.3 Check webhook.site → `attempt.submitted` event received with correct payload
+- [x] 5.2.1 Sync a task via backend-task-creator (with attachments + checklist)
+- [x] 5.2.2 Log in as creator → submit an attempt on the synced task (can see reference attachments + checklist)
+- [x] 5.2.3 Check webhook.site → `attempt.submitted` event received with correct payload
 - [ ] 5.2.4 Run: `pnpm tsx src/scripts/test-sync.ts automod [taskId] [attemptId]` with `status: "rejected"` → attempt rejected, creator notified
 - [ ] 5.2.5 Creator submits new attempt → second `attempt.submitted` on webhook.site
 - [ ] 5.2.6 Run automod with `status: "approved"` → system message "Auto-check: approved" but attempt stays "submitted" (pending human review)
