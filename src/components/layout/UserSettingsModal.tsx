@@ -1262,6 +1262,8 @@ function AdminTasksSection() {
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Deadline</label>
               <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+              {!deadline && <p className="text-xs text-discord-text-muted mt-1">Leave empty for no deadline</p>}
+              {deadline && new Date(deadline) < new Date() && <p className="text-xs text-discord-red mt-1">Deadline cannot be in the past</p>}
             </div>
           </div>
           {formError && <p className="text-xs text-discord-red mt-2">{formError}</p>}
@@ -1270,7 +1272,7 @@ function AdminTasksSection() {
               <input type="checkbox" checked={publishNow} onChange={(e) => setPublishNow(e.target.checked)} className="w-4 h-4 rounded border-discord-border accent-green-500" />
               <span className="font-medium group-hover:text-green-400 transition">Publish immediately</span>
             </label>
-            <button onClick={editingTaskId ? handleUpdate : handleCreate} disabled={creating} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
+            <button onClick={editingTaskId ? handleUpdate : handleCreate} disabled={creating || (!!deadline && new Date(deadline) < new Date())} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
               <ButtonSpinner loading={creating}>{editingTaskId ? "Update Task" : "Create Task"}</ButtonSpinner>
             </button>
           </div>
