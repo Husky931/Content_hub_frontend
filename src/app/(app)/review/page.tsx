@@ -23,6 +23,9 @@ interface TaskWithAttempts {
   reviewClaimedBy: string | null;
   checklist?: ChecklistItem[] | null;
   attachments?: { name: string; url: string; type: string; size: number }[] | null;
+  status: string;
+  lockedById?: string | null;
+  lockExpiresAt?: string | null;
   attempts: AttemptItem[];
 }
 
@@ -66,6 +69,9 @@ function ReviewContent() {
   // Lock for revision
   const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
   const [locking, setLocking] = useState(false);
+  // Unlock
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   const fetchReviewItems = useCallback(async () => {
     setLoading(true);
@@ -92,6 +98,9 @@ function ReviewContent() {
           reviewClaimedBy: task.reviewClaimedBy,
           checklist: task.checklist || null,
           attachments: task.attachments || null,
+          status: task.status,
+          lockedById: task.lockedById || null,
+          lockExpiresAt: task.lockExpiresAt || null,
           attempts: [],
         });
       }
@@ -112,8 +121,8 @@ function ReviewContent() {
         });
       }
 
-      // Only show tasks that have submitted attempts
-      const result = Array.from(taskMap.values()).filter((t) => t.attempts.length > 0);
+      // Show tasks with submitted attempts OR locked tasks (so mods can unlock them)
+      const result = Array.from(taskMap.values()).filter((t) => t.attempts.length > 0 || t.status === "locked");
       setTasksWithAttempts(result);
     } catch (err) {
       console.error("Failed to fetch review items:", err);
@@ -191,6 +200,12 @@ function ReviewContent() {
       setChecklistState(initial);
     } else {
       setChecklistState({});
+    }
+
+    // Locked tasks with no attempts — just show the locked info (no claim needed)
+    if (task.status === "locked" && task.attempts.length === 0) {
+      setSelectedTask(task);
+      return;
     }
 
     const claimedByOther = task.reviewClaimedById && task.reviewClaimedById !== user?.id;
@@ -295,6 +310,32 @@ function ReviewContent() {
     }
   };
 
+  const handleUnlock = async () => {
+    if (!selectedTask) return;
+    setUnlocking(true);
+    setReviewError("");
+    try {
+      const res = await fetch(`/api/tasks/${selectedTask.id}/unlock`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setUnlockConfirmOpen(false);
+        setSelectedTask(null);
+        setSelectedAttempt(null);
+        fetchReviewItems();
+      } else {
+        const data = await res.json();
+        setReviewError(data.error || "Failed to unlock task");
+        setUnlockConfirmOpen(false);
+      }
+    } catch {
+      setReviewError("Network error");
+      setUnlockConfirmOpen(false);
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   const handleLockForRevision = async () => {
     if (!selectedTask || !selectedAttempt) return;
     setLocking(true);
@@ -380,12 +421,21 @@ function ReviewContent() {
                       <span className="text-sm font-medium text-discord-text truncate">
                         {task.title}
                       </span>
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-discord-accent/20 text-discord-accent">
-                        {task.channelName}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {task.status === "locked" && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-semibold">
+                            LOCKED
+                          </span>
+                        )}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-discord-accent/20 text-discord-accent">
+                          {task.channelName}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-xs text-discord-text-muted">
-                      {task.attempts.length} submission{task.attempts.length !== 1 ? "s" : ""} pending
+                      {task.status === "locked" && task.attempts.length === 0
+                        ? "Locked for revision"
+                        : `${task.attempts.length} submission${task.attempts.length !== 1 ? "s" : ""} pending`}
                     </div>
                     {isClaimed && (
                       <div className="mt-1.5 flex items-center gap-1">
@@ -442,6 +492,42 @@ function ReviewContent() {
                   {selectedTask.attempts.length} submission{selectedTask.attempts.length !== 1 ? "s" : ""} to review
                 </p>
               </div>
+
+              {/* Locked task info — no attempts to review, show unlock option */}
+              {selectedTask.status === "locked" && selectedTask.attempts.length === 0 && (
+                <div className="mb-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-orange-300">Task is locked for exclusive revision</span>
+                  </div>
+                  {selectedTask.lockExpiresAt && (
+                    <p className="text-xs text-orange-300/80 mb-3">
+                      Lock expires: {new Date(selectedTask.lockExpiresAt).toLocaleString()}
+                    </p>
+                  )}
+                  <p className="text-sm text-discord-text-secondary mb-4">
+                    The creator has been asked to revise their submission. No new submissions can be reviewed until the lock expires or is manually released.
+                  </p>
+
+                  {reviewError && (
+                    <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded">
+                      <p className="text-xs text-red-400">{reviewError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setUnlockConfirmOpen(true)}
+                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                    </svg>
+                    Unlock Task
+                  </button>
+                </div>
+              )}
 
               {/* Claimed by other warning */}
               {claimedByOther && (
@@ -623,16 +709,18 @@ function ReviewContent() {
                         )}
                         {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
                       </button>
-                      <button
-                        onClick={() => setLockConfirmOpen(true)}
-                        disabled={submitting}
-                        className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Lock for Revision
-                      </button>
+                      {selectedTask.status === "active" && (
+                        <button
+                          onClick={() => setLockConfirmOpen(true)}
+                          disabled={submitting}
+                          className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          Lock for Revision
+                        </button>
+                      )}
                       <button
                         onClick={() => handleReview("rejected")}
                         disabled={submitting || !rejectionReason.trim()}
@@ -667,7 +755,20 @@ function ReviewContent() {
         loading={locking}
       >
         Lock task for <strong>{selectedAttempt?.displayName || selectedAttempt?.username}</strong> for
-        48h exclusive revision? Other creators will not be able to submit during this time.
+        48h exclusive revision? Their current submission will be sent back for revision and other creators will not be able to submit.
+      </ConfirmDialog>
+
+      {/* Unlock confirmation */}
+      <ConfirmDialog
+        open={unlockConfirmOpen}
+        onClose={() => setUnlockConfirmOpen(false)}
+        onConfirm={handleUnlock}
+        title="Unlock Task"
+        confirmText="Unlock"
+        variant="warning"
+        loading={unlocking}
+      >
+        Unlock this task and reopen it for all creators? The exclusive revision period will end early.
       </ConfirmDialog>
     </div>
   );

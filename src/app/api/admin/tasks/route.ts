@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
         channelSlug: channels.slug,
         createdByUsername: users.username,
         reviewClaimedById: tasks.reviewClaimedById,
+        lockedById: tasks.lockedById,
+        lockExpiresAt: tasks.lockExpiresAt,
       })
       .from(tasks)
       .innerJoin(channels, eq(tasks.channelId, channels.id))

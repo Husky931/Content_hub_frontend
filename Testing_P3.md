@@ -114,13 +114,13 @@ pnpm add next-intl
 
 ### 5.1 Locking a Task (Mod Action)
 
-- [ ] 5.1.1 In review, mod sees a near-perfect attempt → "Lock for Revision" button appears alongside Approve/Reject
-- [ ] 5.1.2 Click Lock → confirmation dialog: "Lock task for [creator] for 48h exclusive revision?"
-- [ ] 5.1.3 Confirm → task status changes from ACTIVE → LOCKED
-- [ ] 5.1.4 `lockedById` set to the creator's userId, `lockExpiresAt` set to now + 48 hours
-- [ ] 5.1.5 System message in channel: "Task locked for [creator] — 48h exclusive revision"
-- [ ] 5.1.6 Notification sent to locked creator: "You have 48h to revise your submission for [task]"
-- [ ] 5.1.7 Other creators see task card as "LOCKED" with orange lock icon
+- [x] 5.1.1 In review, mod sees a near-perfect attempt → "Lock for Revision" button appears alongside Approve/Reject
+- [x] 5.1.2 Click Lock → confirmation dialog: "Lock task for [creator] for 48h exclusive revision?"
+- [x] 5.1.3 Confirm → task status changes from ACTIVE → LOCKED
+- [x] 5.1.4 `lockedById` set to the creator's userId, `lockExpiresAt` set to now + 48 hours
+- [x] 5.1.5 System message in channel: "Task locked for [creator] — 48h exclusive revision"
+- [x] 5.1.6 Notification sent to locked creator: "You have 48h to revise your submission for [task]"
+- [x] 5.1.7 Other creators see task card as "LOCKED" with orange lock icon
 
 ### 5.2 Locked Task Behavior
 

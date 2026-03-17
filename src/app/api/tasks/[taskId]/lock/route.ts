@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { tasks, users, channels, messages, notifications } from "@/db/schema";
+import { tasks, users, channels, messages, notifications, attempts } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { publishSystemMessage, publishTaskUpdate, publishNotification } from "@/lib/ws-publish";
 
 /**
@@ -51,9 +51,27 @@ export async function POST(
         status: "locked",
         lockedById: creatorId,
         lockExpiresAt,
+        reviewClaimedById: null,
+        reviewClaimedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(tasks.id, taskId));
+
+    // Auto-reject the creator's submitted attempt so they can submit a revision
+    await db
+      .update(attempts)
+      .set({
+        status: "rejected",
+        rejectionReason: "Locked for revision — please resubmit with improvements",
+        reviewerId: auth.userId,
+      })
+      .where(
+        and(
+          eq(attempts.taskId, taskId),
+          eq(attempts.userId, creatorId),
+          eq(attempts.status, "submitted")
+        )
+      );
 
     // Get creator name
     const [creator] = await db
