@@ -8,6 +8,7 @@ import {
   messages,
   notifications,
   userTags,
+  appeals,
 } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
@@ -248,14 +249,40 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Get current user's appeal status for their attempts (so UI knows if appeal was filed)
+    const myAttemptIds = Object.values(myAttempts).map((a) => a.id);
+    let myAppealStatuses: Record<string, string> = {};
+    if (myAttemptIds.length > 0) {
+      const userAppeals = await db
+        .select({
+          attemptId: appeals.attemptId,
+          status: appeals.status,
+        })
+        .from(appeals)
+        .where(
+          and(
+            inArray(appeals.attemptId, myAttemptIds),
+            eq(appeals.userId, auth.userId)
+          )
+        );
+      for (const a of userAppeals) {
+        myAppealStatuses[a.attemptId] = a.status;
+      }
+    }
+
     return NextResponse.json({
-      tasks: filtered.map((t) => ({
-        ...t,
-        attemptCount: attemptCounts[t.id] || 0,
-        myAttempt: myAttempts[t.id] || null,
-        submittedCount: submittedCounts[t.id] || 0,
-        reviewClaimedBy: t.reviewClaimedById ? reviewerMap[t.reviewClaimedById] || null : null,
-      })),
+      tasks: filtered.map((t) => {
+        const myAttempt = myAttempts[t.id] || null;
+        return {
+          ...t,
+          attemptCount: attemptCounts[t.id] || 0,
+          myAttempt: myAttempt
+            ? { ...myAttempt, appealStatus: myAppealStatuses[myAttempt.id] || null }
+            : null,
+          submittedCount: submittedCounts[t.id] || 0,
+          reviewClaimedBy: t.reviewClaimedById ? reviewerMap[t.reviewClaimedById] || null : null,
+        };
+      }),
     });
   } catch (error) {
     console.error("List tasks error:", error);

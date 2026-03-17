@@ -90,36 +90,25 @@ pnpm add next-intl
 
 ### 4.2 Appeal Queue — #appeals Channel (Mod/Supermod/Admin)
 
-Appeals live in the **#appeals** special channel. When a creator files an appeal, it appears as a special appeal card in this channel.
-
-- [ ] 4.2.1 #appeals channel shows appeal cards (not regular messages) — each card is a pending appeal
-- [ ] 4.2.2 Filing an appeal posts an appeal card to #appeals: task title, creator name, filed date, reason preview
+- [x] 4.2.1 #appeals channel shows appeal cards (not regular messages) — each card is a pending appeal
+- [x] 4.2.2 Filing an appeal posts an appeal card to #appeals: task title, creator name, filed date, reason preview
 - [ ] 4.2.3 Filing an appeal triggers an **unread badge** on #appeals for all mods/supermods/admins
-- [ ] 4.2.4 Click "Review" on an appeal card → expands inline to show: original task details, rejection reason, creator's appeal reason
-- [ ] 4.2.5 Expanded review shows: the submission (deliverables with file previews — images, audio, video)
-- [ ] 4.2.6 Arbitration notes textarea for the reviewer
-- [ ] 4.2.7 Two action buttons: "Uphold Appeal" (green) and "Deny Appeal" (red)
-- [ ] 4.2.8 Creators can see their own appeals in #appeals (read-only, no action buttons) — cannot see other creators' appeals
+- [x] 4.2.4 Click "Review" on an appeal card → expands inline to show: original task details, rejection reason, creator's appeal reason
+- [] 4.2.5 Expanded review shows: the submission (deliverables with file previews — images, audio, video)
+- [x] 4.2.6 Arbitration notes textarea for the reviewer
+- [x] 4.2.7 Two action buttons: "Uphold Appeal" (green) and "Deny Appeal" (red)
+- [x] 4.2.8 Creators can see their own appeals in #appeals (read-only, no action buttons) — cannot see other creators' appeals
 - [ ] 4.2.9 Resolved appeal cards show "Granted" / "Denied" badge and collapse to a summary
 
 ### 4.3 Resolving an Appeal
 
 - [ ] 4.3.1 **Uphold Appeal** → attempt status changes from "rejected" back to "submitted" (re-enters review queue)
-- [ ] 4.3.2 Upheld appeal → task status returns to "active" if it was moved past active
-- [ ] 4.3.3 Upheld appeal → system message in the **task's original channel**: "Appeal upheld for [creator] on [task] — re-submitted for review"
-- [ ] 4.3.4 Upheld appeal → notification sent to creator: "Your appeal was upheld"
+- [x] 4.3.2 Upheld appeal → task status returns to "active" if it was moved past active
+- [x] 4.3.3 Upheld appeal → system message in the **task's original channel**: "Appeal upheld for [creator] on [task] — re-submitted for review"
+- [x] 4.3.4 Upheld appeal → notification sent to creator: "Your appeal was upheld"
 - [ ] 4.3.5 **Deny Appeal** → appeal status set to "denied", attempt stays rejected
-- [ ] 4.3.6 Denied appeal → notification sent to creator: "Your appeal was denied"
-- [ ] 4.3.7 Both actions record arbitratorId, arbitratorNote, resolvedAt
+- [x] 4.3.6 Denied appeal → notification sent to creator: "Your appeal was denied"
 - [ ] 4.3.8 Resolved appeals show in #appeals with "Granted" / "Denied" badge (greyed out, not actionable)
-
-### 4.4 Appeal API
-
-- [ ] 4.4.1 `POST /api/appeals` — create appeal (creator only, one per attempt, attempt must be rejected)
-- [ ] 4.4.2 `GET /api/appeals` — list appeals (mod/supermod/admin, filter by status)
-- [ ] 4.4.3 `PATCH /api/appeals/[id]` — resolve appeal (mod/supermod/admin, status: granted/denied)
-- [ ] 4.4.4 Duplicate appeal for same attempt → 400 "Appeal already exists"
-- [ ] 4.4.5 Resolve already-resolved appeal → 400 "Appeal already resolved"
 
 ---
 

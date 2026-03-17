@@ -11,7 +11,7 @@ import {
 } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq } from "drizzle-orm";
-import { publishMessage, publishNotification } from "@/lib/ws-publish";
+import { publishMessage, publishNotification, publishTaskUpdate } from "@/lib/ws-publish";
 
 /**
  * PATCH /api/appeals/[id] — Resolve an appeal (grant or deny)
@@ -167,6 +167,11 @@ export async function PATCH(
         });
       }
 
+      // Broadcast task update to the task's channel (real-time TaskCard refresh)
+      if (channel) {
+        await publishTaskUpdate(channel.slug, { id: task?.id, status: task?.status });
+      }
+
       // Notify creator
       const [notif] = await db
         .insert(notifications)
@@ -190,6 +195,11 @@ export async function PATCH(
       });
     } else {
       // Deny the appeal: attempt stays rejected
+      // Broadcast task update so creator's TaskCard shows denied state in real-time
+      if (channel) {
+        await publishTaskUpdate(channel.slug, { id: task?.id, status: task?.status });
+      }
+
       // Notify creator
       const [notif] = await db
         .insert(notifications)

@@ -47,7 +47,7 @@ interface AppealCardProps {
 
 export function AppealCard({ appeal, onResolved }: AppealCardProps) {
   const { user } = useAuth();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(appeal.status === "pending");
   const [arbitratorNote, setArbitratorNote] = useState("");
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState("");
@@ -63,14 +63,11 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - d.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours < 1) return "Just now";
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm} ${hh}:${min}`;
   };
 
   const handleResolve = async (status: "granted" | "denied") => {

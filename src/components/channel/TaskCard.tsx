@@ -10,6 +10,7 @@ interface MyAttempt {
   id: string;
   status: string;
   deliverables: { text?: string; files?: UploadedFile[] } | null;
+  appealStatus?: string | null;
 }
 
 interface TaskCardProps {
@@ -78,8 +79,25 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
   const [showAppealForm, setShowAppealForm] = useState(false);
   const [appealReason, setAppealReason] = useState("");
   const [appealSubmitting, setAppealSubmitting] = useState(false);
-  const [appealFiled, setAppealFiled] = useState(false);
+  const [appealFiled, setAppealFiled] = useState(
+    !!task.myAttempt?.appealStatus && task.myAttempt.appealStatus !== "denied"
+  );
+  const [appealDenied, setAppealDenied] = useState(
+    task.myAttempt?.appealStatus === "denied"
+  );
   const [appealError, setAppealError] = useState("");
+
+  // Sync appeal state when task data changes (e.g. after real-time refetch)
+  useEffect(() => {
+    const s = task.myAttempt?.appealStatus;
+    if (s === "pending" || s === "granted") {
+      setAppealFiled(true);
+      setAppealDenied(false);
+    } else if (s === "denied") {
+      setAppealFiled(false);
+      setAppealDenied(true);
+    }
+  }, [task.myAttempt?.appealStatus]);
 
   const statusStyle = STATUS_STYLES[task.status] || STATUS_STYLES.draft;
   const isReviewer = ["admin", "supermod", "mod"].includes(user?.role ?? "");
@@ -576,7 +594,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
             <span className="text-xs text-discord-text-muted flex-1">
               Your previous submission was rejected — you can submit again
             </span>
-            {!appealFiled && !showAppealForm && (
+            {!appealFiled && !appealDenied && !showAppealForm && (
               <button
                 onClick={() => setShowAppealForm(true)}
                 className="text-xs px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded font-semibold transition"
@@ -586,12 +604,20 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
             )}
             {appealFiled && (
               <span className="text-xs px-2.5 py-1 bg-amber-500/10 text-amber-400/70 rounded font-semibold">
-                Appeal Pending
+                Appeal Submitted
+              </span>
+            )}
+            {appealDenied && (
+              <span className="text-xs px-2.5 py-1 bg-red-500/10 text-red-400/70 rounded font-semibold">
+                Appeal Denied
               </span>
             )}
           </div>
           {appealFiled && (
             <p className="text-xs text-green-400 mt-1">Appeal filed. A moderator will review it.</p>
+          )}
+          {appealDenied && (
+            <p className="text-xs text-red-400/70 mt-1">Your appeal was denied by a moderator.</p>
           )}
 
           {/* Appeal form */}

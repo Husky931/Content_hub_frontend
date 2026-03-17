@@ -52,7 +52,7 @@ interface TaskInfo {
   createdByUsername: string;
   createdByDisplayName?: string | null;
   createdAt?: string;
-  myAttempt?: { id: string; status: string; deliverables: { text?: string } | null } | null;
+  myAttempt?: { id: string; status: string; deliverables: { text?: string } | null; appealStatus?: string | null } | null;
   submittedCount?: number;
   reviewClaimedBy?: string | null;
 }
