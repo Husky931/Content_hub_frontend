@@ -388,7 +388,15 @@ function AdminUsersSection() {
     setUsers(ud.users || []); setAllTags(td.tags || []);
     setLoading(false);
   };
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    let active = true;
+    Promise.all([fetch("/api/admin/users"), fetch("/api/admin/tags")])
+      .then(async ([ur, tr]) => {
+        const ud = await ur.json(); const td = await tr.json();
+        if (active) { setUsers(ud.users || []); setAllTags(td.tags || []); setLoading(false); }
+      });
+    return () => { active = false; };
+  }, []);
 
   const patch = async (userId: string, body: object) => {
     setActionLoading(userId);
@@ -620,7 +628,7 @@ function AdminUsersSection() {
                       <button
                         onClick={() => patch(u.id, { userId: u.id, action: "unban" })}
                         disabled={isLoading}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-green/50 text-green-300 hover:bg-discord-green/70 hover:text-white transition-all disabled:opacity-60"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-green text-white hover:bg-green-500 shadow transition-all disabled:opacity-60"
                       >
                         {isLoading && <Spinner />}
                         Unban User
@@ -629,7 +637,7 @@ function AdminUsersSection() {
                       <button
                         onClick={() => setBanTarget(u.id)}
                         disabled={isLoading}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-red/50 text-red-300 hover:bg-discord-red/70 hover:text-white transition-all disabled:opacity-60"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-red text-white hover:bg-red-600 shadow transition-all disabled:opacity-60"
                       >
                         {isLoading && <Spinner />}
                         Ban User
@@ -666,7 +674,13 @@ function AdminInvitesSection() {
     setCodes(data.codes || []);
     setLoading(false);
   };
-  useEffect(() => { fetchCodes(); }, []);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/invite-codes")
+      .then(r => r.json())
+      .then(data => { if (active) { setCodes(data.codes || []); setLoading(false); } });
+    return () => { active = false; };
+  }, []);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -777,7 +791,13 @@ function AdminTagsSection() {
     setTags(data.tags || []);
     setLoading(false);
   };
-  useEffect(() => { fetchTags(); }, []);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/tags")
+      .then(r => r.json())
+      .then(data => { if (active) { setTags(data.tags || []); setLoading(false); } });
+    return () => { active = false; };
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -973,31 +993,80 @@ function AdminTasksSection() {
       .finally(() => setLoading(false));
   };
 
+  const handleEdit = async (taskId: string) => {
+    setEditLoading(taskId);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`);
+      if (!res.ok) return;
+      const { task } = await res.json();
+      setEditingTaskId(taskId);
+      setChannelId(task.channelId || "");
+      setTitle(task.title || "");
+      setTitleCn(task.titleCn || "");
+      setDescription(task.description || "");
+      setDescriptionCn(task.descriptionCn || "");
+      setBountyUsd(task.bountyUsd || "");
+      setBountyRmb(task.bountyRmb || "");
+      setBonusBountyUsd(task.bonusBountyUsd || "");
+      setBonusBountyRmb(task.bonusBountyRmb || "");
+      setMaxAttempts(String(task.maxAttempts || 5));
+      setDeadline(task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : "");
+      setPublishNow(false);
+      setChecklistItems((task.checklist || []).map((c: { label: string }) => c.label));
+      setTaskAttachments(task.attachments || []);
+      setShowForm(true);
+    } catch { /* ignore */ }
+    setEditLoading(null);
+  };
+
   useEffect(() => {
-    fetchData();
+    let active = true;
+    // Fetch channels and tasks
+    Promise.all([
+      fetch("/api/channels").then((r) => r.json()),
+      fetch("/api/admin/tasks").then((r) => r.json()),
+    ])
+      .then(([chData, taskData]) => {
+        if (!active) return;
+        const taskChannels = (chData.channels || []).filter((c: TaskChannel) => c.type === "task");
+        if (taskData.modChannelIds) {
+          const assignedChannelIds = new Set(taskData.modChannelIds);
+          setChannels(taskChannels.filter((c: TaskChannel) => assignedChannelIds.has(c.id)));
+        } else {
+          setChannels(taskChannels);
+        }
+        setTasks(taskData.tasks || []);
+      })
+      .catch(() => { })
+      .finally(() => { if (active) setLoading(false); });
     // Check if we need to edit a draft task (from tasks list page)
     const editId = sessionStorage.getItem("editDraftTask");
     if (editId) {
       sessionStorage.removeItem("editDraftTask");
-      handleEdit(editId);
+      // Defer to avoid setState synchronously within effect
+      Promise.resolve().then(() => { if (active) handleEdit(editId); });
     }
     // Check if a template was selected from Task Templates section
-    const stored = sessionStorage.getItem("useTemplate");
+    const stored = sessionStorage.getItem("applyTemplate");
     if (stored) {
-      sessionStorage.removeItem("useTemplate");
+      sessionStorage.removeItem("applyTemplate");
       try {
         const t = JSON.parse(stored);
-        setDescription(t.description || "");
-        setDescriptionCn(t.descriptionCn || "");
-        setBountyUsd(t.bountyUsd || "");
-        setBountyRmb(t.bountyRmb || "");
-        setBonusBountyUsd(t.bonusBountyUsd || "");
-        setBonusBountyRmb(t.bonusBountyRmb || "");
-        setMaxAttempts(String(t.maxAttempts || 5));
-        setChecklistItems((t.checklist || []).map((c: { label: string }) => c.label));
-        setShowForm(true);
+        Promise.resolve().then(() => {
+          if (!active) return;
+          setDescription(t.description || "");
+          setDescriptionCn(t.descriptionCn || "");
+          setBountyUsd(t.bountyUsd || "");
+          setBountyRmb(t.bountyRmb || "");
+          setBonusBountyUsd(t.bonusBountyUsd || "");
+          setBonusBountyRmb(t.bonusBountyRmb || "");
+          setMaxAttempts(String(t.maxAttempts || 5));
+          setChecklistItems((t.checklist || []).map((c: { label: string }) => c.label));
+          setShowForm(true);
+        });
       } catch { /* ignore */ }
     }
+    return () => { active = false; };
   }, []);
 
   const handleCreate = async () => {
@@ -1051,32 +1120,6 @@ function AdminTasksSection() {
     });
     fetchData();
     setActionLoadingId(null);
-  };
-
-  const handleEdit = async (taskId: string) => {
-    setEditLoading(taskId);
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`);
-      if (!res.ok) return;
-      const { task } = await res.json();
-      setEditingTaskId(taskId);
-      setChannelId(task.channelId || "");
-      setTitle(task.title || "");
-      setTitleCn(task.titleCn || "");
-      setDescription(task.description || "");
-      setDescriptionCn(task.descriptionCn || "");
-      setBountyUsd(task.bountyUsd || "");
-      setBountyRmb(task.bountyRmb || "");
-      setBonusBountyUsd(task.bonusBountyUsd || "");
-      setBonusBountyRmb(task.bonusBountyRmb || "");
-      setMaxAttempts(String(task.maxAttempts || 5));
-      setDeadline(task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : "");
-      setPublishNow(false);
-      setChecklistItems((task.checklist || []).map((c: { label: string }) => c.label));
-      setTaskAttachments(task.attachments || []);
-      setShowForm(true);
-    } catch { /* ignore */ }
-    setEditLoading(null);
   };
 
   const handleUpdate = async () => {
@@ -1290,7 +1333,7 @@ function AdminTasksSection() {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-discord-text truncate">{task.title}</div>
-                <div className="text-xs text-discord-text-muted">#{task.channelName} — by {task.createdByUsername} — {task.attemptCount} attempts — created: {(() => { const d = new Date(task.createdAt); return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; })()}</div>
+                <div className="text-xs text-discord-text-muted">#{task.channelName} — by {task.createdByUsername} — {task.attemptCount} attempts — created: {(() => { const d = new Date(task.createdAt); return `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; })()}</div>
               </div>
               <span className="text-sm font-bold text-green-400 shrink-0">${task.bountyUsd || "0"}</span>
               <div className="flex gap-1 shrink-0">
@@ -1374,7 +1417,32 @@ function AdminTemplatesSection() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchTemplates(); }, []);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/templates");
+        const data = await res.json();
+        if (!active) return;
+        let finalTemplates = data.templates || [];
+        if (finalTemplates.length === 0) {
+          const seedRes = await fetch("/api/templates/seed", { method: "POST" });
+          if (seedRes.ok) {
+            const seedData = await seedRes.json();
+            if (seedData.seeded) {
+              const res2 = await fetch("/api/templates");
+              const data2 = await res2.json();
+              finalTemplates = data2.templates || [];
+            }
+          }
+        }
+        if (active) { setTemplates(finalTemplates); setLoading(false); }
+      } catch {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const startEdit = (t: TaskTemplate) => {
     setEditingTemplateId(t.id);
@@ -1448,8 +1516,8 @@ function AdminTemplatesSection() {
     setDeletingTemplateId(null);
   };
 
-  const useTemplate = (t: TaskTemplate) => {
-    sessionStorage.setItem("useTemplate", JSON.stringify({
+  const applyTemplate = (t: TaskTemplate) => {
+    sessionStorage.setItem("applyTemplate", JSON.stringify({
       description: t.description, descriptionCn: t.descriptionCn,
       bountyUsd: t.bountyUsd, bountyRmb: t.bountyRmb,
       bonusBountyUsd: t.bonusBountyUsd, bonusBountyRmb: t.bonusBountyRmb,
@@ -1589,7 +1657,7 @@ function AdminTemplatesSection() {
             const isEditing = editingTemplateId === t.id;
 
             return (
-              <div key={t.id} className={`rounded-lg border border-discord-border bg-gradient-to-br ${style.bg} overflow-hidden ${isEditing ? "ring-2 ring-discord-accent" : ""}`}>
+              <div key={t.id} className={`rounded-lg border border-discord-border bg-linear-to-br ${style.bg} overflow-hidden ${isEditing ? "ring-2 ring-discord-accent" : ""}`}>
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{style.icon}</span>
@@ -1606,7 +1674,7 @@ function AdminTemplatesSection() {
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => useTemplate(t)}
+                        onClick={() => applyTemplate(t)}
                         className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-semibold transition"
                       >
                         Use Template
@@ -2316,6 +2384,11 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
   const { user, logout } = useAuth();
   const { navTick } = useSettingsModal();
   const [section, setSection] = useState<Section>(initialSection);
+  const [prevSyncKey, setPrevSyncKey] = useState({ isOpen, initialSection, navTick });
+  if (isOpen !== prevSyncKey.isOpen || initialSection !== prevSyncKey.initialSection || navTick !== prevSyncKey.navTick) {
+    setPrevSyncKey({ isOpen, initialSection, navTick });
+    if (isOpen) setSection(initialSection);
+  }
 
   useEffect(() => {
     if (!isOpen) return;
@@ -2323,10 +2396,6 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (isOpen) setSection(initialSection);
-  }, [isOpen, initialSection, navTick]);
 
   if (!isOpen || !user) return null;
 

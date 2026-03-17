@@ -112,13 +112,12 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
 
   return (
     <div
-      className={`mx-2 my-2 rounded-lg border overflow-hidden ${
-        isPending
+      className={`mx-2 my-2 rounded-lg border overflow-hidden ${isPending
           ? "border-amber-500/30 bg-amber-500/5"
           : appeal.status === "granted"
-          ? "border-green-500/20 bg-green-500/5"
-          : "border-red-500/20 bg-red-500/5 opacity-70"
-      }`}
+            ? "border-green-500/20 bg-green-500/5"
+            : "border-red-500/20 bg-red-500/5 opacity-70"
+        }`}
     >
       {/* Header */}
       <div
@@ -138,13 +137,12 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
             #{appeal.channelName}
           </span>
         )}
-        <span className="text-xs text-discord-text-muted ml-auto flex-shrink-0">
+        <span className="text-xs text-discord-text-muted ml-auto shrink-0">
           by {creatorName} · {formatDate(appeal.createdAt)}
         </span>
         <svg
-          className={`w-4 h-4 text-discord-text-muted transition-transform flex-shrink-0 ${
-            expanded ? "rotate-180" : ""
-          }`}
+          className={`w-4 h-4 text-discord-text-muted transition-transform shrink-0 ${expanded ? "rotate-180" : ""
+            }`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

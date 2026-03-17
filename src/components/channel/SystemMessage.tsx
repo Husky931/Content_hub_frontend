@@ -264,7 +264,7 @@ export function SystemMessage({ content, createdAt }: SystemMessageProps) {
       className={`flex items-start gap-3 px-3 py-2 my-0.5 rounded-md border-l-[3px] ${theme.border} ${theme.bg}`}
     >
       {/* Icon */}
-      <div className={`mt-0.5 flex-shrink-0 ${theme.iconColor}`}>
+      <div className={`mt-0.5 shrink-0 ${theme.iconColor}`}>
         {theme.icon}
       </div>
 
@@ -278,7 +278,7 @@ export function SystemMessage({ content, createdAt }: SystemMessageProps) {
             {formatTime(createdAt)}
           </span>
         </div>
-        <p className="text-sm text-discord-text-secondary break-words leading-relaxed">
+        <p className="text-sm text-discord-text-secondary wrap-break-word leading-relaxed">
           {renderContent(content)}
         </p>
       </div>

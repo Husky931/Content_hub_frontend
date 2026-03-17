@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { TaskSummaryBar } from "@/components/channel/TaskSummaryBar";
 import { TaskCard } from "@/components/channel/TaskCard";
@@ -131,9 +131,8 @@ function RoleTag({ role, small = false }: { role: string; small?: boolean }) {
   if (!tag) return null;
   return (
     <span
-      className={`inline-flex items-center rounded px-1 font-semibold tracking-wide ${
-        small ? "text-[9px] py-px" : "text-[10px] py-px"
-      } ${tag.className}`}
+      className={`inline-flex items-center rounded px-1 font-semibold tracking-wide ${small ? "text-[9px] py-px" : "text-[10px] py-px"
+        } ${tag.className}`}
     >
       {tag.label.toUpperCase()}
     </span>
@@ -143,14 +142,12 @@ function RoleTag({ role, small = false }: { role: string; small?: boolean }) {
 export default function ChannelPage() {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
-  const router = useRouter();
   const { openSettings } = useSettingsModal();
   const [channel, setChannel] = useState<ChannelInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [showCreateTask, setShowCreateTask] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -159,7 +156,7 @@ export default function ChannelPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const tasksFetchRef = useRef<AbortController | null>(null);
-  const fetchTasksRef = useRef<() => void>(() => {});
+  const fetchTasksRef = useRef<() => void>(() => { });
   const inputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [appeals, setAppeals] = useState<any[]>([]);
@@ -171,7 +168,7 @@ export default function ChannelPage() {
     fetch("/api/appeals")
       .then((res) => res.json())
       .then((data) => setAppeals(data.appeals || []))
-      .catch(() => {});
+      .catch(() => { });
   }, [isAppealsChannel]);
 
   const fetchData = () => {
@@ -182,7 +179,7 @@ export default function ChannelPage() {
         setChannel(data.channel);
         setMessages(data.messages || []);
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const fetchTasks = () => {
@@ -500,14 +497,13 @@ export default function ChannelPage() {
     return (
       <div
         key={msg.id}
-        className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${
-          msg.type === "mod"
-            ? "border-l-2 border-discord-accent pl-4"
-            : ""
-        } ${isReply ? "ml-6" : ""}`}
+        className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${msg.type === "mod"
+          ? "border-l-2 border-discord-accent pl-4"
+          : ""
+          } ${isReply ? "ml-6" : ""}`}
       >
         {/* Avatar with role icon */}
-        <div className="relative flex-shrink-0 mt-0.5">
+        <div className="relative shrink-0 mt-0.5">
           {msg.user?.avatarUrl ? (
             <>
               <img
@@ -520,9 +516,8 @@ export default function ChannelPage() {
           ) : (
             <>
               <div
-                className={`rounded-full flex items-center justify-center text-white font-bold ${
-                  isReply ? "w-7 h-7 text-xs" : "w-10 h-10 text-sm"
-                } ${ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent"}`}
+                className={`rounded-full flex items-center justify-center text-white font-bold ${isReply ? "w-7 h-7 text-xs" : "w-10 h-10 text-sm"
+                  } ${ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent"}`}
               >
                 {(msg.user?.displayName || msg.user?.username || "S")
                   .slice(0, 2)
@@ -537,9 +532,8 @@ export default function ChannelPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <span
-              className={`font-medium ${isReply ? "text-xs" : "text-sm"} ${
-                ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
-              }`}
+              className={`font-medium ${isReply ? "text-xs" : "text-sm"} ${ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
+                }`}
             >
               {msg.user?.displayName || msg.user?.username || "System"}
             </span>
@@ -642,7 +636,7 @@ export default function ChannelPage() {
               </div>
             </div>
           ) : (
-            <p className={`text-discord-text-secondary break-words ${isReply ? "text-xs" : "text-sm"}`}>
+            <p className={`text-discord-text-secondary wrap-break-word ${isReply ? "text-xs" : "text-sm"}`}>
               {msg.content}
             </p>
           )}
@@ -794,9 +788,9 @@ export default function ChannelPage() {
 
       {/* Reply preview bar */}
       {replyingTo && canPost && (
-        <div className="px-4 pt-2 bg-discord-bg flex-shrink-0">
+        <div className="px-4 pt-2 bg-discord-bg shrink-0">
           <div className="flex items-center gap-2 px-3 py-2 bg-discord-bg-dark rounded-t-lg border-l-2 border-discord-accent text-xs text-discord-text-muted">
-            <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
             </svg>
             <span>
@@ -812,7 +806,7 @@ export default function ChannelPage() {
             </span>
             <button
               onClick={() => setReplyingTo(null)}
-              className="ml-auto text-discord-text-muted hover:text-discord-text flex-shrink-0"
+              className="ml-auto text-discord-text-muted hover:text-discord-text shrink-0"
             >
               ✕
             </button>
@@ -821,7 +815,7 @@ export default function ChannelPage() {
       )}
 
       {/* Message input */}
-      <div className={`px-4 pb-4 ${replyingTo && canPost ? "pt-0" : "pt-2"} bg-discord-bg flex-shrink-0`}>
+      <div className={`px-4 pb-4 ${replyingTo && canPost ? "pt-0" : "pt-2"} bg-discord-bg shrink-0`}>
         {!canPost ? (
           <div className="p-3 bg-discord-bg-dark rounded-lg text-center text-sm text-discord-text-muted border border-discord-border">
             <span className="mr-1.5">🔒</span>
@@ -840,9 +834,8 @@ export default function ChannelPage() {
                   ? `Reply to ${replyingTo.user?.displayName || replyingTo.user?.username}…`
                   : `Message #${channel?.name || slug}`
               }
-              className={`w-full p-3 bg-discord-bg-hover text-sm text-discord-text placeholder-discord-text-muted focus:outline-none pr-16 ${
-                replyingTo ? "rounded-b-lg rounded-t-none" : "rounded-lg"
-              }`}
+              className={`w-full p-3 bg-discord-bg-hover text-sm text-discord-text placeholder-discord-text-muted focus:outline-none pr-16 ${replyingTo ? "rounded-b-lg rounded-t-none" : "rounded-lg"
+                }`}
             />
             {newMessage.length > 1800 && (
               <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono ${newMessage.length >= 2000 ? "text-discord-red" : "text-discord-text-muted"}`}>
