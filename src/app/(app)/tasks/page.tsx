@@ -165,26 +165,15 @@ function TaskListContent() {
         {/* Controls */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           {isMod && (
-            <>
-              <button
-                onClick={() => openSettings("admin-tasks")}
-                className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold transition flex items-center gap-1.5"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5h16M4 10h16M4 15h10" />
-                </svg>
-                Task Templates
-              </button>
-              <button
-                onClick={() => openSettings("admin-tasks")}
-                className="px-3 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-md text-xs font-semibold transition flex items-center gap-1.5"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create Task
-              </button>
-            </>
+            <button
+              onClick={() => openSettings("admin-tasks")}
+              className="px-3 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-md text-xs font-semibold transition flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create Task
+            </button>
           )}
           <div className="relative flex-1 min-w-[180px]">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-discord-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">

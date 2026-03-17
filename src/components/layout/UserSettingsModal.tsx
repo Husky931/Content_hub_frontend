@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { Spinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FileUpload } from "@/components/ui/FileUpload";
@@ -15,6 +16,7 @@ type Section =
   | "admin-invites"
   | "admin-tags"
   | "admin-tasks"
+  | "admin-templates"
   | "admin-channels"
   | "admin-audit";
 
@@ -949,105 +951,6 @@ function AdminTasksSection() {
   const [previewDescEn, setPreviewDescEn] = useState(false);
   const [previewDescCn, setPreviewDescCn] = useState(false);
 
-  // Template state
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-  const [templateForm, setTemplateForm] = useState({
-    name: "", nameCn: "", category: "", description: "", descriptionCn: "",
-    bountyUsd: "", bountyRmb: "", bonusBountyUsd: "", bonusBountyRmb: "",
-    maxAttempts: "5", checklistItems: [] as string[], newChecklistItem: "",
-  });
-  const [templateSaving, setTemplateSaving] = useState(false);
-  const [templateError, setTemplateError] = useState("");
-  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
-
-  const fetchTemplates = async () => {
-    setTemplatesLoading(true);
-    try {
-      const res = await fetch("/api/templates");
-      const data = await res.json();
-      setTemplates(data.templates || []);
-      if (data.templates?.length === 0) {
-        // Auto-seed default templates if none exist
-        const seedRes = await fetch("/api/templates/seed", { method: "POST" });
-        if (seedRes.ok) {
-          const seedData = await seedRes.json();
-          if (seedData.seeded) {
-            const res2 = await fetch("/api/templates");
-            const data2 = await res2.json();
-            setTemplates(data2.templates || []);
-          }
-        }
-      }
-    } catch { /* ignore */ }
-    setTemplatesLoading(false);
-  };
-
-  const startEditTemplate = (t: TaskTemplate) => {
-    setEditingTemplateId(t.id);
-    setTemplateForm({
-      name: t.name, nameCn: t.nameCn || "", category: t.category,
-      description: t.description || "", descriptionCn: t.descriptionCn || "",
-      bountyUsd: t.bountyUsd || "", bountyRmb: t.bountyRmb || "",
-      bonusBountyUsd: t.bonusBountyUsd || "", bonusBountyRmb: t.bonusBountyRmb || "",
-      maxAttempts: String(t.maxAttempts), checklistItems: (t.checklist || []).map(c => c.label),
-      newChecklistItem: "",
-    });
-    setTemplateError("");
-  };
-
-  const saveTemplate = async () => {
-    if (!editingTemplateId) return;
-    setTemplateSaving(true);
-    setTemplateError("");
-    const res = await fetch(`/api/templates/${editingTemplateId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: templateForm.name, nameCn: templateForm.nameCn || null,
-        category: templateForm.category,
-        description: templateForm.description || null,
-        descriptionCn: templateForm.descriptionCn || null,
-        bountyUsd: templateForm.bountyUsd || null,
-        bountyRmb: templateForm.bountyRmb || null,
-        bonusBountyUsd: templateForm.bonusBountyUsd || null,
-        bonusBountyRmb: templateForm.bonusBountyRmb || null,
-        maxAttempts: parseInt(templateForm.maxAttempts) || 5,
-        checklist: templateForm.checklistItems.length > 0 ? templateForm.checklistItems.map(l => ({ label: l })) : null,
-      }),
-    });
-    if (res.ok) {
-      setEditingTemplateId(null);
-      fetchTemplates();
-    } else {
-      const data = await res.json();
-      setTemplateError(data.error || "Failed to save");
-    }
-    setTemplateSaving(false);
-  };
-
-  const deleteTemplate = async (id: string) => {
-    setDeletingTemplateId(id);
-    await fetch(`/api/templates/${id}`, { method: "DELETE" });
-    fetchTemplates();
-    setDeletingTemplateId(null);
-  };
-
-  const useTemplate = (t: TaskTemplate) => {
-    setDescription(t.description || "");
-    setDescriptionCn(t.descriptionCn || "");
-    setBountyUsd(t.bountyUsd || "");
-    setBountyRmb(t.bountyRmb || "");
-    setBonusBountyUsd(t.bonusBountyUsd || "");
-    setBonusBountyRmb(t.bonusBountyRmb || "");
-    setMaxAttempts(String(t.maxAttempts));
-    setChecklistItems((t.checklist || []).map(c => c.label));
-    setShowTemplates(false);
-    setShowForm(true);
-  };
-
   const fetchData =() => {
     Promise.all([
       fetch("/api/channels").then((r) => r.json()),
@@ -1069,7 +972,26 @@ function AdminTasksSection() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); fetchTemplates(); }, []);
+  useEffect(() => {
+    fetchData();
+    // Check if a template was selected from Task Templates section
+    const stored = sessionStorage.getItem("useTemplate");
+    if (stored) {
+      sessionStorage.removeItem("useTemplate");
+      try {
+        const t = JSON.parse(stored);
+        setDescription(t.description || "");
+        setDescriptionCn(t.descriptionCn || "");
+        setBountyUsd(t.bountyUsd || "");
+        setBountyRmb(t.bountyRmb || "");
+        setBonusBountyUsd(t.bonusBountyUsd || "");
+        setBonusBountyRmb(t.bonusBountyRmb || "");
+        setMaxAttempts(String(t.maxAttempts || 5));
+        setChecklistItems((t.checklist || []).map((c: { label: string }) => c.label));
+        setShowForm(true);
+      } catch { /* ignore */ }
+    }
+  }, []);
 
   const handleCreate = async () => {
     if (!channelId || !title || !description) {
@@ -1130,202 +1052,13 @@ function AdminTasksSection() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <SectionTitle>Task Management</SectionTitle>
-        <div className="flex gap-2">
-          <button
-            onClick={() => { setShowTemplates(!showTemplates); if (!showTemplates) setShowForm(false); }}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition"
-          >
-            {showTemplates ? "Close Templates" : "Task Templates"}
-          </button>
-          <button
-            onClick={() => { setShowForm(!showForm); if (!showForm) setShowTemplates(false); }}
-            className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
-          >
-            {showForm ? "Cancel" : "+ Create Task"}
-          </button>
-        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
+        >
+          {showForm ? "Cancel" : "+ Create Task"}
+        </button>
       </div>
-
-      {/* ── Template Picker ── */}
-      {showTemplates && (
-        <div className="mb-6 p-4 bg-discord-bg-dark rounded-xl border border-discord-bg-darker/60">
-          <h3 className="text-sm font-semibold text-discord-text mb-4 uppercase">Task Templates</h3>
-          {templatesLoading ? (
-            <div className="flex justify-center py-8"><Spinner /></div>
-          ) : templates.length === 0 ? (
-            <p className="text-sm text-discord-text-muted text-center py-4">No templates available</p>
-          ) : (
-            <div className="space-y-4">
-              {templates.map((t) => {
-                const style = TEMPLATE_ICONS[t.category] || { icon: "📋", color: "text-gray-400", bg: "from-gray-500/10 to-gray-500/20" };
-                const isEditing = editingTemplateId === t.id;
-
-                return (
-                  <div key={t.id} className={`rounded-lg border border-discord-border bg-gradient-to-br ${style.bg} overflow-hidden`}>
-                    {/* Template header */}
-                    <div className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{style.icon}</span>
-                        <div>
-                          <h4 className="font-semibold text-discord-text">{t.name}</h4>
-                          {t.nameCn && <p className="text-xs text-discord-text-muted">{t.nameCn}</p>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-wrap gap-1">
-                          {t.bountyUsd && <span className="px-1.5 py-0.5 bg-green-500/20 text-green-300 text-[10px] rounded font-semibold">${t.bountyUsd}</span>}
-                          {t.bountyRmb && <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] rounded font-semibold">¥{t.bountyRmb}</span>}
-                          {t.checklist && <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] rounded font-semibold">{t.checklist.length} CHECKS</span>}
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => useTemplate(t)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-semibold transition"
-                          >
-                            Use Template
-                          </button>
-                          <button
-                            onClick={() => isEditing ? setEditingTemplateId(null) : startEditTemplate(t)}
-                            className="px-3 py-1.5 bg-discord-accent/20 text-discord-accent text-xs rounded hover:bg-discord-accent/30 font-semibold transition"
-                          >
-                            {isEditing ? "Cancel" : "Edit"}
-                          </button>
-                          <button
-                            onClick={() => deleteTemplate(t.id)}
-                            disabled={deletingTemplateId === t.id}
-                            className="px-2 py-1.5 bg-red-500/20 text-red-400 text-xs rounded hover:bg-red-500/30 transition disabled:opacity-50 flex items-center gap-1"
-                          >
-                            {deletingTemplateId === t.id ? <Spinner /> : "Delete"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Template summary (when not editing) */}
-                    {!isEditing && (
-                      <div className="px-4 pb-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <p className="text-xs text-discord-text-muted mb-1">Description preview</p>
-                            <p className="text-discord-text-secondary text-xs line-clamp-3">{t.description || "No description"}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-discord-text-muted mb-1">Review checklist</p>
-                            {t.checklist && t.checklist.length > 0 ? (
-                              <ul className="text-xs text-discord-text-secondary space-y-0.5">
-                                {t.checklist.slice(0, 4).map((c, i) => (
-                                  <li key={i} className="flex items-center gap-1"><span className="text-green-400">✓</span> {c.label}</li>
-                                ))}
-                                {t.checklist.length > 4 && <li className="text-discord-text-muted">+{t.checklist.length - 4} more...</li>}
-                              </ul>
-                            ) : <p className="text-xs text-discord-text-muted">No checklist items</p>}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Edit form (inline) */}
-                    {isEditing && (
-                      <div className="px-4 pb-4 border-t border-discord-border/50 pt-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs text-discord-text-muted mb-1">Name (EN)</label>
-                            <input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-discord-text-muted mb-1">Name (CN)</label>
-                            <input value={templateForm.nameCn} onChange={(e) => setTemplateForm({ ...templateForm, nameCn: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-xs text-discord-text-muted mb-1">Category</label>
-                            <select value={templateForm.category} onChange={(e) => setTemplateForm({ ...templateForm, category: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none">
-                              <option value="audio">Audio</option>
-                              <option value="video">Video</option>
-                              <option value="image">Image</option>
-                            </select>
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-xs text-discord-text-muted mb-1">Description (EN)</label>
-                            <textarea value={templateForm.description} onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })} rows={3} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none resize-none" />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-xs text-discord-text-muted mb-1">Description (CN)</label>
-                            <textarea value={templateForm.descriptionCn} onChange={(e) => setTemplateForm({ ...templateForm, descriptionCn: e.target.value })} rows={3} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none resize-none" />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-discord-text-muted mb-1">Bounty USD</label>
-                            <input value={templateForm.bountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bountyUsd: e.target.value })} placeholder="15.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-discord-text-muted mb-1">Bounty RMB</label>
-                            <input value={templateForm.bountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bountyRmb: e.target.value })} placeholder="100.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-discord-text-muted mb-1">Bonus USD</label>
-                            <input value={templateForm.bonusBountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyUsd: e.target.value })} placeholder="5.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-discord-text-muted mb-1">Bonus RMB</label>
-                            <input value={templateForm.bonusBountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyRmb: e.target.value })} placeholder="35.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-discord-text-muted mb-1">Max Attempts</label>
-                            <input type="number" min="1" value={templateForm.maxAttempts} onChange={(e) => setTemplateForm({ ...templateForm, maxAttempts: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
-                          </div>
-                          {/* Checklist editor */}
-                          <div className="col-span-2">
-                            <label className="block text-xs text-discord-text-muted mb-1">Review Checklist</label>
-                            {templateForm.checklistItems.length > 0 && (
-                              <div className="space-y-1 mb-2">
-                                {templateForm.checklistItems.map((item, i) => (
-                                  <div key={i} className="flex items-center gap-2">
-                                    <span className="text-xs text-green-400">✓</span>
-                                    <span className="flex-1 text-sm text-discord-text">{item}</span>
-                                    <button type="button" onClick={() => setTemplateForm({ ...templateForm, checklistItems: templateForm.checklistItems.filter((_, idx) => idx !== i) })} className="text-red-400 hover:text-red-300 text-xs">✕</button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              <input
-                                value={templateForm.newChecklistItem}
-                                onChange={(e) => setTemplateForm({ ...templateForm, newChecklistItem: e.target.value })}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && templateForm.newChecklistItem.trim()) {
-                                    e.preventDefault();
-                                    setTemplateForm({ ...templateForm, checklistItems: [...templateForm.checklistItems, templateForm.newChecklistItem.trim()], newChecklistItem: "" });
-                                  }
-                                }}
-                                placeholder="Add checklist item..."
-                                className="flex-1 p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (templateForm.newChecklistItem.trim()) {
-                                    setTemplateForm({ ...templateForm, checklistItems: [...templateForm.checklistItems, templateForm.newChecklistItem.trim()], newChecklistItem: "" });
-                                  }
-                                }}
-                                className="px-3 py-1.5 text-xs bg-discord-accent/20 text-discord-accent rounded hover:bg-discord-accent/30 transition"
-                              >
-                                + Add
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        {templateError && <p className="text-xs text-discord-red mt-2">{templateError}</p>}
-                        <button onClick={saveTemplate} disabled={templateSaving} className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
-                          {templateSaving ? <Spinner /> : "Save Changes"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {showForm && (
         <div className="mb-6 p-4 bg-discord-bg-dark rounded-xl border border-discord-bg-darker/60">
@@ -1519,6 +1252,330 @@ interface ChannelMod {
   displayName: string | null;
   role: string;
 }
+
+// ─── Admin: Task Templates ───────────────────────────────────────────────────
+
+function AdminTemplatesSection() {
+  const { openSettings } = useSettingsModal();
+  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+
+  const emptyForm = {
+    name: "", nameCn: "", category: "audio", description: "", descriptionCn: "",
+    bountyUsd: "", bountyRmb: "", bonusBountyUsd: "", bonusBountyRmb: "",
+    maxAttempts: "5", checklistItems: [] as string[], newChecklistItem: "",
+  };
+  const [templateForm, setTemplateForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const fetchTemplates = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/templates");
+      const data = await res.json();
+      setTemplates(data.templates || []);
+      if (data.templates?.length === 0) {
+        const seedRes = await fetch("/api/templates/seed", { method: "POST" });
+        if (seedRes.ok) {
+          const seedData = await seedRes.json();
+          if (seedData.seeded) {
+            const res2 = await fetch("/api/templates");
+            const data2 = await res2.json();
+            setTemplates(data2.templates || []);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchTemplates(); }, []);
+
+  const startEdit = (t: TaskTemplate) => {
+    setEditingTemplateId(t.id);
+    setShowCreateForm(false);
+    setTemplateForm({
+      name: t.name, nameCn: t.nameCn || "", category: t.category,
+      description: t.description || "", descriptionCn: t.descriptionCn || "",
+      bountyUsd: t.bountyUsd || "", bountyRmb: t.bountyRmb || "",
+      bonusBountyUsd: t.bonusBountyUsd || "", bonusBountyRmb: t.bonusBountyRmb || "",
+      maxAttempts: String(t.maxAttempts), checklistItems: (t.checklist || []).map(c => c.label),
+      newChecklistItem: "",
+    });
+    setFormError("");
+  };
+
+  const startCreate = () => {
+    setShowCreateForm(true);
+    setEditingTemplateId(null);
+    setTemplateForm(emptyForm);
+    setFormError("");
+  };
+
+  const saveTemplate = async () => {
+    const isCreate = showCreateForm;
+    if (isCreate && (!templateForm.name || !templateForm.category)) {
+      setFormError("Name and category are required");
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+
+    const payload = {
+      name: templateForm.name, nameCn: templateForm.nameCn || null,
+      category: templateForm.category,
+      description: templateForm.description || null,
+      descriptionCn: templateForm.descriptionCn || null,
+      bountyUsd: templateForm.bountyUsd || null,
+      bountyRmb: templateForm.bountyRmb || null,
+      bonusBountyUsd: templateForm.bonusBountyUsd || null,
+      bonusBountyRmb: templateForm.bonusBountyRmb || null,
+      maxAttempts: parseInt(templateForm.maxAttempts) || 5,
+      checklist: templateForm.checklistItems.length > 0 ? templateForm.checklistItems.map(l => ({ label: l })) : null,
+    };
+
+    const url = isCreate ? "/api/templates" : `/api/templates/${editingTemplateId}`;
+    const method = isCreate ? "POST" : "PATCH";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      setEditingTemplateId(null);
+      setShowCreateForm(false);
+      setTemplateForm(emptyForm);
+      fetchTemplates();
+    } else {
+      const data = await res.json();
+      setFormError(data.error || "Failed to save");
+    }
+    setSaving(false);
+  };
+
+  const deleteTemplate = async (id: string) => {
+    setDeletingTemplateId(id);
+    await fetch(`/api/templates/${id}`, { method: "DELETE" });
+    if (editingTemplateId === id) setEditingTemplateId(null);
+    fetchTemplates();
+    setDeletingTemplateId(null);
+  };
+
+  const useTemplate = (t: TaskTemplate) => {
+    sessionStorage.setItem("useTemplate", JSON.stringify({
+      description: t.description, descriptionCn: t.descriptionCn,
+      bountyUsd: t.bountyUsd, bountyRmb: t.bountyRmb,
+      bonusBountyUsd: t.bonusBountyUsd, bonusBountyRmb: t.bonusBountyRmb,
+      maxAttempts: t.maxAttempts, checklist: t.checklist,
+    }));
+    openSettings("admin-tasks");
+  };
+
+  // Shared form UI for both create and edit
+  const renderTemplateForm = () => (
+    <div className="mb-6 p-4 bg-discord-bg-dark rounded-xl border border-discord-bg-darker/60">
+      <h3 className="text-sm font-semibold text-discord-text mb-3 uppercase">
+        {showCreateForm ? "New Template" : "Edit Template"}
+      </h3>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Template Name *</label>
+          <input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" placeholder="e.g. Voiceover Recording" />
+        </div>
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Name (CN)</label>
+          <input value={templateForm.nameCn} onChange={(e) => setTemplateForm({ ...templateForm, nameCn: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" placeholder="中文模板名称" />
+        </div>
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Category *</label>
+          <select value={templateForm.category} onChange={(e) => setTemplateForm({ ...templateForm, category: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none">
+            <option value="audio">Audio</option>
+            <option value="video">Video</option>
+            <option value="image">Image</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Max Attempts</label>
+          <input type="number" min="1" value={templateForm.maxAttempts} onChange={(e) => setTemplateForm({ ...templateForm, maxAttempts: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs text-discord-text-muted mb-1">Description (EN)</label>
+          <textarea value={templateForm.description} onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })} rows={3} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none resize-none" placeholder="Task requirements and instructions (Markdown)..." />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs text-discord-text-muted mb-1">Description (CN)</label>
+          <textarea value={templateForm.descriptionCn} onChange={(e) => setTemplateForm({ ...templateForm, descriptionCn: e.target.value })} rows={3} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none resize-none" placeholder="中文任务说明 (支持 Markdown)..." />
+        </div>
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Bounty USD</label>
+          <input value={templateForm.bountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bountyUsd: e.target.value })} placeholder="25.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+        </div>
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Bounty RMB</label>
+          <input value={templateForm.bountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bountyRmb: e.target.value })} placeholder="178.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+        </div>
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Bonus USD</label>
+          <input value={templateForm.bonusBountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyUsd: e.target.value })} placeholder="35.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+        </div>
+        <div>
+          <label className="block text-xs text-discord-text-muted mb-1">Bonus RMB</label>
+          <input value={templateForm.bonusBountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyRmb: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+        </div>
+        {/* Checklist */}
+        <div className="col-span-2">
+          <label className="block text-xs text-discord-text-muted mb-1">Review Checklist</label>
+          {templateForm.checklistItems.length > 0 && (
+            <div className="space-y-1 mb-2">
+              {templateForm.checklistItems.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-xs text-green-400">✓</span>
+                  <span className="flex-1 text-sm text-discord-text">{item}</span>
+                  <button type="button" onClick={() => setTemplateForm({ ...templateForm, checklistItems: templateForm.checklistItems.filter((_, idx) => idx !== i) })} className="text-red-400 hover:text-red-300 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={templateForm.newChecklistItem}
+              onChange={(e) => setTemplateForm({ ...templateForm, newChecklistItem: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && templateForm.newChecklistItem.trim()) {
+                  e.preventDefault();
+                  setTemplateForm({ ...templateForm, checklistItems: [...templateForm.checklistItems, templateForm.newChecklistItem.trim()], newChecklistItem: "" });
+                }
+              }}
+              placeholder="e.g. Audio quality meets requirements"
+              className="flex-1 p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (templateForm.newChecklistItem.trim()) {
+                  setTemplateForm({ ...templateForm, checklistItems: [...templateForm.checklistItems, templateForm.newChecklistItem.trim()], newChecklistItem: "" });
+                }
+              }}
+              className="px-3 py-1.5 text-xs bg-discord-accent/20 text-discord-accent rounded hover:bg-discord-accent/30 transition"
+            >
+              + Add
+            </button>
+          </div>
+        </div>
+      </div>
+      {formError && <p className="text-xs text-discord-red mt-2">{formError}</p>}
+      <div className="flex gap-2 mt-3">
+        <button onClick={saveTemplate} disabled={saving} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
+          {saving ? <Spinner /> : showCreateForm ? "Create Template" : "Save Changes"}
+        </button>
+        <button onClick={() => { setShowCreateForm(false); setEditingTemplateId(null); setTemplateForm(emptyForm); }} className="px-4 py-2 bg-discord-bg-hover text-discord-text-muted rounded text-sm transition hover:text-discord-text">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+
+  if (loading) return <div className="text-discord-text-muted text-sm">Loading templates...</div>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <SectionTitle>Task Templates</SectionTitle>
+        <button
+          onClick={() => showCreateForm ? setShowCreateForm(false) : startCreate()}
+          className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
+        >
+          {showCreateForm ? "Cancel" : "+ Create Template"}
+        </button>
+      </div>
+
+      {/* Create / Edit form */}
+      {(showCreateForm || editingTemplateId) && renderTemplateForm()}
+
+      {/* Template list */}
+      {templates.length === 0 ? (
+        <p className="text-sm text-discord-text-muted text-center py-8">No templates yet. Click &quot;+ Create Template&quot; to get started.</p>
+      ) : (
+        <div className="space-y-3">
+          {templates.map((t) => {
+            const style = TEMPLATE_ICONS[t.category] || { icon: "📋", color: "text-gray-400", bg: "from-gray-500/10 to-gray-500/20" };
+            const isEditing = editingTemplateId === t.id;
+
+            return (
+              <div key={t.id} className={`rounded-lg border border-discord-border bg-gradient-to-br ${style.bg} overflow-hidden ${isEditing ? "ring-2 ring-discord-accent" : ""}`}>
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{style.icon}</span>
+                    <div>
+                      <h4 className="font-semibold text-discord-text">{t.name}</h4>
+                      {t.nameCn && <p className="text-xs text-discord-text-muted">{t.nameCn}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-1">
+                      {t.bountyUsd && <span className="px-1.5 py-0.5 bg-green-500/20 text-green-300 text-[10px] rounded font-semibold">${t.bountyUsd}</span>}
+                      {t.bountyRmb && <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] rounded font-semibold">¥{t.bountyRmb}</span>}
+                      {t.checklist && <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] rounded font-semibold">{t.checklist.length} CHECKS</span>}
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => useTemplate(t)}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-semibold transition"
+                      >
+                        Use Template
+                      </button>
+                      <button
+                        onClick={() => isEditing ? setEditingTemplateId(null) : startEdit(t)}
+                        className="px-3 py-1.5 bg-discord-accent/20 text-discord-accent text-xs rounded hover:bg-discord-accent/30 font-semibold transition"
+                      >
+                        {isEditing ? "Cancel Edit" : "Edit"}
+                      </button>
+                      <button
+                        onClick={() => deleteTemplate(t.id)}
+                        disabled={deletingTemplateId === t.id}
+                        className="px-2 py-1.5 bg-red-500/20 text-red-400 text-xs rounded hover:bg-red-500/30 transition disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {deletingTemplateId === t.id ? <Spinner /> : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {/* Summary */}
+                <div className="px-4 pb-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-xs text-discord-text-muted mb-1">Description preview</p>
+                      <p className="text-discord-text-secondary text-xs line-clamp-3">{t.description || "No description"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-discord-text-muted mb-1">Review checklist</p>
+                      {t.checklist && t.checklist.length > 0 ? (
+                        <ul className="text-xs text-discord-text-secondary space-y-0.5">
+                          {t.checklist.slice(0, 4).map((c, i) => (
+                            <li key={i} className="flex items-center gap-1"><span className="text-green-400">✓</span> {c.label}</li>
+                          ))}
+                          {t.checklist.length > 4 && <li className="text-discord-text-muted">+{t.checklist.length - 4} more...</li>}
+                        </ul>
+                      ) : <p className="text-xs text-discord-text-muted">No checklist items</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Admin: Channels ──────────────────────────────────────────────────────────
 
 function AdminChannelsSection() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -2209,6 +2266,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
     { id: "admin-invites", label: "Invite Codes" },
     { id: "admin-tags", label: "Tags" },
     { id: "admin-tasks", label: "Tasks" },
+    { id: "admin-templates", label: "Task Templates" },
     { id: "admin-channels", label: "Channels" },
   ];
 
@@ -2255,7 +2313,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
                 Admin Settings
               </div>
               {user.role === "admin" && adminItems.map((item) => <NavBtn key={item.id} {...item} />)}
-              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: "Tasks" }].map((item) => <NavBtn key={item.id} {...item} />)}
+              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: "Tasks" }, { id: "admin-templates" as Section, label: "Task Templates" }].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "supermod" && [...adminItems, ...supermodItems].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "admin" && supermodItems.map((item) => <NavBtn key={item.id} {...item} />)}
             </div>
@@ -2284,6 +2342,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
           {section === "admin-invites"  && <AdminInvitesSection />}
           {section === "admin-tags"     && <AdminTagsSection />}
           {section === "admin-tasks"    && <AdminTasksSection />}
+          {section === "admin-templates" && <AdminTemplatesSection />}
           {section === "admin-channels" && <AdminChannelsSection />}
           {section === "admin-audit"    && <AdminAuditSection />}
         </div>
