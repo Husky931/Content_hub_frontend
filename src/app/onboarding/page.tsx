@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spinner } from "@/components/ui/Spinner";
+import { ButtonSpinner } from "@/components/ui/Spinner";
 import { useRouter } from "next/navigation";
 
 type Step = "welcome" | "currency" | "profile" | "done";
@@ -303,7 +303,7 @@ export default function OnboardingPage() {
                       disabled={submitting}
                       className="flex items-center gap-2 px-6 py-3 bg-discord-accent hover:bg-discord-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-40"
                     >
-                      {submitting ? <Spinner /> : "Complete Setup"}
+                      <ButtonSpinner loading={submitting}>Complete Setup</ButtonSpinner>
                       {!submitting && (
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />

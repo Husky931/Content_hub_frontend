@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
-import { Spinner } from "@/components/ui/Spinner";
+import { ButtonSpinner } from "@/components/ui/Spinner";
 
 interface Task {
   id: string;
@@ -354,7 +354,7 @@ function TaskListContent() {
                         disabled={publishingId === task.id}
                         className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                       >
-                        {publishingId === task.id ? <Spinner /> : "Publish"}
+                        <ButtonSpinner loading={publishingId === task.id}>Publish</ButtonSpinner>
                       </button>
                     )}
                     {isMod && (task.submittedCount ?? 0) > 0 && (
@@ -378,7 +378,7 @@ function TaskListContent() {
                         disabled={archivingId === task.id}
                         className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                       >
-                        {archivingId === task.id ? <Spinner /> : "Archive"}
+                        <ButtonSpinner loading={archivingId === task.id}>Archive</ButtonSpinner>
                       </button>
                     )}
                     <div className="text-right">

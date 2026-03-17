@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spinner } from "@/components/ui/Spinner";
+import { ButtonSpinner } from "@/components/ui/Spinner";
 import { FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
 
 interface AppealData {
@@ -237,14 +237,14 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
                   disabled={resolving}
                   className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  {resolving ? <Spinner /> : "Uphold Appeal"}
+                  <ButtonSpinner loading={resolving}>Uphold Appeal</ButtonSpinner>
                 </button>
                 <button
                   onClick={() => handleResolve("denied")}
                   disabled={resolving}
                   className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  {resolving ? <Spinner /> : "Deny Appeal"}
+                  <ButtonSpinner loading={resolving}>Deny Appeal</ButtonSpinner>
                 </button>
               </div>
             </div>

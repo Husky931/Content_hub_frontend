@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spinner } from "@/components/ui/Spinner";
+import { ButtonSpinner } from "@/components/ui/Spinner";
 import { FileUpload, FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
 import { useRouter } from "next/navigation";
 
@@ -482,7 +482,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
                 disabled={deleting}
                 className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
               >
-                {deleting ? <Spinner /> : "Delete"}
+                <ButtonSpinner loading={deleting}>Delete</ButtonSpinner>
               </button>
             </div>
           )}
@@ -526,7 +526,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
               disabled={submitting}
               className="text-xs px-4 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
             >
-              {submitting ? <Spinner /> : "Save Changes"}
+              <ButtonSpinner loading={submitting}>Save Changes</ButtonSpinner>
             </button>
           </div>
         </div>
@@ -591,7 +591,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
               disabled={submitting}
               className="text-xs px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
             >
-              {submitting ? <Spinner /> : isLockedForMe ? "Submit Revision" : "Submit"}
+              <ButtonSpinner loading={submitting}>{isLockedForMe ? "Submit Revision" : "Submit"}</ButtonSpinner>
             </button>
           </div>
         </div>
@@ -669,7 +669,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
                     disabled={appealSubmitting || appealReason.trim().length < 20}
                     className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold transition disabled:opacity-50 flex items-center gap-1"
                   >
-                    {appealSubmitting ? <Spinner /> : "File Appeal"}
+                    <ButtonSpinner loading={appealSubmitting}>File Appeal</ButtonSpinner>
                   </button>
                 </div>
               </div>

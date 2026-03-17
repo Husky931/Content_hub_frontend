@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Spinner } from "@/components/ui/Spinner";
+import { ButtonSpinner } from "@/components/ui/Spinner";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -82,7 +82,7 @@ export function ConfirmDialog({
             disabled={loading}
             className={`px-4 py-2.5 text-sm text-white font-medium rounded transition disabled:opacity-50 flex items-center gap-1.5 ${confirmCls}`}
           >
-            {loading ? <Spinner /> : confirmText}
+            <ButtonSpinner loading={loading}>{confirmText}</ButtonSpinner>
           </button>
         </div>
       </div>

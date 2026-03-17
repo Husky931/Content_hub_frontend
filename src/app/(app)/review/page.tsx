@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Spinner } from "@/components/ui/Spinner";
+import { ButtonSpinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { getSocket, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 import { FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
@@ -754,13 +754,11 @@ function ReviewContent() {
                                   title={hasFailedChecklist ? "Cannot approve — checklist items are unchecked" : undefined}
                                   className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                                 >
-                                  {submitting ? (
-                                    <Spinner />
-                                  ) : (
+                                  <ButtonSpinner loading={submitting}>
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
-                                  )}
+                                  </ButtonSpinner>
                                   {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
                                 </button>
                                 <button
@@ -768,13 +766,11 @@ function ReviewContent() {
                                   disabled={submitting || !rejectionReason.trim()}
                                   className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                                 >
-                                  {submitting ? (
-                                    <Spinner />
-                                  ) : (
+                                  <ButtonSpinner loading={submitting}>
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
-                                  )}
+                                  </ButtonSpinner>
                                   Reject
                                 </button>
                               </div>
@@ -952,13 +948,11 @@ function ReviewContent() {
                             title={hasFailedChecklist ? "Cannot approve — checklist items are unchecked" : undefined}
                             className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                           >
-                            {submitting ? (
-                              <Spinner />
-                            ) : (
+                            <ButtonSpinner loading={submitting}>
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                            )}
+                            </ButtonSpinner>
                             {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
                           </button>
                           {selectedTask.status === "active" && (
@@ -978,13 +972,11 @@ function ReviewContent() {
                             disabled={submitting || !rejectionReason.trim()}
                             className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                           >
-                            {submitting ? (
-                              <Spinner />
-                            ) : (
+                            <ButtonSpinner loading={submitting}>
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
-                            )}
+                            </ButtonSpinner>
                             Reject
                           </button>
                         </div>

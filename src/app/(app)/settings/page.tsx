@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spinner } from "@/components/ui/Spinner";
+import { ButtonSpinner } from "@/components/ui/Spinner";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -119,7 +119,7 @@ export default function SettingsPage() {
               disabled={saving}
               className="px-6 py-2 bg-discord-accent hover:bg-discord-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 text-sm flex items-center gap-1"
             >
-              {saving ? <Spinner /> : "Save Changes"}
+              <ButtonSpinner loading={saving}>Save Changes</ButtonSpinner>
             </button>
           </form>
         </div>

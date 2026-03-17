@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner, ButtonSpinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FileUpload } from "@/components/ui/FileUpload";
 
@@ -246,7 +246,7 @@ function ProfileSection() {
                     disabled={uploading}
                     className="px-4 py-2 bg-discord-accent hover:bg-discord-accent-hover text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center gap-1"
                   >
-                    {uploading ? <Spinner /> : "Upload New"}
+                    <ButtonSpinner loading={uploading}>Upload New</ButtonSpinner>
                   </button>
                   {user.avatarUrl && (
                     <button
@@ -311,7 +311,7 @@ function ProfileSection() {
               disabled={saving}
               className="px-6 py-2.5 bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold text-sm rounded-md transition-colors disabled:opacity-50 shadow-sm flex items-center gap-1"
             >
-              {saving ? <Spinner /> : "Save Changes"}
+              <ButtonSpinner loading={saving}>Save Changes</ButtonSpinner>
             </button>
             {message && (
               <span className={`text-sm font-medium ${message.type === "success" ? "text-discord-green" : "text-discord-red"}`}>
@@ -711,7 +711,7 @@ function AdminInvitesSection() {
             onClick={handleCreate} disabled={creating}
             className="px-5 py-2 bg-discord-accent hover:bg-discord-accent-hover text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center gap-1"
           >
-            {creating ? <Spinner /> : "Generate"}
+            <ButtonSpinner loading={creating}>Generate</ButtonSpinner>
           </button>
         </div>
       </div>
@@ -838,7 +838,7 @@ function AdminTagsSection() {
           disabled={creating || !name.trim()}
           className="px-5 py-2 bg-discord-accent hover:bg-discord-accent-hover text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center gap-1"
         >
-          {creating ? <Spinner /> : "Create Tag"}
+          <ButtonSpinner loading={creating}>Create Tag</ButtonSpinner>
         </button>
       </form>
 
@@ -1194,7 +1194,7 @@ function AdminTasksSection() {
           </div>
           {formError && <p className="text-xs text-discord-red mt-2">{formError}</p>}
           <button onClick={handleCreate} disabled={creating} className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
-            {creating ? <Spinner /> : "Create Task"}
+            <ButtonSpinner loading={creating}>Create Task</ButtonSpinner>
           </button>
         </div>
       )}
@@ -1216,12 +1216,12 @@ function AdminTasksSection() {
               <div className="flex gap-1 shrink-0">
                 {task.status === "draft" && (
                   <>
-                    <button onClick={() => handleStatusChange(task.id, "active")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1">{actionLoadingId === task.id ? <Spinner /> : "Publish"}</button>
-                    <button onClick={() => handleStatusChange(task.id, "archived")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1">{actionLoadingId === task.id ? <Spinner /> : "Archive"}</button>
+                    <button onClick={() => handleStatusChange(task.id, "active")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={actionLoadingId === task.id}>Publish</ButtonSpinner></button>
+                    <button onClick={() => handleStatusChange(task.id, "archived")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={actionLoadingId === task.id}>Archive</ButtonSpinner></button>
                   </>
                 )}
                 {task.status === "active" && (
-                  <button onClick={() => handleStatusChange(task.id, "archived")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1">{actionLoadingId === task.id ? <Spinner /> : "Archive"}</button>
+                  <button onClick={() => handleStatusChange(task.id, "archived")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={actionLoadingId === task.id}>Archive</ButtonSpinner></button>
                 )}
               </div>
             </div>
@@ -1472,7 +1472,7 @@ function AdminTemplatesSection() {
       {formError && <p className="text-xs text-discord-red mt-2">{formError}</p>}
       <div className="flex gap-2 mt-3">
         <button onClick={saveTemplate} disabled={saving} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
-          {saving ? <Spinner /> : showCreateForm ? "Create Template" : "Save Changes"}
+          <ButtonSpinner loading={saving}>{showCreateForm ? "Create Template" : "Save Changes"}</ButtonSpinner>
         </button>
         <button onClick={() => { setShowCreateForm(false); setEditingTemplateId(null); setTemplateForm(emptyForm); }} className="px-4 py-2 bg-discord-bg-hover text-discord-text-muted rounded text-sm transition hover:text-discord-text">
           Cancel
@@ -1541,7 +1541,7 @@ function AdminTemplatesSection() {
                         disabled={deletingTemplateId === t.id}
                         className="px-2 py-1.5 bg-red-500/20 text-red-400 text-xs rounded hover:bg-red-500/30 transition disabled:opacity-50 flex items-center gap-1"
                       >
-                        {deletingTemplateId === t.id ? <Spinner /> : "Delete"}
+                        <ButtonSpinner loading={deletingTemplateId === t.id}>Delete</ButtonSpinner>
                       </button>
                     </div>
                   </div>
@@ -1894,7 +1894,7 @@ function AdminChannelsSection() {
             {createSuccess && <p className="text-sm text-green-400">{createSuccess}</p>}
             <div className="flex items-center gap-3">
               <button onClick={handleCreate} disabled={creating} className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
-                {creating ? <Spinner /> : "Save Channel"}
+                <ButtonSpinner loading={creating}>Save Channel</ButtonSpinner>
               </button>
               <button onClick={() => setShowCreate(false)} className="text-sm text-discord-text-muted hover:text-discord-text transition">Cancel</button>
             </div>
@@ -2024,7 +2024,7 @@ function AdminChannelsSection() {
                         disabled={saving}
                         className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1"
                       >
-                        {saving ? <Spinner /> : "Save Changes"}
+                        <ButtonSpinner loading={saving}>Save Changes</ButtonSpinner>
                       </button>
                       <button onClick={cancelEdit} className="text-xs text-discord-text-muted hover:text-discord-text transition">
                         Cancel
@@ -2088,7 +2088,7 @@ function AdminChannelsSection() {
                           disabled={revokingUserId === m.id}
                           className="px-3 py-1 bg-discord-red/20 text-discord-red hover:bg-discord-red/30 rounded text-xs font-medium transition disabled:opacity-50 flex items-center gap-1"
                         >
-                          {revokingUserId === m.id ? <Spinner /> : "Revoke Tag"}
+                          <ButtonSpinner loading={revokingUserId === m.id}>Revoke Tag</ButtonSpinner>
                         </button>
                       )}
                     </div>
@@ -2203,7 +2203,7 @@ function AdminAuditSection() {
                   <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for reversal (required)..." className="w-full p-2 bg-discord-bg border border-red-500/30 rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none resize-none" rows={2} />
                   <div className="flex gap-2">
                     <button onClick={handleReversal} disabled={submitting || !reason.trim()} className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition disabled:opacity-50 flex items-center gap-1">
-                      {submitting ? <Spinner /> : "Confirm Reversal"}
+                      <ButtonSpinner loading={submitting}>Confirm Reversal</ButtonSpinner>
                     </button>
                     <button onClick={() => { setSelectedItem(null); setReason(""); }} className="text-xs px-3 py-1.5 text-discord-text-muted hover:text-discord-text transition">
                       Cancel
