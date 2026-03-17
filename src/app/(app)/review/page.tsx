@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ButtonSpinner } from "@/components/ui/Spinner";
@@ -72,6 +72,8 @@ function ReviewContent() {
   // Unlock
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  // Track whether we've auto-selected the task from the notification link
+  const autoSelectedRef = useRef(false);
 
   const fetchReviewItems = useCallback(async () => {
     setLoading(true);
@@ -86,7 +88,6 @@ function ReviewContent() {
       // Group attempts by task
       const taskMap = new Map<string, TaskWithAttempts>();
       for (const task of allTasks) {
-        if (taskFilter && task.id !== taskFilter) continue;
         taskMap.set(task.id, {
           id: task.id,
           title: task.title,
@@ -123,6 +124,10 @@ function ReviewContent() {
 
       // Show tasks with submitted attempts OR locked tasks (so mods can unlock them)
       const result = Array.from(taskMap.values()).filter((t) => t.attempts.length > 0 || t.status === "locked");
+      // If coming from a notification, pin that task to the top
+      if (taskFilter) {
+        result.sort((a, b) => (a.id === taskFilter ? -1 : b.id === taskFilter ? 1 : 0));
+      }
       setTasksWithAttempts(result);
     } catch (err) {
       console.error("Failed to fetch review items:", err);
@@ -130,7 +135,7 @@ function ReviewContent() {
     } finally {
       setLoading(false);
     }
-  }, [taskFilter]);
+  }, []);
 
   useEffect(() => {
     if (!["admin", "supermod", "mod"].includes(user?.role ?? "")) {
@@ -240,6 +245,16 @@ function ReviewContent() {
       await fetchReviewItems();
     }
   };
+
+  // Auto-select the task from notification link (only once, on first load)
+  useEffect(() => {
+    if (!taskFilter || loading || autoSelectedRef.current || tasksWithAttempts.length === 0) return;
+    const target = tasksWithAttempts.find((t) => t.id === taskFilter);
+    if (target) {
+      autoSelectedRef.current = true;
+      handleSelectTask(target);
+    }
+  }, [taskFilter, loading, tasksWithAttempts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDeselectTask = async () => {
     if (selectedTask && selectedTask.reviewClaimedById === user?.id) {

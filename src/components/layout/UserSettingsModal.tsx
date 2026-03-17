@@ -1189,19 +1189,19 @@ function AdminTasksSection() {
             </div>
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Bounty USD</label>
-              <input value={bountyUsd} onChange={(e) => setBountyUsd(e.target.value)} placeholder="25.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+              <input value={bountyUsd} onChange={(e) => setBountyUsd(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} placeholder="25.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Bounty RMB</label>
-              <input value={bountyRmb} onChange={(e) => setBountyRmb(e.target.value)} placeholder="178.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+              <input value={bountyRmb} onChange={(e) => setBountyRmb(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} placeholder="178.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Bonus USD</label>
-              <input value={bonusBountyUsd} onChange={(e) => setBonusBountyUsd(e.target.value)} placeholder="35.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+              <input value={bonusBountyUsd} onChange={(e) => setBonusBountyUsd(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} placeholder="35.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Bonus RMB</label>
-              <input value={bonusBountyRmb} onChange={(e) => setBonusBountyRmb(e.target.value)} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+              <input value={bonusBountyRmb} onChange={(e) => setBonusBountyRmb(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
             </div>
             {/* Attachments */}
             <div className="col-span-2">
@@ -1493,19 +1493,19 @@ function AdminTemplatesSection() {
         </div>
         <div>
           <label className="block text-xs text-discord-text-muted mb-1">Bounty USD</label>
-          <input value={templateForm.bountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bountyUsd: e.target.value })} placeholder="25.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+          <input value={templateForm.bountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bountyUsd: e.target.value })} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} placeholder="25.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
         </div>
         <div>
           <label className="block text-xs text-discord-text-muted mb-1">Bounty RMB</label>
-          <input value={templateForm.bountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bountyRmb: e.target.value })} placeholder="178.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+          <input value={templateForm.bountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bountyRmb: e.target.value })} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} placeholder="178.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
         </div>
         <div>
           <label className="block text-xs text-discord-text-muted mb-1">Bonus USD</label>
-          <input value={templateForm.bonusBountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyUsd: e.target.value })} placeholder="35.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+          <input value={templateForm.bonusBountyUsd} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyUsd: e.target.value })} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} placeholder="35.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
         </div>
         <div>
           <label className="block text-xs text-discord-text-muted mb-1">Bonus RMB</label>
-          <input value={templateForm.bonusBountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyRmb: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+          <input value={templateForm.bonusBountyRmb} onChange={(e) => setTemplateForm({ ...templateForm, bonusBountyRmb: e.target.value })} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
         </div>
         {/* Checklist */}
         <div className="col-span-2">
