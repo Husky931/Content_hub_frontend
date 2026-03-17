@@ -293,6 +293,11 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
             TIERED
           </span>
         )}
+        {task.myAttempt?.appealStatus === "granted" && (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-semibold">
+            APPEAL UPHELD
+          </span>
+        )}
         <h4 className="font-semibold text-sm text-discord-text flex-1 truncate ml-1">
           {task.title}
         </h4>

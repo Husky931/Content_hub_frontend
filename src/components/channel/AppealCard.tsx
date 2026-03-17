@@ -33,6 +33,7 @@ interface AppealData {
     title: string;
   } | null;
   channelSlug: string | null;
+  channelName: string | null;
   reviewer: {
     id: string;
     username: string;
@@ -132,6 +133,11 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
         <span className="text-sm font-medium text-discord-text truncate">
           {appeal.task?.title || "Unknown Task"}
         </span>
+        {appeal.channelName && (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-discord-bg-hover text-discord-text-muted font-medium">
+            #{appeal.channelName}
+          </span>
+        )}
         <span className="text-xs text-discord-text-muted ml-auto flex-shrink-0">
           by {creatorName} · {formatDate(appeal.createdAt)}
         </span>

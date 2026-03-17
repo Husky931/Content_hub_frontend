@@ -83,7 +83,7 @@ pnpm add next-intl
 - [x] 4.1.1 When a creator's attempt is **rejected**, an "Appeal" button appears on the attempt
 - [x] 4.1.2 Click Appeal → modal/form opens asking for appeal reason (text, required, min 20 chars)
 - [x] 4.1.3 Submit appeal → `POST /api/appeals` creates record with status "pending"
-- [ ] 4.1.4 Success message: "Appeal filed. A moderator will review it."
+- [x] 4.1.4 Success message: "Appeal filed. A moderator will review it."
 - [x] 4.1.5 Appeal button replaced with "Appeal Pending" badge (disabled) after filing
 - [x] 4.1.6 Creator can file **only one appeal** per rejected attempt
 - [x] 4.1.7 If attempt is not rejected → Appeal button not shown
@@ -92,17 +92,16 @@ pnpm add next-intl
 
 - [x] 4.2.1 #appeals channel shows appeal cards (not regular messages) — each card is a pending appeal
 - [x] 4.2.2 Filing an appeal posts an appeal card to #appeals: task title, creator name, filed date, reason preview
-- [ ] 4.2.3 Filing an appeal triggers an **unread badge** on #appeals for all mods/supermods/admins
+- [x] 4.2.3 Filing an appeal triggers an **unread badge** on #appeals for all mods/supermods/admins
 - [x] 4.2.4 Click "Review" on an appeal card → expands inline to show: original task details, rejection reason, creator's appeal reason
-- [] 4.2.5 Expanded review shows: the submission (deliverables with file previews — images, audio, video)
+- [x] 4.2.5 Expanded review shows: the submission (deliverables with file previews — images, audio, video)
 - [x] 4.2.6 Arbitration notes textarea for the reviewer
 - [x] 4.2.7 Two action buttons: "Uphold Appeal" (green) and "Deny Appeal" (red)
 - [x] 4.2.8 Creators can see their own appeals in #appeals (read-only, no action buttons) — cannot see other creators' appeals
-- [ ] 4.2.9 Resolved appeal cards show "Granted" / "Denied" badge and collapse to a summary
 
 ### 4.3 Resolving an Appeal
 
-- [ ] 4.3.1 **Uphold Appeal** → attempt status changes from "rejected" back to "submitted" (re-enters review queue)
+- [x] 4.3.1 **Uphold Appeal** → attempt status changes from "rejected" back to "submitted" (re-enters review queue)
 - [x] 4.3.2 Upheld appeal → task status returns to "active" if it was moved past active
 - [x] 4.3.3 Upheld appeal → system message in the **task's original channel**: "Appeal upheld for [creator] on [task] — re-submitted for review"
 - [x] 4.3.4 Upheld appeal → notification sent to creator: "Your appeal was upheld"

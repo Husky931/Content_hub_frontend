@@ -279,6 +279,7 @@ export async function GET(req: NextRequest) {
 
         let task = null;
         let channelSlug = null;
+        let channelName = null;
         if (attempt) {
           const [t] = await db
             .select({
@@ -293,11 +294,12 @@ export async function GET(req: NextRequest) {
 
           if (task) {
             const [ch] = await db
-              .select({ slug: channels.slug })
+              .select({ slug: channels.slug, name: channels.name })
               .from(channels)
               .where(eq(channels.id, task.channelId))
               .limit(1);
             channelSlug = ch?.slug || null;
+            channelName = ch?.name || null;
           }
         }
 
@@ -343,6 +345,7 @@ export async function GET(req: NextRequest) {
             ? { id: task.id, title: task.title }
             : null,
           channelSlug,
+          channelName,
           reviewer,
         };
       })
