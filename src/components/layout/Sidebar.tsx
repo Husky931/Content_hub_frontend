@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { UserPanel } from "./UserPanel";
@@ -33,13 +33,25 @@ export function Sidebar() {
     fetchChannels();
   }, [fetchChannels]);
 
-  // Mark channel as read when navigating to it
+  // Track previous channel slug to mark it as read when leaving
+  const prevSlugRef = useRef<string | null>(null);
+
+  // Mark channel as read when navigating to it AND when leaving it
   useEffect(() => {
     const match = pathname.match(/^\/channels\/(.+)$/);
-    if (!match) return;
-    const activeSlug = match[1];
+    const activeSlug = match ? match[1] : null;
 
-    // Mark as read
+    // Mark the PREVIOUS channel as read when navigating away
+    // (catches messages sent by the user while they were in that channel)
+    if (prevSlugRef.current && prevSlugRef.current !== activeSlug) {
+      fetch(`/api/channels/${prevSlugRef.current}/read`, { method: "POST" }).catch(() => {});
+    }
+
+    prevSlugRef.current = activeSlug;
+
+    if (!activeSlug) return;
+
+    // Mark current channel as read
     fetch(`/api/channels/${activeSlug}/read`, { method: "POST" }).catch(
       () => {}
     );

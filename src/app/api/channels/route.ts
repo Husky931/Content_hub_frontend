@@ -48,14 +48,14 @@ export async function GET() {
     const unreadCounts: Record<string, number> = {};
 
     if (visibleIds.length > 0) {
-      // Get read positions with the last-read message's createdAt
+      // Get read positions using lastReadAt timestamp directly
+      // (avoids innerJoin issue when lastReadMessageId is null)
       const readPositions = await db
         .select({
           channelId: channelReads.channelId,
-          lastReadAt: messages.createdAt,
+          lastReadAt: channelReads.lastReadAt,
         })
         .from(channelReads)
-        .innerJoin(messages, eq(channelReads.lastReadMessageId, messages.id))
         .where(
           and(
             eq(channelReads.userId, auth.userId),
@@ -68,25 +68,12 @@ export async function GET() {
         readAtMap[r.channelId] = r.lastReadAt;
       }
 
-      // For channels with read positions, batch count unread messages
-      // We do one query per channel but only for channels with a read record
+      // For channels with read records, count messages after lastReadAt
       const channelsWithReads = visibleChannels.filter(
         (ch) => readAtMap[ch.id]
       );
 
       if (channelsWithReads.length > 0) {
-        // Use a single query with CASE WHEN for all channels at once
-        const results = await db
-          .select({
-            channelId: messages.channelId,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(messages)
-          .where(inArray(messages.channelId, channelsWithReads.map((c) => c.id)))
-          .groupBy(messages.channelId);
-
-        // Count only messages after each channel's last-read timestamp
-        // We need per-channel filtering, so use individual counts
         for (const ch of channelsWithReads) {
           const afterDate = readAtMap[ch.id];
           const [result] = await db
