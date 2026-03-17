@@ -321,6 +321,8 @@ function TaskListContent() {
                       <div className="text-xs text-discord-text-muted truncate">
                         <span className="text-discord-text-muted/70">by {task.createdByUsername}</span>
                         <span className="mx-1.5">·</span>
+                        <span className="text-discord-text-muted/60">created: {(() => { const d = new Date(task.createdAt); return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; })()}</span>
+                        <span className="mx-1.5">·</span>
                         {task.description}
                       </div>
                     </div>

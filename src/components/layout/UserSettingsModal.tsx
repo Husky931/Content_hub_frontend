@@ -1163,7 +1163,7 @@ function AdminTasksSection() {
             </div>
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-discord-text-muted">Description (EN)</label>
+                <label className="text-xs text-discord-text-muted">Description (EN) *</label>
                 <button type="button" onClick={() => setPreviewDescEn(!previewDescEn)} className="text-[10px] px-2 py-0.5 rounded bg-discord-bg-hover text-discord-text-muted hover:text-discord-text transition">
                   {previewDescEn ? "Edit" : "Preview"}
                 </button>
@@ -1288,7 +1288,7 @@ function AdminTasksSection() {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-discord-text truncate">{task.title}</div>
-                <div className="text-xs text-discord-text-muted">#{task.channelName} — by {task.createdByUsername} — {task.attemptCount} attempts</div>
+                <div className="text-xs text-discord-text-muted">#{task.channelName} — by {task.createdByUsername} — {task.attemptCount} attempts — created: {(() => { const d = new Date(task.createdAt); return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; })()}</div>
               </div>
               <span className="text-sm font-bold text-green-400 shrink-0">${task.bountyUsd || "0"}</span>
               <div className="flex gap-1 shrink-0">
