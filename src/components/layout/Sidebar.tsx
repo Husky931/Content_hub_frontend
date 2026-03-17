@@ -22,10 +22,27 @@ export function Sidebar() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  // Track the current active slug so fetchChannels can always clear it
+  const activeSlugRef = useRef<string | null>(null);
+
   const fetchChannels = useCallback(() => {
     fetch("/api/channels")
       .then((res) => res.json())
-      .then((data) => setChannels(data.channels || []))
+      .then((data) => {
+        const fetched: Channel[] = data.channels || [];
+        // Always force-clear unread for the currently active channel
+        // (prevents race condition where fetch returns stale data)
+        const currentSlug = activeSlugRef.current;
+        if (currentSlug) {
+          setChannels(
+            fetched.map((ch) =>
+              ch.slug === currentSlug ? { ...ch, unreadCount: 0 } : ch
+            )
+          );
+        } else {
+          setChannels(fetched);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -48,6 +65,7 @@ export function Sidebar() {
     }
 
     prevSlugRef.current = activeSlug;
+    activeSlugRef.current = activeSlug;
 
     if (!activeSlug) return;
 
@@ -63,6 +81,13 @@ export function Sidebar() {
       )
     );
   }, [pathname]);
+
+  // Poll for unread counts every 15s to catch messages in other channels
+  // (WebSocket events only arrive for the currently joined channel room)
+  useEffect(() => {
+    const interval = setInterval(fetchChannels, 15000);
+    return () => clearInterval(interval);
+  }, [fetchChannels]);
 
   // Listen for real-time messages to increment unread counts
   useEffect(() => {
