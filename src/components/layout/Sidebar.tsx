@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { UserPanel } from "./UserPanel";
-import { onSocketReady, WS_EVENTS } from "@/lib/realtime";
 
 interface Channel {
   id: string;
@@ -14,7 +13,7 @@ interface Channel {
   description: string | null;
   isFixed: boolean;
   requiredTagId: string | null;
-  unreadCount: number;
+  hasUnread: boolean;
 }
 
 export function Sidebar() {
@@ -22,27 +21,10 @@ export function Sidebar() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // Track the current active slug so fetchChannels can always clear it
-  const activeSlugRef = useRef<string | null>(null);
-
   const fetchChannels = useCallback(() => {
     fetch("/api/channels")
       .then((res) => res.json())
-      .then((data) => {
-        const fetched: Channel[] = data.channels || [];
-        // Always force-clear unread for the currently active channel
-        // (prevents race condition where fetch returns stale data)
-        const currentSlug = activeSlugRef.current;
-        if (currentSlug) {
-          setChannels(
-            fetched.map((ch) =>
-              ch.slug === currentSlug ? { ...ch, unreadCount: 0 } : ch
-            )
-          );
-        } else {
-          setChannels(fetched);
-        }
-      })
+      .then((data) => setChannels(data.channels || []))
       .catch(() => {});
   }, []);
 
@@ -50,86 +32,30 @@ export function Sidebar() {
     fetchChannels();
   }, [fetchChannels]);
 
-  // Track previous channel slug to mark it as read when leaving
-  const prevSlugRef = useRef<string | null>(null);
-
-  // Mark channel as read when navigating to it AND when leaving it
+  // Mark channel as read when navigating to it
   useEffect(() => {
     const match = pathname.match(/^\/channels\/(.+)$/);
-    const activeSlug = match ? match[1] : null;
+    if (!match) return;
+    const activeSlug = match[1];
 
-    // Mark the PREVIOUS channel as read when navigating away
-    // (catches messages sent by the user while they were in that channel)
-    if (prevSlugRef.current && prevSlugRef.current !== activeSlug) {
-      fetch(`/api/channels/${prevSlugRef.current}/read`, { method: "POST" }).catch(() => {});
-    }
-
-    prevSlugRef.current = activeSlug;
-    activeSlugRef.current = activeSlug;
-
-    if (!activeSlug) return;
-
-    // Mark current channel as read
+    // Mark as read on server
     fetch(`/api/channels/${activeSlug}/read`, { method: "POST" }).catch(
       () => {}
     );
 
-    // Clear the unread count locally immediately
+    // Clear unread locally immediately
     setChannels((prev) =>
       prev.map((ch) =>
-        ch.slug === activeSlug ? { ...ch, unreadCount: 0 } : ch
+        ch.slug === activeSlug ? { ...ch, hasUnread: false } : ch
       )
     );
   }, [pathname]);
 
-  // Poll for unread counts every 15s to catch messages in other channels
-  // (WebSocket events only arrive for the currently joined channel room)
+  // Refetch channels when window regains focus (catches messages from other tabs/users)
   useEffect(() => {
-    const interval = setInterval(fetchChannels, 15000);
-    return () => clearInterval(interval);
-  }, [fetchChannels]);
-
-  // Listen for real-time messages to increment unread counts
-  useEffect(() => {
-    let activeSocket: ReturnType<typeof import("@/lib/realtime").getSocket> =
-      null;
-
-    const handleNewMessage = (msg: { channelSlug?: string }) => {
-      // The WS event is broadcast to the channel room, but the sidebar
-      // listens globally. We get the channelSlug from the room context.
-      // Instead, we'll refetch channel unread counts periodically.
-    };
-
-    // Refetch unread counts when any message event fires (debounced)
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const debouncedRefetch = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        fetchChannels();
-      }, 2000);
-    };
-
-    const setup = (
-      socket: NonNullable<
-        ReturnType<typeof import("@/lib/realtime").getSocket>
-      >
-    ) => {
-      activeSocket = socket;
-      // Listen for any message events to trigger refetch
-      socket.on(WS_EVENTS.MESSAGE_NEW, debouncedRefetch);
-      socket.on(WS_EVENTS.MESSAGE_SYSTEM, debouncedRefetch);
-    };
-
-    const unsub = onSocketReady(setup);
-
-    return () => {
-      unsub();
-      if (debounceTimer) clearTimeout(debounceTimer);
-      if (activeSocket) {
-        activeSocket.off(WS_EVENTS.MESSAGE_NEW, debouncedRefetch);
-        activeSocket.off(WS_EVENTS.MESSAGE_SYSTEM, debouncedRefetch);
-      }
-    };
+    const onFocus = () => fetchChannels();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [fetchChannels]);
 
   const specialChannels = channels.filter((c) => c.type === "special");
@@ -175,7 +101,7 @@ export function Sidebar() {
         {!isCollapsed &&
           items.map((ch) => {
             const active = isActive(ch.slug);
-            const hasUnread = !active && ch.unreadCount > 0;
+            const unread = !active && ch.hasUnread;
             return (
               <Link
                 key={ch.id}
@@ -183,7 +109,7 @@ export function Sidebar() {
                 className={`flex items-center gap-2 px-3 py-1.5 mx-2 rounded text-sm transition-colors ${
                   active
                     ? "bg-discord-bg-hover text-discord-text font-medium"
-                    : hasUnread
+                    : unread
                     ? "text-discord-text font-semibold hover:bg-discord-bg-hover/50"
                     : "text-discord-text-muted hover:text-discord-text-secondary hover:bg-discord-bg-hover/50"
                 }`}
@@ -193,16 +119,8 @@ export function Sidebar() {
                 </span>
                 <span className="truncate">{ch.name}</span>
 
-                {/* Unread badge */}
-                {hasUnread && (
-                  <span className="ml-auto min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                    {ch.unreadCount > 99 ? "99+" : ch.unreadCount}
-                  </span>
-                )}
-
-                {/* Tag indicator (only show if no unread badge) */}
-                {!hasUnread &&
-                  ch.type === "task" &&
+                {/* Tag indicator */}
+                {ch.type === "task" &&
                   ch.requiredTagId && (
                     <span className="ml-auto text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
                       tag

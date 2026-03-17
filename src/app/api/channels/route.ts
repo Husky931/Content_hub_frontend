@@ -41,52 +41,33 @@ export async function GET() {
       return true;
     });
 
-    // Get unread counts in a single query using a subquery approach:
-    // For each channel, count messages created after the user's last-read message.
-    // If no read record → 0 unread (first visit = all read).
+    // Determine which channels have unread messages (boolean only).
+    // Single query: get user's read positions for all visible channels.
+    // If no read record exists → no unread (first visit = all read).
+    // If read record exists → check if any message exists after lastReadAt.
     const visibleIds = visibleChannels.map((ch) => ch.id);
-    const unreadCounts: Record<string, number> = {};
+    const unreadSet = new Set<string>();
 
     if (visibleIds.length > 0) {
-      // Get read positions using lastReadAt timestamp directly
-      // (avoids innerJoin issue when lastReadMessageId is null)
-      const readPositions = await db
-        .select({
-          channelId: channelReads.channelId,
-          lastReadAt: channelReads.lastReadAt,
-        })
+      // Single query: find channels where messages exist after the user's lastReadAt
+      const unreadChannels = await db
+        .select({ channelId: channelReads.channelId })
         .from(channelReads)
         .where(
           and(
             eq(channelReads.userId, auth.userId),
-            inArray(channelReads.channelId, visibleIds)
+            inArray(channelReads.channelId, visibleIds),
+            sql`EXISTS (
+              SELECT 1 FROM messages m
+              WHERE m.channel_id = ${channelReads.channelId}
+              AND m.created_at > ${channelReads.lastReadAt}
+              LIMIT 1
+            )`
           )
         );
 
-      const readAtMap: Record<string, Date> = {};
-      for (const r of readPositions) {
-        readAtMap[r.channelId] = r.lastReadAt;
-      }
-
-      // For channels with read records, count messages after lastReadAt
-      const channelsWithReads = visibleChannels.filter(
-        (ch) => readAtMap[ch.id]
-      );
-
-      if (channelsWithReads.length > 0) {
-        for (const ch of channelsWithReads) {
-          const afterDate = readAtMap[ch.id];
-          const [result] = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(messages)
-            .where(
-              and(
-                eq(messages.channelId, ch.id),
-                gt(messages.createdAt, afterDate)
-              )
-            );
-          unreadCounts[ch.id] = result?.count || 0;
-        }
+      for (const row of unreadChannels) {
+        unreadSet.add(row.channelId);
       }
     }
 
@@ -100,7 +81,7 @@ export async function GET() {
         description: ch.description,
         isFixed: ch.isFixed,
         requiredTagId: ch.requiredTagId,
-        unreadCount: unreadCounts[ch.id] || 0,
+        hasUnread: unreadSet.has(ch.id),
       })),
     });
   } catch (error) {

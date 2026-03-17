@@ -78,44 +78,6 @@ pnpm add next-intl
 
 ---
 
-## 3. Internationalization (i18n)
-
-### 3.1 Language Toggle & Preference
-
-- [ ] 3.1.1 User dropdown (top-right) shows language toggle: EN / 中文
-- [ ] 3.1.2 Clicking toggles the entire UI language immediately
-- [ ] 3.1.3 Language preference saved to user record (`users.language` field, default 'en')
-- [ ] 3.1.4 On login, UI loads in user's saved language
-- [ ] 3.1.5 New users default to English
-
-### 3.2 UI String Translation
-
-- [ ] 3.2.1 Sidebar labels translated (Channels, Task Channels, Discussion, Settings, etc.)
-- [ ] 3.2.2 Navbar elements translated (Notifications, Financials, Wallet, etc.)
-- [ ] 3.2.3 Settings modal tabs and labels translated
-- [ ] 3.2.4 Task-related UI translated (Submit Attempt, Approve, Reject, Review, etc.)
-- [ ] 3.2.5 Onboarding flow translated (Welcome, Currency Selection, Profile Setup)
-- [ ] 3.2.6 Error messages translated ("Invalid credentials", "File too large", etc.)
-- [ ] 3.2.7 Empty states translated ("No messages yet", "No tasks available", etc.)
-- [ ] 3.2.8 System messages translated ("New task published", "Attempt approved", etc.)
-
-### 3.3 Content Localization (Existing CN Fields)
-
-- [ ] 3.3.1 When language = 中文: channel names show `nameCn` (fallback to `name` if CN empty)
-- [ ] 3.3.2 When language = 中文: channel descriptions show `descriptionCn`
-- [ ] 3.3.3 When language = 中文: task titles show `titleCn` (fallback to `title`)
-- [ ] 3.3.4 When language = 中文: task descriptions show `descriptionCn`
-- [ ] 3.3.5 When language = 中文: tag names show `nameCn`
-- [ ] 3.3.6 When language = EN: all fields show English versions (current behavior)
-
-### 3.4 Currency Display
-
-- [ ] 3.4.1 Creator sees bounty in their selected currency (already works from P1)
-- [ ] 3.4.2 Currency symbol matches: $ for USD, ¥ for RMB
-- [ ] 3.4.3 Financials page shows amounts in user's currency
-
----
-
 ## 4. Appeals System
 
 ### 4.1 Filing an Appeal (Creator)
@@ -206,6 +168,44 @@ Appeals live in the **#appeals** special channel. When a creator files an appeal
 - [ ] 5.5.3 Lock on non-active task → 400 "Can only lock active tasks"
 - [ ] 5.5.4 Unlock on non-locked task → 400 "Task is not locked"
 - [ ] 5.5.5 Submit attempt on locked task by wrong creator → 403 "Task is locked for another creator"
+
+---
+
+## 3. Internationalization (i18n)
+
+### 3.1 Language Toggle & Preference
+
+- [ ] 3.1.1 User dropdown (top-right) shows language toggle: EN / 中文
+- [ ] 3.1.2 Clicking toggles the entire UI language immediately
+- [ ] 3.1.3 Language preference saved to user record (`users.language` field, default 'en')
+- [ ] 3.1.4 On login, UI loads in user's saved language
+- [ ] 3.1.5 New users default to English
+
+### 3.2 UI String Translation
+
+- [ ] 3.2.1 Sidebar labels translated (Channels, Task Channels, Discussion, Settings, etc.)
+- [ ] 3.2.2 Navbar elements translated (Notifications, Financials, Wallet, etc.)
+- [ ] 3.2.3 Settings modal tabs and labels translated
+- [ ] 3.2.4 Task-related UI translated (Submit Attempt, Approve, Reject, Review, etc.)
+- [ ] 3.2.5 Onboarding flow translated (Welcome, Currency Selection, Profile Setup)
+- [ ] 3.2.6 Error messages translated ("Invalid credentials", "File too large", etc.)
+- [ ] 3.2.7 Empty states translated ("No messages yet", "No tasks available", etc.)
+- [ ] 3.2.8 System messages translated ("New task published", "Attempt approved", etc.)
+
+### 3.3 Content Localization (Existing CN Fields)
+
+- [ ] 3.3.1 When language = 中文: channel names show `nameCn` (fallback to `name` if CN empty)
+- [ ] 3.3.2 When language = 中文: channel descriptions show `descriptionCn`
+- [ ] 3.3.3 When language = 中文: task titles show `titleCn` (fallback to `title`)
+- [ ] 3.3.4 When language = 中文: task descriptions show `descriptionCn`
+- [ ] 3.3.5 When language = 中文: tag names show `nameCn`
+- [ ] 3.3.6 When language = EN: all fields show English versions (current behavior)
+
+### 3.4 Currency Display
+
+- [ ] 3.4.1 Creator sees bounty in their selected currency (already works from P1)
+- [ ] 3.4.2 Currency symbol matches: $ for USD, ¥ for RMB
+- [ ] 3.4.3 Financials page shows amounts in user's currency
 
 ---
 
