@@ -442,7 +442,11 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
             <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
               Submitted
             </span>
-            <span className="text-xs text-discord-text-muted">Your submission is pending review</span>
+            <span className="text-xs text-discord-text-muted">
+              {task.status === "locked" && !isLockedForMe
+                ? "Task is locked for revision — your submission is on hold"
+                : "Your submission is pending review"}
+            </span>
           </div>
           <div className="mb-2 px-2.5 py-1.5 rounded border border-emerald-500/30 bg-emerald-500/10">
             <span className="text-xs text-emerald-400">This submission is only visible to you and reviewers</span>
