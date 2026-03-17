@@ -1256,7 +1256,7 @@ interface ChannelMod {
 // ─── Admin: Task Templates ───────────────────────────────────────────────────
 
 function AdminTemplatesSection() {
-  const { openSettings } = useSettingsModal();
+  const { navigateTo } = useSettingsModal();
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
@@ -1374,7 +1374,7 @@ function AdminTemplatesSection() {
       bonusBountyUsd: t.bonusBountyUsd, bonusBountyRmb: t.bonusBountyRmb,
       maxAttempts: t.maxAttempts, checklist: t.checklist,
     }));
-    openSettings("admin-tasks");
+    navigateTo("admin-tasks");
   };
 
   // Shared form UI for both create and edit
@@ -2233,6 +2233,7 @@ interface UserSettingsModalProps {
 
 export function UserSettingsModal({ isOpen, onClose, initialSection = "my-account" }: UserSettingsModalProps) {
   const { user, logout } = useAuth();
+  const { navTick } = useSettingsModal();
   const [section, setSection] = useState<Section>(initialSection);
 
   useEffect(() => {
@@ -2244,7 +2245,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
 
   useEffect(() => {
     if (isOpen) setSection(initialSection);
-  }, [isOpen, initialSection]);
+  }, [isOpen, initialSection, navTick]);
 
   if (!isOpen || !user) return null;
 

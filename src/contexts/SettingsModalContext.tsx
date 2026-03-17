@@ -17,20 +17,27 @@ type SettingsSection =
 interface SettingsModalContextValue {
   isOpen: boolean;
   initialSection: SettingsSection;
+  /** Counter that increments on every navigateTo call to force section changes */
+  navTick: number;
   openSettings: (section?: SettingsSection) => void;
   closeSettings: () => void;
+  /** Navigate to a section while the modal is already open */
+  navigateTo: (section: SettingsSection) => void;
 }
 
 const SettingsModalContext = createContext<SettingsModalContextValue>({
   isOpen: false,
   initialSection: "my-account",
+  navTick: 0,
   openSettings: () => {},
   closeSettings: () => {},
+  navigateTo: () => {},
 });
 
 export function SettingsModalProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [initialSection, setInitialSection] = useState<SettingsSection>("my-account");
+  const [navTick, setNavTick] = useState(0);
 
   const openSettings = useCallback((section?: SettingsSection) => {
     setInitialSection(section || "my-account");
@@ -41,8 +48,13 @@ export function SettingsModalProvider({ children }: { children: React.ReactNode 
     setIsOpen(false);
   }, []);
 
+  const navigateTo = useCallback((section: SettingsSection) => {
+    setInitialSection(section);
+    setNavTick((t) => t + 1);
+  }, []);
+
   return (
-    <SettingsModalContext.Provider value={{ isOpen, initialSection, openSettings, closeSettings }}>
+    <SettingsModalContext.Provider value={{ isOpen, initialSection, navTick, openSettings, closeSettings, navigateTo }}>
       {children}
     </SettingsModalContext.Provider>
   );
