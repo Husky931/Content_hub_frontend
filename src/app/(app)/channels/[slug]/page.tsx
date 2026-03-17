@@ -9,6 +9,7 @@ import { TaskCard } from "@/components/channel/TaskCard";
 import { AppealCard } from "@/components/channel/AppealCard";
 import { getSocket, joinChannel, leaveChannel, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 import { Spinner } from "@/components/ui/Spinner";
+import { SystemMessage } from "@/components/channel/SystemMessage";
 
 interface Message {
   id: string;
@@ -487,13 +488,20 @@ export default function ChannelPage() {
       );
     }
 
+    // System messages get their own themed component
+    if (msg.type === "system") {
+      return (
+        <div key={msg.id} className={isReply ? "ml-6" : ""}>
+          <SystemMessage id={msg.id} content={msg.content} createdAt={msg.createdAt} />
+        </div>
+      );
+    }
+
     return (
       <div
         key={msg.id}
         className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${
-          msg.type === "system"
-            ? "opacity-70"
-            : msg.type === "mod"
+          msg.type === "mod"
             ? "border-l-2 border-discord-accent pl-4"
             : ""
         } ${isReply ? "ml-6" : ""}`}
@@ -514,17 +522,13 @@ export default function ChannelPage() {
               <div
                 className={`rounded-full flex items-center justify-center text-white font-bold ${
                   isReply ? "w-7 h-7 text-xs" : "w-10 h-10 text-sm"
-                } ${
-                  msg.type === "system"
-                    ? "bg-discord-text-muted"
-                    : (ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent")
-                }`}
+                } ${ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent"}`}
               >
                 {(msg.user?.displayName || msg.user?.username || "S")
                   .slice(0, 2)
                   .toUpperCase()}
               </div>
-              {!isReply && msg.type !== "system" && msg.user && <RoleIcon role={msg.user.role} />}
+              {!isReply && msg.user && <RoleIcon role={msg.user.role} />}
             </>
           )}
         </div>
@@ -539,17 +543,12 @@ export default function ChannelPage() {
             >
               {msg.user?.displayName || msg.user?.username || "System"}
             </span>
-            {msg.user && msg.type !== "system" && (
+            {msg.user && (
               <RoleTag role={msg.user.role} small={isReply} />
             )}
             {msg.type === "mod" && (
               <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
                 MOD
-              </span>
-            )}
-            {msg.type === "system" && (
-              <span className="text-xs px-1.5 py-0.5 bg-discord-text-muted/20 text-discord-text-muted rounded">
-                SYSTEM
               </span>
             )}
             <span className="text-xs text-discord-text-muted">
@@ -560,7 +559,7 @@ export default function ChannelPage() {
             )}
 
             {/* Action buttons — visible on hover */}
-            {msg.type !== "system" && (
+            {(
               <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {/* Reply */}
                 {canPost && (
