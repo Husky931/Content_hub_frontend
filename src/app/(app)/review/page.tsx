@@ -538,204 +538,458 @@ function ReviewContent() {
                 </div>
               )}
 
-              {/* Attempt selector tabs */}
-              {isClaimedByMe && selectedTask.attempts.length > 1 && (
-                <div className="flex gap-1 mb-4 overflow-x-auto">
-                  {selectedTask.attempts.map((a, i) => (
-                    <button
-                      key={a.id}
-                      onClick={() => {
-                        setSelectedAttempt(a);
-                        setReviewNote("");
-                        setRejectionReason("");
-                        setReviewError("");
-                      }}
-                      className={`px-3 py-1.5 text-xs rounded font-medium transition whitespace-nowrap cursor-pointer ${
-                        selectedAttempt?.id === a.id
-                          ? "bg-discord-accent text-white"
-                          : "bg-discord-sidebar text-discord-text-muted hover:text-discord-text"
-                      }`}
-                    >
-                      {a.displayName || a.username}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* === LOCKED TASK: Split view — locked user's revision vs other attempts === */}
+              {selectedTask.status === "locked" && isClaimedByMe && (() => {
+                const lockedAttempts = selectedTask.attempts.filter((a) => a.userId === selectedTask.lockedById);
+                const otherAttempts = selectedTask.attempts.filter((a) => a.userId !== selectedTask.lockedById);
+                const lockedAttempt = lockedAttempts.length > 0 ? lockedAttempts[lockedAttempts.length - 1] : null;
+                const isViewingLocked = selectedAttempt && selectedAttempt.userId === selectedTask.lockedById;
 
-              {/* Selected attempt detail */}
-              {selectedAttempt && isClaimedByMe && (
-                <>
-                  <div className="mb-4">
-                    <p className="text-sm text-discord-text-muted">
-                      Submitted by{" "}
-                      <span className="text-discord-text font-medium">
-                        {selectedAttempt.displayName || selectedAttempt.username}
-                      </span>{" "}
-                      — {formatTime(selectedAttempt.createdAt)}
-                    </p>
-                  </div>
-
-                  {/* Task reference attachments */}
-                  {selectedTask.attachments && selectedTask.attachments.length > 0 && (
-                    <div className="mb-4 p-3 bg-discord-bg-dark rounded-lg border border-discord-border">
-                      <FilePreviewList files={selectedTask.attachments} label="Task Reference Files" />
-                    </div>
-                  )}
-
-                  {/* Deliverables */}
-                  <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
-                    <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">
-                      Deliverables
-                    </h4>
-                    {selectedAttempt.deliverables?.text && (
-                      <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-sidebar p-3 rounded mb-3">
-                        {selectedAttempt.deliverables.text}
+                return (
+                  <>
+                    {/* Locked user's revision section */}
+                    <div className="mb-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <h4 className="text-sm font-semibold text-orange-300">
+                          Locked: {lockedAttempt?.displayName || lockedAttempt?.username || "Awaiting revision"}
+                        </h4>
                       </div>
-                    )}
-                    {selectedAttempt.deliverables?.files && selectedAttempt.deliverables.files.length > 0 && (
-                      <FilePreviewList files={selectedAttempt.deliverables.files} label="Submitted Files" />
-                    )}
-                    {!selectedAttempt.deliverables?.text && (!selectedAttempt.deliverables?.files || selectedAttempt.deliverables.files.length === 0) && (
-                      <p className="text-sm text-discord-text-muted italic">
-                        {JSON.stringify(selectedAttempt.deliverables)}
-                      </p>
-                    )}
-                  </div>
 
-                  {/* Review Checklist */}
-                  {selectedTask.checklist && selectedTask.checklist.length > 0 && isClaimedByMe && (
-                    <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
-                      <h4 className="text-xs font-semibold text-discord-text-muted mb-1 uppercase">
-                        Review Checklist
-                      </h4>
-                      <p className="text-[10px] text-discord-text-muted mb-3">
-                        All items start checked. Uncheck any item that fails — unchecked items block approval.
-                      </p>
-                      <div className="space-y-2">
-                        {selectedTask.checklist.map((item, i) => {
-                          const checked = checklistState[i] !== false;
-                          return (
-                            <label key={i} className="flex items-center gap-2 cursor-pointer group">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(e) => {
-                                  setChecklistState((prev) => ({ ...prev, [i]: e.target.checked }));
-                                }}
-                                className="rounded"
-                              />
-                              <span className={`text-sm transition ${checked ? "text-discord-text" : "text-red-400 line-through"}`}>
-                                {item.label}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      {Object.values(checklistState).some((v) => !v) && (
-                        <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-                          <p className="text-xs font-semibold text-red-400 mb-1">FAILED ITEMS:</p>
-                          <ul className="text-xs text-red-300 space-y-0.5">
-                            {selectedTask.checklist.map((item, i) =>
-                              checklistState[i] === false ? <li key={i}>• {item.label}</li> : null
-                            )}
-                          </ul>
+                      {lockedAttempt ? (
+                        <button
+                          onClick={() => {
+                            setSelectedAttempt(lockedAttempt);
+                            setReviewNote("");
+                            setRejectionReason("");
+                            setReviewError("");
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition cursor-pointer border ${
+                            isViewingLocked
+                              ? "bg-orange-500/15 border-orange-500/40 text-orange-200"
+                              : "bg-discord-sidebar border-discord-border text-discord-text-muted hover:text-discord-text"
+                          }`}
+                        >
+                          {lockedAttempt.displayName || lockedAttempt.username} — revision submitted {formatTime(lockedAttempt.createdAt)}
+                        </button>
+                      ) : (
+                        <div className="px-3 py-2 rounded-lg bg-discord-sidebar border border-discord-border">
+                          <p className="text-xs text-discord-text-muted italic">No revision submitted yet</p>
                         </div>
                       )}
                     </div>
-                  )}
 
-                  {/* Self-review warning */}
-                  {selectedAttempt.userId === user?.id && (
-                    <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                      <p className="text-sm text-amber-400">
-                        You submitted this attempt — you cannot review your own submission.
-                      </p>
+                    {/* Other attempts section (read-only) */}
+                    {otherAttempts.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-discord-text-muted mb-3">
+                          Other submissions
+                        </h4>
+                        <div className="flex gap-1 overflow-x-auto">
+                          {otherAttempts.map((a) => (
+                            <button
+                              key={a.id}
+                              onClick={() => {
+                                setSelectedAttempt(a);
+                                setReviewNote("");
+                                setRejectionReason("");
+                                setReviewError("");
+                              }}
+                              className={`px-3 py-1.5 text-xs rounded font-medium transition whitespace-nowrap cursor-pointer ${
+                                selectedAttempt?.id === a.id
+                                  ? "bg-discord-accent text-white"
+                                  : "bg-discord-sidebar text-discord-text-muted hover:text-discord-text"
+                              }`}
+                            >
+                              {a.displayName || a.username}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Attempt detail — shown for whichever attempt is selected */}
+                    {selectedAttempt && (
+                      <>
+                        <div className="mb-4">
+                          <p className="text-sm text-discord-text-muted">
+                            Submitted by{" "}
+                            <span className="text-discord-text font-medium">
+                              {selectedAttempt.displayName || selectedAttempt.username}
+                            </span>{" "}
+                            — {formatTime(selectedAttempt.createdAt)}
+                            {!isViewingLocked && (
+                              <span className="ml-2 text-xs text-discord-text-muted italic">(read-only — task is locked)</span>
+                            )}
+                          </p>
+                        </div>
+
+                        {/* Task reference attachments */}
+                        {selectedTask.attachments && selectedTask.attachments.length > 0 && (
+                          <div className="mb-4 p-3 bg-discord-bg-dark rounded-lg border border-discord-border">
+                            <FilePreviewList files={selectedTask.attachments} label="Task Reference Files" />
+                          </div>
+                        )}
+
+                        {/* Deliverables */}
+                        <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
+                          <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">
+                            Deliverables
+                          </h4>
+                          {selectedAttempt.deliverables?.text && (
+                            <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-sidebar p-3 rounded mb-3">
+                              {selectedAttempt.deliverables.text}
+                            </div>
+                          )}
+                          {selectedAttempt.deliverables?.files && selectedAttempt.deliverables.files.length > 0 && (
+                            <FilePreviewList files={selectedAttempt.deliverables.files} label="Submitted Files" />
+                          )}
+                          {!selectedAttempt.deliverables?.text && (!selectedAttempt.deliverables?.files || selectedAttempt.deliverables.files.length === 0) && (
+                            <p className="text-sm text-discord-text-muted italic">
+                              {JSON.stringify(selectedAttempt.deliverables)}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Review controls — ONLY for locked user's revision */}
+                        {isViewingLocked && (
+                          <>
+                            {/* Review Checklist */}
+                            {selectedTask.checklist && selectedTask.checklist.length > 0 && (
+                              <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
+                                <h4 className="text-xs font-semibold text-discord-text-muted mb-1 uppercase">
+                                  Review Checklist
+                                </h4>
+                                <p className="text-[10px] text-discord-text-muted mb-3">
+                                  All items start checked. Uncheck any item that fails — unchecked items block approval.
+                                </p>
+                                <div className="space-y-2">
+                                  {selectedTask.checklist.map((item, i) => {
+                                    const checked = checklistState[i] !== false;
+                                    return (
+                                      <label key={i} className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={(e) => {
+                                            setChecklistState((prev) => ({ ...prev, [i]: e.target.checked }));
+                                          }}
+                                          className="rounded"
+                                        />
+                                        <span className={`text-sm transition ${checked ? "text-discord-text" : "text-red-400 line-through"}`}>
+                                          {item.label}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                                {Object.values(checklistState).some((v) => !v) && (
+                                  <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                    <p className="text-xs font-semibold text-red-400 mb-1">FAILED ITEMS:</p>
+                                    <ul className="text-xs text-red-300 space-y-0.5">
+                                      {selectedTask.checklist.map((item, i) =>
+                                        checklistState[i] === false ? <li key={i}>• {item.label}</li> : null
+                                      )}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Self-review warning */}
+                            {selectedAttempt.userId === user?.id && (
+                              <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                <p className="text-sm text-amber-400">
+                                  You submitted this attempt — you cannot review your own submission.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Feedback */}
+                            {canReview && (
+                              <>
+                                <div className="mb-4">
+                                  <label className="block text-sm font-medium text-discord-text-secondary mb-1">
+                                    Review Note (optional)
+                                  </label>
+                                  <textarea
+                                    value={reviewNote}
+                                    onChange={(e) => setReviewNote(e.target.value)}
+                                    placeholder="Provide feedback to the creator..."
+                                    className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
+                                    rows={3}
+                                  />
+                                </div>
+
+                                <div className="mb-6">
+                                  <label className="block text-sm font-medium text-discord-text-secondary mb-1">
+                                    Rejection Reason (required if rejecting)
+                                  </label>
+                                  <textarea
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                    placeholder="Why is this submission being rejected..."
+                                    className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-red-500/50 resize-none"
+                                    rows={2}
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {/* Error message */}
+                            {reviewError && (
+                              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                                <p className="text-sm text-red-400">{reviewError}</p>
+                              </div>
+                            )}
+
+                            {/* Action buttons — Approve / Reject only (no Lock button since already locked) */}
+                            {canReview && (
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={() => handleReview("approved")}
+                                  disabled={submitting || !canApprove}
+                                  title={hasFailedChecklist ? "Cannot approve — checklist items are unchecked" : undefined}
+                                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                                >
+                                  {submitting ? (
+                                    <Spinner />
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                  {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
+                                </button>
+                                <button
+                                  onClick={() => handleReview("rejected")}
+                                  disabled={submitting || !rejectionReason.trim()}
+                                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                                >
+                                  {submitting ? (
+                                    <Spinner />
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  )}
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* === NORMAL (non-locked) TASK: Standard attempt selector + review === */}
+              {selectedTask.status !== "locked" && (
+                <>
+                  {/* Attempt selector tabs */}
+                  {isClaimedByMe && selectedTask.attempts.length > 1 && (
+                    <div className="flex gap-1 mb-4 overflow-x-auto">
+                      {selectedTask.attempts.map((a) => (
+                        <button
+                          key={a.id}
+                          onClick={() => {
+                            setSelectedAttempt(a);
+                            setReviewNote("");
+                            setRejectionReason("");
+                            setReviewError("");
+                          }}
+                          className={`px-3 py-1.5 text-xs rounded font-medium transition whitespace-nowrap cursor-pointer ${
+                            selectedAttempt?.id === a.id
+                              ? "bg-discord-accent text-white"
+                              : "bg-discord-sidebar text-discord-text-muted hover:text-discord-text"
+                          }`}
+                        >
+                          {a.displayName || a.username}
+                        </button>
+                      ))}
                     </div>
                   )}
 
-                  {/* Feedback — only show if can review */}
-                  {canReview && (
+                  {/* Selected attempt detail */}
+                  {selectedAttempt && isClaimedByMe && (
                     <>
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                          Review Note (optional)
-                        </label>
-                        <textarea
-                          value={reviewNote}
-                          onChange={(e) => setReviewNote(e.target.value)}
-                          placeholder="Provide feedback to the creator..."
-                          className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
-                          rows={3}
-                        />
+                        <p className="text-sm text-discord-text-muted">
+                          Submitted by{" "}
+                          <span className="text-discord-text font-medium">
+                            {selectedAttempt.displayName || selectedAttempt.username}
+                          </span>{" "}
+                          — {formatTime(selectedAttempt.createdAt)}
+                        </p>
                       </div>
 
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                          Rejection Reason (required if rejecting)
-                        </label>
-                        <textarea
-                          value={rejectionReason}
-                          onChange={(e) => setRejectionReason(e.target.value)}
-                          placeholder="Why is this submission being rejected..."
-                          className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-red-500/50 resize-none"
-                          rows={2}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {/* Error message */}
-                  {reviewError && (
-                    <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                      <p className="text-sm text-red-400">{reviewError}</p>
-                    </div>
-                  )}
-
-                  {/* Actions — only show if can review */}
-                  {canReview && (
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleReview("approved")}
-                        disabled={submitting || !canApprove}
-                        title={hasFailedChecklist ? "Cannot approve — checklist items are unchecked" : undefined}
-                        className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        {submitting ? (
-                          <Spinner />
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                        {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
-                      </button>
-                      {selectedTask.status === "active" && (
-                        <button
-                          onClick={() => setLockConfirmOpen(true)}
-                          disabled={submitting}
-                          className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                          </svg>
-                          Lock for Revision
-                        </button>
+                      {/* Task reference attachments */}
+                      {selectedTask.attachments && selectedTask.attachments.length > 0 && (
+                        <div className="mb-4 p-3 bg-discord-bg-dark rounded-lg border border-discord-border">
+                          <FilePreviewList files={selectedTask.attachments} label="Task Reference Files" />
+                        </div>
                       )}
-                      <button
-                        onClick={() => handleReview("rejected")}
-                        disabled={submitting || !rejectionReason.trim()}
-                        className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        {submitting ? (
-                          <Spinner />
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+
+                      {/* Deliverables */}
+                      <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
+                        <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">
+                          Deliverables
+                        </h4>
+                        {selectedAttempt.deliverables?.text && (
+                          <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-sidebar p-3 rounded mb-3">
+                            {selectedAttempt.deliverables.text}
+                          </div>
                         )}
-                        Reject
-                      </button>
-                    </div>
+                        {selectedAttempt.deliverables?.files && selectedAttempt.deliverables.files.length > 0 && (
+                          <FilePreviewList files={selectedAttempt.deliverables.files} label="Submitted Files" />
+                        )}
+                        {!selectedAttempt.deliverables?.text && (!selectedAttempt.deliverables?.files || selectedAttempt.deliverables.files.length === 0) && (
+                          <p className="text-sm text-discord-text-muted italic">
+                            {JSON.stringify(selectedAttempt.deliverables)}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Review Checklist */}
+                      {selectedTask.checklist && selectedTask.checklist.length > 0 && isClaimedByMe && (
+                        <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
+                          <h4 className="text-xs font-semibold text-discord-text-muted mb-1 uppercase">
+                            Review Checklist
+                          </h4>
+                          <p className="text-[10px] text-discord-text-muted mb-3">
+                            All items start checked. Uncheck any item that fails — unchecked items block approval.
+                          </p>
+                          <div className="space-y-2">
+                            {selectedTask.checklist.map((item, i) => {
+                              const checked = checklistState[i] !== false;
+                              return (
+                                <label key={i} className="flex items-center gap-2 cursor-pointer group">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      setChecklistState((prev) => ({ ...prev, [i]: e.target.checked }));
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <span className={`text-sm transition ${checked ? "text-discord-text" : "text-red-400 line-through"}`}>
+                                    {item.label}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          {Object.values(checklistState).some((v) => !v) && (
+                            <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                              <p className="text-xs font-semibold text-red-400 mb-1">FAILED ITEMS:</p>
+                              <ul className="text-xs text-red-300 space-y-0.5">
+                                {selectedTask.checklist.map((item, i) =>
+                                  checklistState[i] === false ? <li key={i}>• {item.label}</li> : null
+                                )}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Self-review warning */}
+                      {selectedAttempt.userId === user?.id && (
+                        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                          <p className="text-sm text-amber-400">
+                            You submitted this attempt — you cannot review your own submission.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Feedback — only show if can review */}
+                      {canReview && (
+                        <>
+                          <div className="mb-4">
+                            <label className="block text-sm font-medium text-discord-text-secondary mb-1">
+                              Review Note (optional)
+                            </label>
+                            <textarea
+                              value={reviewNote}
+                              onChange={(e) => setReviewNote(e.target.value)}
+                              placeholder="Provide feedback to the creator..."
+                              className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
+                              rows={3}
+                            />
+                          </div>
+
+                          <div className="mb-6">
+                            <label className="block text-sm font-medium text-discord-text-secondary mb-1">
+                              Rejection Reason (required if rejecting)
+                            </label>
+                            <textarea
+                              value={rejectionReason}
+                              onChange={(e) => setRejectionReason(e.target.value)}
+                              placeholder="Why is this submission being rejected..."
+                              className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-red-500/50 resize-none"
+                              rows={2}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Error message */}
+                      {reviewError && (
+                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                          <p className="text-sm text-red-400">{reviewError}</p>
+                        </div>
+                      )}
+
+                      {/* Actions — only show if can review */}
+                      {canReview && (
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleReview("approved")}
+                            disabled={submitting || !canApprove}
+                            title={hasFailedChecklist ? "Cannot approve — checklist items are unchecked" : undefined}
+                            className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                          >
+                            {submitting ? (
+                              <Spinner />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                            {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
+                          </button>
+                          {selectedTask.status === "active" && (
+                            <button
+                              onClick={() => setLockConfirmOpen(true)}
+                              disabled={submitting}
+                              className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                              Lock for Revision
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleReview("rejected")}
+                            disabled={submitting || !rejectionReason.trim()}
+                            className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                          >
+                            {submitting ? (
+                              <Spinner />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            )}
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}

@@ -458,26 +458,29 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
           {error && (
             <p className="text-xs text-discord-red mt-1">{error}</p>
           )}
-          <div className="flex justify-end gap-2 mt-2">
-            <button
-              onClick={() => {
-                setDeliverableText(myAttempt?.deliverables?.text || "");
-                setDeliverableFiles(myAttempt?.deliverables?.files || []);
-                setEditing(true);
-                setError("");
-              }}
-              className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer"
-            >
-              Edit
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
-            >
-              {deleting ? <Spinner /> : "Delete"}
-            </button>
-          </div>
+          {/* Hide Edit/Delete when task is locked for another user */}
+          {(task.status !== "locked" || isLockedForMe) && (
+            <div className="flex justify-end gap-2 mt-2">
+              <button
+                onClick={() => {
+                  setDeliverableText(myAttempt?.deliverables?.text || "");
+                  setDeliverableFiles(myAttempt?.deliverables?.files || []);
+                  setEditing(true);
+                  setError("");
+                }}
+                className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer"
+              >
+                Edit
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+              >
+                {deleting ? <Spinner /> : "Delete"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
