@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { UserPanel } from "./UserPanel";
+import { getSocket, WS_EVENTS } from "@/lib/realtime";
 
 interface Channel {
   id: string;
@@ -14,6 +15,7 @@ interface Channel {
   isFixed: boolean;
   requiredTagId: string | null;
   hasUnread: boolean;
+  pendingAppealsCount?: number;
 }
 
 export function Sidebar() {
@@ -56,6 +58,19 @@ export function Sidebar() {
     const onFocus = () => fetchChannels();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
+  }, [fetchChannels]);
+
+  // Refetch channels on real-time notifications (e.g. new appeal filed → badge updates)
+  useEffect(() => {
+    const s = getSocket();
+    if (!s) return;
+    const handler = () => fetchChannels();
+    s.on(WS_EVENTS.NOTIFICATION_NEW, handler);
+    s.on(WS_EVENTS.MESSAGE_SYSTEM, handler);
+    return () => {
+      s.off(WS_EVENTS.NOTIFICATION_NEW, handler);
+      s.off(WS_EVENTS.MESSAGE_SYSTEM, handler);
+    };
   }, [fetchChannels]);
 
   const specialChannels = channels.filter((c) => c.type === "special");
@@ -118,6 +133,15 @@ export function Sidebar() {
                   {channelIcon(ch.type)}
                 </span>
                 <span className="truncate">{ch.name}</span>
+
+                {/* Pending appeals badge */}
+                {ch.slug === "appeals" &&
+                  ch.pendingAppealsCount != null &&
+                  ch.pendingAppealsCount > 0 && (
+                    <span className="ml-auto min-w-5 text-center text-xs px-1.5 py-0.5 bg-red-500 text-white rounded-full font-bold leading-none">
+                      {ch.pendingAppealsCount}
+                    </span>
+                  )}
 
                 {/* Tag indicator */}
                 {ch.type === "task" &&

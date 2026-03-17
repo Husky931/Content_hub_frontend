@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { channels, userTags, channelReads, messages } from "@/db/schema";
+import { channels, userTags, channelReads, messages, appeals } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq, asc, and, gt, sql, inArray } from "drizzle-orm";
 
@@ -71,6 +71,16 @@ export async function GET() {
       }
     }
 
+    // Count pending appeals for mods/supermods/admins (shown as badge on #appeals)
+    let pendingAppealsCount = 0;
+    if (["mod", "supermod", "admin"].includes(auth.role)) {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appeals)
+        .where(eq(appeals.status, "pending"));
+      pendingAppealsCount = row?.count ?? 0;
+    }
+
     return NextResponse.json({
       channels: visibleChannels.map((ch) => ({
         id: ch.id,
@@ -82,6 +92,7 @@ export async function GET() {
         isFixed: ch.isFixed,
         requiredTagId: ch.requiredTagId,
         hasUnread: unreadSet.has(ch.id),
+        ...(ch.slug === "appeals" ? { pendingAppealsCount } : {}),
       })),
     });
   } catch (error) {

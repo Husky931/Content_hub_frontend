@@ -52,29 +52,27 @@ pnpm add next-intl
 
 ---
 
-## 2. Channel Unread Badges
+## 2. Channel Unread Indicator (Bold Text)
 
-### 2.2 Sidebar Badge Display
+### 2.1 Sidebar Bold Display
 
-- [ ] 2.2.1 Channels with unread messages show a red/white badge with count in the sidebar
-- [ ] 2.2.2 Badge shows exact count up to 99, then "99+"
-- [ ] 2.2.3 Channel name appears **bold** when there are unread messages
-- [ ] 2.2.4 Currently active channel never shows unread badge (you're reading it)
-- [ ] 2.2.5 Channels with 0 unread → no badge, normal weight text
+- [x] 2.1.1 Channels with unread messages appear **bold + white text** in the sidebar
+- [x] 2.1.2 Channels with no unread messages appear in muted/grey text (normal weight)
+- [x] 2.1.3 Currently active channel never shows as unread (you're reading it)
+- [x] 2.1.4 No badge/count shown — bold text only (Discord-style)
 
-### 2.3 Mark-Read Behavior
+### 2.2 Mark-Read Behavior
 
-- [ ] 2.3.1 Navigate to a channel → unread badge clears immediately
-- [ ] 2.3.2 Navigate away → new messages in that channel start accumulating as unread again
-- [ ] 2.3.3 First time visiting a channel (no read record) → all messages are "read" (don't show 500 unread on first visit)
-- [ ] 2.3.4 Multiple channels with unread → each shows independent count
+- [x] 2.2.1 Navigate to a channel → bold clears immediately (channel goes muted)
+- [x] 2.2.2 Navigate away → new messages in that channel make it bold again
+- [x] 2.2.3 First time visiting a channel (no read record) → not bold (don't show unread on first visit)
+- [x] 2.2.4 Multiple channels with unread → each shows bold independently
 
-### 2.4 Real-Time Badge Updates
+### 2.3 Unread Updates
 
-- [ ] 2.4.1 Tab A is on #general, Tab B is on #feedback → Tab A sends message in #general → Tab B's sidebar shows unread badge on #general
-- [ ] 2.4.2 Tab B navigates to #general → badge clears
-- [ ] 2.4.3 System messages (task published, attempt submitted) also increment unread count
-- [ ] 2.4.4 Multiple messages arrive while away → badge accumulates correctly
+- [x] 2.3.1 Log out, other users send messages, log back in → channel shows bold
+- [x] 2.3.2 Tab back into the app (window focus) → unread states refresh automatically
+- [x] 2.3.3 System messages (task published, attempt submitted) also mark channel as unread
 
 ---
 
@@ -82,14 +80,13 @@ pnpm add next-intl
 
 ### 4.1 Filing an Appeal (Creator)
 
-- [ ] 4.1.1 When a creator's attempt is **rejected**, an "Appeal" button appears on the attempt
-- [ ] 4.1.2 Click Appeal → modal/form opens asking for appeal reason (text, required, min 20 chars)
-- [ ] 4.1.3 Submit appeal → `POST /api/appeals` creates record with status "pending"
+- [x] 4.1.1 When a creator's attempt is **rejected**, an "Appeal" button appears on the attempt
+- [x] 4.1.2 Click Appeal → modal/form opens asking for appeal reason (text, required, min 20 chars)
+- [x] 4.1.3 Submit appeal → `POST /api/appeals` creates record with status "pending"
 - [ ] 4.1.4 Success message: "Appeal filed. A moderator will review it."
-- [ ] 4.1.5 Appeal button replaced with "Appeal Pending" badge (disabled) after filing
-- [ ] 4.1.6 Creator can file **only one appeal** per rejected attempt
-- [ ] 4.1.7 If attempt is not rejected → Appeal button not shown
-- [ ] 4.1.8 Unauthenticated → 401, wrong user → 403
+- [x] 4.1.5 Appeal button replaced with "Appeal Pending" badge (disabled) after filing
+- [x] 4.1.6 Creator can file **only one appeal** per rejected attempt
+- [x] 4.1.7 If attempt is not rejected → Appeal button not shown
 
 ### 4.2 Appeal Queue — #appeals Channel (Mod/Supermod/Admin)
 

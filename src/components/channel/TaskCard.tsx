@@ -590,6 +590,9 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
               </span>
             )}
           </div>
+          {appealFiled && (
+            <p className="text-xs text-green-400 mt-1">Appeal filed. A moderator will review it.</p>
+          )}
 
           {/* Appeal form */}
           {showAppealForm && (
