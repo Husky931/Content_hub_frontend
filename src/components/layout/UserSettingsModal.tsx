@@ -520,8 +520,8 @@ function AdminUsersSection() {
                     <span className="font-semibold text-discord-text">{u.displayName || u.username}</span>
                     <span className="text-sm text-discord-text-muted">@{u.username}</span>
                     <RoleBadge role={u.role} />
-                    {u.status === "banned" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-red-500/20 text-red-400">Banned</span>}
-                    {u.status === "pending_verification" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-500/20 text-yellow-400">Pending</span>}
+                    {u.status === "banned" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-red-500/50 text-red-300">Banned</span>}
+                    {u.status === "pending_verification" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-500/50 text-yellow-300">Pending</span>}
                   </div>
                   <div className="text-xs text-discord-text-muted flex items-center gap-3 flex-wrap">
                     <span>{u.email}</span>
@@ -534,7 +534,7 @@ function AdminUsersSection() {
                         <span
                           key={tag.id}
                           className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
-                          style={{ backgroundColor: `${tag.color}25`, color: tag.color }}
+                          style={{ backgroundColor: `${tag.color}80`, color: tag.color }}
                         >
                           {tag.name}
                           {isOpen && (
@@ -555,7 +555,7 @@ function AdminUsersSection() {
                 <button
                   onClick={() => setExpandedId(isOpen ? null : u.id)}
                   disabled={isLoading}
-                  className={`text-sm px-4 py-1.5 rounded-md font-medium transition-colors shrink-0 ${isOpen ? "bg-discord-accent/20 text-discord-accent" : "bg-discord-bg-hover text-discord-text-muted hover:text-discord-text"} disabled:opacity-50`}
+                  className={`text-sm px-4 py-1.5 rounded-md font-semibold transition-all shrink-0 ${isOpen ? "bg-discord-accent text-white shadow hover:bg-indigo-500" : "bg-discord-bg-hover text-discord-text-muted hover:text-discord-text border border-discord-border hover:border-discord-text-muted"} disabled:opacity-50`}
                 >
                   {isOpen ? "Done" : "Actions"}
                 </button>
@@ -574,11 +574,11 @@ function AdminUsersSection() {
                             key={role}
                             onClick={() => patch(u.id, { userId: u.id, action: "changeRole", role })}
                             disabled={isLoading || u.role === role}
-                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${u.role === role
-                              ? role === "admin" ? "bg-red-500/30 text-red-300 ring-1 ring-red-500/60"
-                                : role === "supermod" ? "bg-indigo-500/30 text-indigo-300 ring-1 ring-indigo-500/60"
-                                  : role === "mod" ? "bg-green-500/30 text-green-300 ring-1 ring-green-500/60"
-                                    : "bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/60"
+                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${u.role === role
+                              ? role === "admin" ? "bg-red-500/50 text-red-200"
+                                : role === "supermod" ? "bg-indigo-500/50 text-indigo-200"
+                                  : role === "mod" ? "bg-green-500/50 text-green-200"
+                                    : "bg-blue-500/50 text-blue-200"
                               : "bg-discord-bg hover:bg-discord-bg-hover text-discord-text-muted hover:text-discord-text border border-discord-border"
                               }`}
                           >
@@ -620,7 +620,7 @@ function AdminUsersSection() {
                       <button
                         onClick={() => patch(u.id, { userId: u.id, action: "unban" })}
                         disabled={isLoading}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-green/20 text-discord-green hover:bg-discord-green/30 transition-colors disabled:opacity-60"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-green/50 text-green-300 hover:bg-discord-green/70 hover:text-white transition-all disabled:opacity-60"
                       >
                         {isLoading && <Spinner />}
                         Unban User
@@ -629,7 +629,7 @@ function AdminUsersSection() {
                       <button
                         onClick={() => setBanTarget(u.id)}
                         disabled={isLoading}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-red/20 text-discord-red hover:bg-discord-red/30 transition-colors disabled:opacity-60"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-red/50 text-red-300 hover:bg-discord-red/70 hover:text-white transition-all disabled:opacity-60"
                       >
                         {isLoading && <Spinner />}
                         Ban User

@@ -106,6 +106,39 @@ const ROLE_NAME_COLOR: Record<string, string> = {
   creator: "text-discord-text",
 };
 
+const ROLE_TAG: Record<string, { label: string; className: string }> = {
+  admin: {
+    label: "Admin",
+    className: "bg-red-500/20 text-red-400 border border-red-500/30",
+  },
+  supermod: {
+    label: "Supermod",
+    className: "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30",
+  },
+  mod: {
+    label: "Mod",
+    className: "bg-green-500/20 text-green-400 border border-green-500/30",
+  },
+  creator: {
+    label: "Creator",
+    className: "bg-discord-accent/20 text-discord-accent border border-discord-accent/30",
+  },
+};
+
+function RoleTag({ role, small = false }: { role: string; small?: boolean }) {
+  const tag = ROLE_TAG[role];
+  if (!tag) return null;
+  return (
+    <span
+      className={`inline-flex items-center rounded px-1 font-semibold tracking-wide ${
+        small ? "text-[9px] py-px" : "text-[10px] py-px"
+      } ${tag.className}`}
+    >
+      {tag.label.toUpperCase()}
+    </span>
+  );
+}
+
 export default function ChannelPage() {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
@@ -506,6 +539,9 @@ export default function ChannelPage() {
             >
               {msg.user?.displayName || msg.user?.username || "System"}
             </span>
+            {msg.user && msg.type !== "system" && (
+              <RoleTag role={msg.user.role} small={isReply} />
+            )}
             {msg.type === "mod" && (
               <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
                 MOD
@@ -747,7 +783,7 @@ export default function ChannelPage() {
             </div>
 
             {group.messages.map((msg) => (
-              <div key={msg.id}>
+              <div key={msg.id} className="mb-2">
                 {renderMessage(msg)}
                 {renderThread(msg)}
               </div>
