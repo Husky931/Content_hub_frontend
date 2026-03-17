@@ -26,29 +26,29 @@ pnpm add next-intl
 
 ### 1.2 Reply UI — Initiating a Reply
 
-- [ ] 1.2.1 Hover over any message → "Reply" button appears in message action bar
-- [ ] 1.2.2 Click Reply → reply preview bar appears above the message input (shows author name + first ~60 chars of original)
-- [ ] 1.2.3 Reply preview bar has ✕ button to cancel reply
-- [ ] 1.2.4 Can reply to own messages
-- [ ] 1.2.5 Can reply to system messages
-- [ ] 1.2.6 Reply preview bar persists while typing (doesn't disappear on focus change)
+- [x] 1.2.1 Hover over any message → "Reply" button appears in message action bar
+- [x] 1.2.2 Click Reply → reply preview bar appears above the message input (shows author name + first ~60 chars of original)
+- [x] 1.2.3 Reply preview bar has ✕ button to cancel reply
+- [x] 1.2.4 Can reply to own messages
+- [x] 1.2.5 Can not reply to system messages
+- [x] 1.2.6 Reply preview bar persists while typing (doesn't disappear on focus change)
 
 ### 1.3 Reply UI — Display in Feed (Reddit-Style +/−)
 
-- [ ] 1.3.1 Reply messages are **not shown** in the main feed by default — only top-level messages appear
-- [ ] 1.3.2 Messages that have replies show **[+] X replies** below the message (collapsed state)
-- [ ] 1.3.3 Click [+] → replies expand inline below the parent, indented slightly with a left border
-- [ ] 1.3.4 Toggle changes to **[−]** when expanded
-- [ ] 1.3.5 Click [−] → replies collapse back, main feed is clean again
-- [ ] 1.3.6 Expanded replies show in chronological order
-- [ ] 1.3.7 Each reply shows author name + avatar + content (same style as regular messages, just indented)
+- [x] 1.3.1 Reply messages are **not shown** in the main feed by default — only top-level messages appear
+- [x] 1.3.2 Messages that have replies show **[+] X replies** below the message (collapsed state)
+- [x] 1.3.3 Click [+] → replies expand inline below the parent, indented slightly with a left border
+- [x] 1.3.4 Toggle changes to **[−]** when expanded
+- [x] 1.3.5 Click [−] → replies collapse back, main feed is clean again
+- [x] 1.3.6 Expanded replies show in chronological order
+- [x] 1.3.7 Each reply shows author name + avatar + content (same style as regular messages, just indented)
 - [ ] 1.3.8 If original parent message was deleted → replies still accessible (orphaned replies show "Original message was deleted")
 
 ### 1.4 Reply Messages — Real-Time
 
-- [ ] 1.4.1 Tab A sends a reply → Tab B sees the reply count increment on the parent's [+] badge in real-time
-- [ ] 1.4.2 If Tab B has replies expanded → new reply appears inline in real-time
-- [ ] 1.4.3 If Tab B has replies collapsed → count updates without expanding
+- [x] 1.4.1 Tab A sends a reply → Tab B sees the reply count increment on the parent's badge in real-time
+- [x] 1.4.2 If Tab B has replies expanded → new reply appears inline in real-time
+- [x] 1.4.3 If Tab B has replies collapsed → count updates without expanding
 
 ---
 

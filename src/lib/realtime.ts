@@ -134,6 +134,8 @@ export interface RealtimeWalletUpdate {
 export const WS_EVENTS = {
   MESSAGE_NEW: "message:new",
   MESSAGE_SYSTEM: "message:system",
+  MESSAGE_EDIT: "message:edit",
+  MESSAGE_DELETE: "message:delete",
   TASK_UPDATED: "task:updated",
   NOTIFICATION_NEW: "notification:new",
   WALLET_UPDATED: "wallet:updated",

@@ -8,6 +8,7 @@ import { TaskSummaryBar } from "@/components/channel/TaskSummaryBar";
 import { TaskCard } from "@/components/channel/TaskCard";
 import { AppealCard } from "@/components/channel/AppealCard";
 import { getSocket, joinChannel, leaveChannel, onSocketReady, WS_EVENTS } from "@/lib/realtime";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface Message {
   id: string;
@@ -16,6 +17,8 @@ interface Message {
   replyToId?: string | null;
   replyCount?: number;
   createdAt: string;
+  updatedAt?: string | null;
+  deletedAt?: string | null;
   user: {
     id: string;
     username: string;
@@ -115,6 +118,10 @@ export default function ChannelPage() {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const tasksFetchRef = useRef<AbortController | null>(null);
   const fetchTasksRef = useRef<() => void>(() => {});
@@ -206,11 +213,29 @@ export default function ChannelPage() {
       fetchTasksRef.current();
     };
 
+    const handleMessageEdit = (data: { id: string; content: string; updatedAt: string }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.id ? { ...m, content: data.content, updatedAt: data.updatedAt } : m
+        )
+      );
+    };
+
+    const handleMessageDelete = (data: { id: string }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.id ? { ...m, deletedAt: new Date().toISOString(), content: "" } : m
+        )
+      );
+    };
+
     const setup = (socket: NonNullable<ReturnType<typeof getSocket>>) => {
       activeSocket = socket;
       joinChannel(slug);
       socket.on(WS_EVENTS.MESSAGE_NEW, handleNewMessage);
       socket.on(WS_EVENTS.MESSAGE_SYSTEM, handleNewMessage);
+      socket.on(WS_EVENTS.MESSAGE_EDIT, handleMessageEdit);
+      socket.on(WS_EVENTS.MESSAGE_DELETE, handleMessageDelete);
       socket.on(WS_EVENTS.TASK_UPDATED, handleTaskUpdate);
     };
 
@@ -222,6 +247,8 @@ export default function ChannelPage() {
       if (activeSocket) {
         activeSocket.off(WS_EVENTS.MESSAGE_NEW, handleNewMessage);
         activeSocket.off(WS_EVENTS.MESSAGE_SYSTEM, handleNewMessage);
+        activeSocket.off(WS_EVENTS.MESSAGE_EDIT, handleMessageEdit);
+        activeSocket.off(WS_EVENTS.MESSAGE_DELETE, handleMessageDelete);
         activeSocket.off(WS_EVENTS.TASK_UPDATED, handleTaskUpdate);
       }
     };
@@ -289,6 +316,74 @@ export default function ChannelPage() {
     });
   }, []);
 
+  const handleEditStart = useCallback((msg: Message) => {
+    setEditingId(msg.id);
+    setEditContent(msg.content);
+  }, []);
+
+  const handleEditSave = useCallback(async () => {
+    if (!editingId || !editContent.trim() || editSaving) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/channels/${slug}/messages/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === editingId
+              ? { ...m, content: data.message.content, updatedAt: data.message.updatedAt }
+              : m
+          )
+        );
+        setEditingId(null);
+        setEditContent("");
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setEditSaving(false);
+    }
+  }, [editingId, editContent, editSaving, slug]);
+
+  const handleEditCancel = useCallback(() => {
+    setEditingId(null);
+    setEditContent("");
+  }, []);
+
+  const handleDelete = useCallback(async (msgId: string) => {
+    if (deletingId) return;
+    setDeletingId(msgId);
+    try {
+      const res = await fetch(`/api/channels/${slug}/messages/${msgId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId ? { ...m, deletedAt: new Date().toISOString(), content: "" } : m
+          )
+        );
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setDeletingId(null);
+    }
+  }, [deletingId, slug]);
+
+  // Delete permission: own message, mod can delete creator, admin can delete anyone
+  const canDeleteMsg = useCallback((msg: Message) => {
+    if (!user) return false;
+    if (msg.user?.id === user.id) return true;
+    if (user.role === "admin") return true;
+    if (["mod", "supermod"].includes(user.role ?? "") && msg.user?.role === "creator") return true;
+    return false;
+  }, [user]);
+
   const canPost =
     channel?.name !== "announcements" ||
     ["mod", "supermod", "admin"].includes(user?.role ?? "");
@@ -332,91 +427,193 @@ export default function ChannelPage() {
   }
 
   // Render a single message row
-  const renderMessage = (msg: Message, isReply = false) => (
-    <div
-      key={msg.id}
-      className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${
-        msg.type === "system"
-          ? "opacity-70"
-          : msg.type === "mod"
-          ? "border-l-2 border-discord-accent pl-4"
-          : ""
-      } ${isReply ? "ml-6" : ""}`}
-    >
-      {/* Avatar with role icon */}
-      <div className="relative flex-shrink-0 mt-0.5">
-        {msg.user?.avatarUrl ? (
-          <>
-            <img
-              src={msg.user.avatarUrl}
-              alt=""
-              className={`rounded-full ${isReply ? "w-7 h-7" : "w-10 h-10"}`}
-            />
-            {!isReply && <RoleIcon role={msg.user.role} />}
-          </>
-        ) : (
-          <>
-            <div
-              className={`rounded-full flex items-center justify-center text-white font-bold ${
-                isReply ? "w-7 h-7 text-xs" : "w-10 h-10 text-sm"
-              } ${
-                msg.type === "system"
-                  ? "bg-discord-text-muted"
-                  : (ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent")
-              }`}
-            >
-              {(msg.user?.displayName || msg.user?.username || "S")
-                .slice(0, 2)
-                .toUpperCase()}
-            </div>
-            {!isReply && msg.type !== "system" && msg.user && <RoleIcon role={msg.user.role} />}
-          </>
-        )}
-      </div>
+  const renderMessage = (msg: Message, isReply = false) => {
+    const isDeleted = !!msg.deletedAt;
+    const isEditing = editingId === msg.id;
+    const isOwnMessage = msg.user?.id === user?.id;
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span
-            className={`font-medium ${isReply ? "text-xs" : "text-sm"} ${
-              ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
-            }`}
-          >
-            {msg.user?.displayName || msg.user?.username || "System"}
-          </span>
-          {msg.type === "mod" && (
-            <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
-              MOD
-            </span>
-          )}
-          {msg.type === "system" && (
-            <span className="text-xs px-1.5 py-0.5 bg-discord-text-muted/20 text-discord-text-muted rounded">
-              SYSTEM
-            </span>
-          )}
-          <span className="text-xs text-discord-text-muted">
-            {formatTime(msg.createdAt)}
-          </span>
+    // Deleted message placeholder
+    if (isDeleted) {
+      return (
+        <div
+          key={msg.id}
+          className={`flex gap-3 py-1 px-2 rounded opacity-50 ${isReply ? "ml-6" : ""}`}
+        >
+          <div className={`rounded-full flex items-center justify-center bg-discord-text-muted/30 ${isReply ? "w-7 h-7" : "w-10 h-10"}`}>
+            <svg className={`text-discord-text-muted ${isReply ? "w-3 h-3" : "w-4 h-4"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`italic text-discord-text-muted ${isReply ? "text-xs" : "text-sm"}`}>
+              This message was deleted
+            </p>
+          </div>
+        </div>
+      );
+    }
 
-          {/* Reply button — visible on hover */}
-          {canPost && msg.type !== "system" && (
-            <button
-              onClick={() => handleReply(msg)}
-              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-xs text-discord-text-muted hover:text-discord-accent flex items-center gap-1"
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
-              </svg>
-              Reply
-            </button>
+    return (
+      <div
+        key={msg.id}
+        className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${
+          msg.type === "system"
+            ? "opacity-70"
+            : msg.type === "mod"
+            ? "border-l-2 border-discord-accent pl-4"
+            : ""
+        } ${isReply ? "ml-6" : ""}`}
+      >
+        {/* Avatar with role icon */}
+        <div className="relative flex-shrink-0 mt-0.5">
+          {msg.user?.avatarUrl ? (
+            <>
+              <img
+                src={msg.user.avatarUrl}
+                alt=""
+                className={`rounded-full ${isReply ? "w-7 h-7" : "w-10 h-10"}`}
+              />
+              {!isReply && <RoleIcon role={msg.user.role} />}
+            </>
+          ) : (
+            <>
+              <div
+                className={`rounded-full flex items-center justify-center text-white font-bold ${
+                  isReply ? "w-7 h-7 text-xs" : "w-10 h-10 text-sm"
+                } ${
+                  msg.type === "system"
+                    ? "bg-discord-text-muted"
+                    : (ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent")
+                }`}
+              >
+                {(msg.user?.displayName || msg.user?.username || "S")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              {!isReply && msg.type !== "system" && msg.user && <RoleIcon role={msg.user.role} />}
+            </>
           )}
         </div>
-        <p className={`text-discord-text-secondary break-words ${isReply ? "text-xs" : "text-sm"}`}>
-          {msg.content}
-        </p>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span
+              className={`font-medium ${isReply ? "text-xs" : "text-sm"} ${
+                ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
+              }`}
+            >
+              {msg.user?.displayName || msg.user?.username || "System"}
+            </span>
+            {msg.type === "mod" && (
+              <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
+                MOD
+              </span>
+            )}
+            {msg.type === "system" && (
+              <span className="text-xs px-1.5 py-0.5 bg-discord-text-muted/20 text-discord-text-muted rounded">
+                SYSTEM
+              </span>
+            )}
+            <span className="text-xs text-discord-text-muted">
+              {formatTime(msg.createdAt)}
+            </span>
+            {msg.updatedAt && (
+              <span className="text-xs text-discord-text-muted/60 italic">(edited)</span>
+            )}
+
+            {/* Action buttons — visible on hover */}
+            {msg.type !== "system" && (
+              <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Reply */}
+                {canPost && (
+                  <button
+                    onClick={() => handleReply(msg)}
+                    className="text-xs text-discord-text-muted hover:text-discord-accent flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-discord-accent/10"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
+                    </svg>
+                    Reply
+                  </button>
+                )}
+                {/* Edit — own messages only */}
+                {isOwnMessage && (
+                  <button
+                    onClick={() => handleEditStart(msg)}
+                    className="text-xs text-discord-text-muted hover:text-yellow-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-yellow-400/10"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+                {/* Delete */}
+                {canDeleteMsg(msg) && (
+                  <button
+                    onClick={() => handleDelete(msg.id)}
+                    disabled={deletingId === msg.id}
+                    className="text-xs text-discord-text-muted hover:text-red-400 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-red-400/10 disabled:opacity-50"
+                  >
+                    {deletingId === msg.id ? (
+                      <Spinner />
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Message content or inline edit */}
+          {isEditing ? (
+            <div className="mt-1">
+              <input
+                type="text"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value.slice(0, 2000))}
+                maxLength={2000}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleEditSave();
+                  if (e.key === "Escape") handleEditCancel();
+                }}
+                autoFocus
+                className="w-full p-1.5 bg-discord-bg-hover text-sm text-discord-text rounded border border-discord-accent focus:outline-none"
+              />
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  onClick={handleEditSave}
+                  disabled={editSaving || !editContent.trim()}
+                  className="text-xs px-2 py-0.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded disabled:opacity-50 flex items-center gap-1"
+                >
+                  {editSaving && <Spinner />}
+                  Save
+                </button>
+                <button
+                  onClick={handleEditCancel}
+                  className="text-xs px-2 py-0.5 text-discord-text-muted hover:text-discord-text"
+                >
+                  Cancel
+                </button>
+                <span className="text-xs text-discord-text-muted/50">
+                  Esc to cancel · Enter to save
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className={`text-discord-text-secondary break-words ${isReply ? "text-xs" : "text-sm"}`}>
+              {msg.content}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Count all descendants recursively
   const countAllReplies = (parentId: string): number => {

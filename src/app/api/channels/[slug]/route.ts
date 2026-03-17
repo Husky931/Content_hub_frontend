@@ -21,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
-    // Get all messages with user info (including replies)
+    // Get all non-deleted messages with user info (including replies)
     const channelMessages = await db
       .select({
         id: messages.id,
@@ -29,6 +29,7 @@ export async function GET(
         type: messages.type,
         replyToId: messages.replyToId,
         createdAt: messages.createdAt,
+        updatedAt: messages.updatedAt,
         userId: messages.userId,
         username: users.username,
         displayName: users.displayName,
@@ -37,18 +38,22 @@ export async function GET(
       })
       .from(messages)
       .innerJoin(users, eq(messages.userId, users.id))
-      .where(eq(messages.channelId, channel.id))
+      .where(
+        sql`${messages.channelId} = ${channel.id} AND ${messages.deletedAt} IS NULL`
+      )
       .orderBy(asc(messages.createdAt))
       .limit(200);
 
-    // Build reply count map: parentId → count
+    // Build reply count map: parentId → count (exclude deleted)
     const replyCounts = await db
       .select({
         parentId: messages.replyToId,
         count: sql<number>`count(*)::int`,
       })
       .from(messages)
-      .where(eq(messages.channelId, channel.id))
+      .where(
+        sql`${messages.channelId} = ${channel.id} AND ${messages.deletedAt} IS NULL`
+      )
       .groupBy(messages.replyToId);
 
     const replyCountMap: Record<string, number> = {};
@@ -70,6 +75,7 @@ export async function GET(
         replyToId: m.replyToId || null,
         replyCount: replyCountMap[m.id] || 0,
         createdAt: m.createdAt,
+        updatedAt: m.updatedAt || null,
         user: {
           id: m.userId,
           username: m.username,
