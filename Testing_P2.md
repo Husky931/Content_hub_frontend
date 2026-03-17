@@ -403,3 +403,4 @@ Open browser console on localhost:3000 — after login you should see:
 ### 7 Final:
 
 - Change password / delete account
+- Aliyun sms login

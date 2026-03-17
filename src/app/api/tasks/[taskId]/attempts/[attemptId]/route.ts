@@ -36,9 +36,9 @@ export async function PATCH(
     const body = await req.json();
     const { status: newStatus, reviewNote, rejectionReason } = body;
 
-    if (!newStatus || !["approved", "rejected"].includes(newStatus)) {
+    if (!newStatus || !["approved", "rejected", "locked"].includes(newStatus)) {
       return NextResponse.json(
-        { error: "Status must be 'approved' or 'rejected'" },
+        { error: "Status must be 'approved', 'rejected', or 'locked'" },
         { status: 400 }
       );
     }
@@ -152,6 +152,74 @@ export async function PATCH(
       .where(eq(channels.id, task.channelId))
       .limit(1);
     const channelSlug = channel?.slug;
+
+    if (newStatus === "locked") {
+      // Lock the task for this creator's exclusive 48h revision
+      const lockExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+      await db
+        .update(tasks)
+        .set({
+          status: "locked",
+          lockedById: attempt.userId,
+          lockExpiresAt,
+          reviewClaimedById: null,
+          reviewClaimedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(tasks.id, taskId));
+
+      // Post system message
+      const lockContent = `Task "${task.title}" locked for ${displayName} — 48h exclusive revision`;
+      const [lockSysMsg] = await db.insert(messages).values({
+        channelId: task.channelId,
+        userId: auth.userId,
+        type: "system",
+        content: lockContent,
+      }).returning();
+
+      // Notify the creator
+      await db.insert(notifications).values({
+        userId: attempt.userId,
+        type: "task_locked",
+        title: "Task locked for you",
+        body: `You have 48 hours to revise your submission for "${task.title}"${reviewNote ? `. Note: ${reviewNote}` : ""}`,
+        data: { taskId, attemptId, channelSlug },
+      });
+
+      // Real-time broadcasts
+      const lockPublishes: Promise<void>[] = [];
+      if (channelSlug) {
+        lockPublishes.push(
+          publishSystemMessage(channelSlug, {
+            id: lockSysMsg.id,
+            type: "system",
+            content: lockContent,
+            createdAt: lockSysMsg.createdAt,
+          }),
+          publishTaskUpdate(channelSlug, {
+            id: taskId,
+            status: "locked",
+            lockedById: attempt.userId,
+            lockExpiresAt: lockExpiresAt.toISOString(),
+          })
+        );
+      }
+      lockPublishes.push(
+        publishNotification(attempt.userId, {
+          type: "task_locked",
+          title: "Task locked for you",
+          unreadCount: -1,
+        })
+      );
+      await Promise.all(lockPublishes);
+
+      return NextResponse.json({
+        attempt: { ...attempt, status: attempt.status },
+        locked: true,
+        lockExpiresAt: lockExpiresAt.toISOString(),
+      });
+    }
 
     if (newStatus === "approved") {
       // Find other submitted attempts before auto-rejecting them

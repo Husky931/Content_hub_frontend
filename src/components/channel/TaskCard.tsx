@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spinner } from "@/components/ui/Spinner";
 import { FileUpload, FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
@@ -33,6 +33,8 @@ interface TaskCardProps {
     myAttempt?: MyAttempt | null;
     submittedCount?: number;
     reviewClaimedBy?: string | null;
+    lockedById?: string | null;
+    lockExpiresAt?: string | null;
     source?: string | null;
     checklist?: { label: string }[] | null;
     attachments?: { name: string; url: string; type: string; size: number }[] | null;
@@ -73,6 +75,11 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
   const [deliverableText, setDeliverableText] = useState("");
   const [deliverableFiles, setDeliverableFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState("");
+  const [showAppealForm, setShowAppealForm] = useState(false);
+  const [appealReason, setAppealReason] = useState("");
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const [appealFiled, setAppealFiled] = useState(false);
+  const [appealError, setAppealError] = useState("");
 
   const statusStyle = STATUS_STYLES[task.status] || STATUS_STYLES.draft;
   const isReviewer = ["admin", "supermod", "mod"].includes(user?.role ?? "");
@@ -85,10 +92,32 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
   const hasRejectedAttempt = myAttempt?.status === "rejected";
   const hasApprovedAttempt = myAttempt?.status === "approved";
 
+  const isLockedForMe =
+    task.status === "locked" && task.lockedById === user?.id;
+
   const canSubmit =
-    task.status === "active" &&
+    (task.status === "active" || isLockedForMe) &&
     !hasSubmittedAttempt &&
     !hasApprovedAttempt;
+
+  // Countdown timer for locked tasks
+  const [lockTimeLeft, setLockTimeLeft] = useState("");
+  useEffect(() => {
+    if (task.status !== "locked" || !task.lockExpiresAt) return;
+    const update = () => {
+      const diff = new Date(task.lockExpiresAt!).getTime() - Date.now();
+      if (diff <= 0) {
+        setLockTimeLeft("Expired");
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setLockTimeLeft(`${h}h ${m}m remaining`);
+    };
+    update();
+    const iv = setInterval(update, 60000);
+    return () => clearInterval(iv);
+  }, [task.status, task.lockExpiresAt]);
 
   const creatorName = task.createdByDisplayName || task.createdByUsername;
 
@@ -191,6 +220,37 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
     }
   };
 
+  const handleAppeal = async () => {
+    if (appealReason.trim().length < 20) {
+      setAppealError("Appeal reason must be at least 20 characters");
+      return;
+    }
+    setAppealSubmitting(true);
+    setAppealError("");
+    try {
+      const res = await fetch("/api/appeals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attemptId: myAttempt?.id,
+          reason: appealReason.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAppealError(data.error || "Failed to file appeal");
+        return;
+      }
+      setAppealFiled(true);
+      setShowAppealForm(false);
+      setAppealReason("");
+    } catch {
+      setAppealError("Network error");
+    } finally {
+      setAppealSubmitting(false);
+    }
+  };
+
   const handleReviewClick = () => {
     router.push(`/review?task=${task.id}`);
   };
@@ -273,6 +333,26 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         </div>
       )}
 
+      {/* Locked state banner */}
+      {task.status === "locked" && (
+        <div className="px-4 py-2 bg-amber-500/10 border-t border-amber-500/20">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            {isLockedForMe ? (
+              <span className="text-xs text-amber-300 font-medium">
+                Locked for you — submit your revision. {lockTimeLeft && <span className="text-amber-400/70">({lockTimeLeft})</span>}
+              </span>
+            ) : (
+              <span className="text-xs text-amber-300/70">
+                Locked for exclusive revision. {lockTimeLeft && <span>({lockTimeLeft})</span>}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Footer: bounty, attempts, actions */}
       <div className="px-4 py-2 bg-discord-bg-dark/30 flex items-center gap-3 border-t border-discord-border/50">
         {/* Bounty display */}
@@ -301,9 +381,9 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
           {canSubmit && !hasSubmittedAttempt && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer"
+              className={`text-xs px-3 py-1 ${isLockedForMe ? "bg-amber-600 hover:bg-amber-700" : "bg-green-600 hover:bg-green-700"} text-white rounded font-semibold transition cursor-pointer`}
             >
-              Submit Attempt
+              {isLockedForMe ? "Submit Revision" : "Submit Attempt"}
             </button>
           )}
           {submittedCount > 0 && (
@@ -480,21 +560,79 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
               disabled={submitting}
               className="text-xs px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
             >
-              {submitting ? <Spinner /> : "Submit"}
+              {submitting ? <Spinner /> : isLockedForMe ? "Submit Revision" : "Submit"}
             </button>
           </div>
         </div>
       )}
 
-      {/* Rejected attempt info — user can submit again */}
+      {/* Rejected attempt info — user can submit again or appeal */}
       {hasRejectedAttempt && task.status === "active" && (
         <div className="px-4 py-2 bg-red-500/5 border-t border-discord-border/50">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
               Rejected
             </span>
-            <span className="text-xs text-discord-text-muted">Your previous submission was rejected — you can submit again</span>
+            <span className="text-xs text-discord-text-muted flex-1">
+              Your previous submission was rejected — you can submit again
+            </span>
+            {!appealFiled && !showAppealForm && (
+              <button
+                onClick={() => setShowAppealForm(true)}
+                className="text-xs px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded font-semibold transition"
+              >
+                Appeal
+              </button>
+            )}
+            {appealFiled && (
+              <span className="text-xs px-2.5 py-1 bg-amber-500/10 text-amber-400/70 rounded font-semibold">
+                Appeal Pending
+              </span>
+            )}
           </div>
+
+          {/* Appeal form */}
+          {showAppealForm && (
+            <div className="mt-2 p-3 bg-discord-bg-dark rounded-lg border border-discord-border/50">
+              <p className="text-xs text-discord-text-muted mb-2">
+                Explain why you believe the rejection was unfair (min 20 chars):
+              </p>
+              <textarea
+                value={appealReason}
+                onChange={(e) => setAppealReason(e.target.value)}
+                placeholder="I believe the rejection was unfair because..."
+                className="w-full p-2 bg-discord-bg-hover rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none resize-none"
+                rows={3}
+              />
+              {appealError && (
+                <p className="text-xs text-red-400 mt-1">{appealError}</p>
+              )}
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-discord-text-muted">
+                  {appealReason.length}/20 min
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setShowAppealForm(false);
+                      setAppealReason("");
+                      setAppealError("");
+                    }}
+                    className="text-xs px-3 py-1 bg-discord-bg-hover text-discord-text-muted rounded hover:text-discord-text transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAppeal}
+                    disabled={appealSubmitting || appealReason.trim().length < 20}
+                    className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold transition disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {appealSubmitting ? <Spinner /> : "File Appeal"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

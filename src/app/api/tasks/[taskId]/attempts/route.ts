@@ -47,7 +47,11 @@ export async function POST(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    if (task.status !== "active") {
+    // Locked tasks: only the locked creator can submit (revision attempt)
+    const isLockedForUser =
+      task.status === "locked" && task.lockedById === auth.userId;
+
+    if (task.status !== "active" && !isLockedForUser) {
       return NextResponse.json(
         { error: "Task is not accepting submissions" },
         { status: 400 }
@@ -70,7 +74,8 @@ export async function POST(
         and(eq(attempts.taskId, taskId), eq(attempts.userId, auth.userId))
       );
 
-    if (attemptCount.count >= task.maxAttempts) {
+    // Locked revision attempts don't count against maxAttempts
+    if (!isLockedForUser && attemptCount.count >= task.maxAttempts) {
       return NextResponse.json(
         { error: `Maximum attempts (${task.maxAttempts}) reached` },
         { status: 400 }

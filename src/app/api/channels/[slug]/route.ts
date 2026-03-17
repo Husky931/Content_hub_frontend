@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { channels, messages, users } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql, isNull } from "drizzle-orm";
 
 export async function GET(
   _req: NextRequest,
@@ -21,12 +21,13 @@ export async function GET(
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
-    // Get messages with user info
+    // Get all messages with user info (including replies)
     const channelMessages = await db
       .select({
         id: messages.id,
         content: messages.content,
         type: messages.type,
+        replyToId: messages.replyToId,
         createdAt: messages.createdAt,
         userId: messages.userId,
         username: users.username,
@@ -38,7 +39,22 @@ export async function GET(
       .innerJoin(users, eq(messages.userId, users.id))
       .where(eq(messages.channelId, channel.id))
       .orderBy(asc(messages.createdAt))
-      .limit(100);
+      .limit(200);
+
+    // Build reply count map: parentId → count
+    const replyCounts = await db
+      .select({
+        parentId: messages.replyToId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(messages)
+      .where(eq(messages.channelId, channel.id))
+      .groupBy(messages.replyToId);
+
+    const replyCountMap: Record<string, number> = {};
+    for (const r of replyCounts) {
+      if (r.parentId) replyCountMap[r.parentId] = r.count;
+    }
 
     return NextResponse.json({
       channel: {
@@ -51,6 +67,8 @@ export async function GET(
         id: m.id,
         content: m.content,
         type: m.type,
+        replyToId: m.replyToId || null,
+        replyCount: replyCountMap[m.id] || 0,
         createdAt: m.createdAt,
         user: {
           id: m.userId,

@@ -69,6 +69,47 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Lazy lock expiry: auto-unlock any LOCKED tasks where lockExpiresAt has passed
+    const expiredLocks = await db
+      .select({ id: tasks.id, channelId: tasks.channelId, title: tasks.title })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.status, "locked"),
+          sql`${tasks.lockExpiresAt} < NOW()`
+        )
+      );
+
+    for (const expired of expiredLocks) {
+      await db
+        .update(tasks)
+        .set({
+          status: "active",
+          lockedById: null,
+          lockExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(tasks.id, expired.id));
+
+      // Post system message about auto-unlock
+      const [ch] = await db
+        .select({ slug: channels.slug })
+        .from(channels)
+        .where(eq(channels.id, expired.channelId))
+        .limit(1);
+
+      await db.insert(messages).values({
+        channelId: expired.channelId,
+        userId: auth.userId,
+        type: "system",
+        content: `Lock expired on "${expired.title}" — task reopened for all creators`,
+      });
+
+      if (ch?.slug) {
+        publishTaskUpdate(ch.slug, { id: expired.id, status: "active", lockedById: null, lockExpiresAt: null });
+      }
+    }
+
     const whereClause =
       conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -104,6 +145,8 @@ export async function GET(req: NextRequest) {
         createdByUsername: users.username,
         createdByDisplayName: users.displayName,
         reviewClaimedById: tasks.reviewClaimedById,
+        lockedById: tasks.lockedById,
+        lockExpiresAt: tasks.lockExpiresAt,
       })
       .from(tasks)
       .innerJoin(channels, eq(tasks.channelId, channels.id))

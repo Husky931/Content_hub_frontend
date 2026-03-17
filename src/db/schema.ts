@@ -265,6 +265,7 @@ export const messages = pgTable(
       .references(() => users.id),
     type: messageTypeEnum("type").notNull().default("text"),
     content: text("content").notNull(),
+    replyToId: uuid("reply_to_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
     deletedAt: timestamp("deleted_at"),
@@ -272,6 +273,7 @@ export const messages = pgTable(
   (table) => [
     index("messages_channel_id_idx").on(table.channelId),
     index("messages_created_at_idx").on(table.createdAt),
+    index("messages_reply_to_id_idx").on(table.replyToId),
   ]
 );
 
@@ -419,6 +421,31 @@ export const appeals = pgTable("appeals", {
 });
 
 // ============================================================
+// 15. CHANNEL READS (per-user unread tracking)
+// ============================================================
+
+export const channelReads = pgTable(
+  "channel_reads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channelId: uuid("channel_id")
+      .notNull()
+      .references(() => channels.id, { onDelete: "cascade" }),
+    lastReadMessageId: uuid("last_read_message_id"),
+    lastReadAt: timestamp("last_read_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("channel_reads_user_channel_idx").on(
+      table.userId,
+      table.channelId
+    ),
+  ]
+);
+
+// ============================================================
 // RELATIONS
 // ============================================================
 
@@ -457,12 +484,18 @@ export const channelModsRelations = relations(channelMods, ({ one }) => ({
   user: one(users, { fields: [channelMods.userId], references: [users.id] }),
 }));
 
-export const messagesRelations = relations(messages, ({ one }) => ({
+export const messagesRelations = relations(messages, ({ one, many }) => ({
   channel: one(channels, {
     fields: [messages.channelId],
     references: [channels.id],
   }),
   user: one(users, { fields: [messages.userId], references: [users.id] }),
+  replyTo: one(messages, {
+    fields: [messages.replyToId],
+    references: [messages.id],
+    relationName: "replies",
+  }),
+  replies: many(messages, { relationName: "replies" }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -483,5 +516,13 @@ export const attemptsRelations = relations(attempts, ({ one }) => ({
   reviewer: one(users, {
     fields: [attempts.reviewerId],
     references: [users.id],
+  }),
+}));
+
+export const channelReadsRelations = relations(channelReads, ({ one }) => ({
+  user: one(users, { fields: [channelReads.userId], references: [users.id] }),
+  channel: one(channels, {
+    fields: [channelReads.channelId],
+    references: [channels.id],
   }),
 }));

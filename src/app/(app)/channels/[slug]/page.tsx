@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useRouter } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { TaskSummaryBar } from "@/components/channel/TaskSummaryBar";
 import { TaskCard } from "@/components/channel/TaskCard";
+import { AppealCard } from "@/components/channel/AppealCard";
 import { getSocket, joinChannel, leaveChannel, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 
 interface Message {
   id: string;
   content: string;
   type: "text" | "mod" | "system";
+  replyToId?: string | null;
+  replyCount?: number;
   createdAt: string;
   user: {
     id: string;
@@ -110,9 +113,24 @@ export default function ChannelPage() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const tasksFetchRef = useRef<AbortController | null>(null);
   const fetchTasksRef = useRef<() => void>(() => {});
+  const inputRef = useRef<HTMLInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [appeals, setAppeals] = useState<any[]>([]);
+
+  const isAppealsChannel = slug === "appeals";
+
+  const fetchAppeals = useCallback(() => {
+    if (!isAppealsChannel) return;
+    fetch("/api/appeals")
+      .then((res) => res.json())
+      .then((data) => setAppeals(data.appeals || []))
+      .catch(() => {});
+  }, [isAppealsChannel]);
 
   const fetchData = () => {
     if (!slug) return;
@@ -127,7 +145,6 @@ export default function ChannelPage() {
 
   const fetchTasks = () => {
     if (!slug) return;
-    // Cancel any in-flight task fetch to prevent stale responses from overwriting fresh data
     tasksFetchRef.current?.abort();
     const controller = new AbortController();
     tasksFetchRef.current = controller;
@@ -143,7 +160,8 @@ export default function ChannelPage() {
   useEffect(() => {
     fetchData();
     fetchTasks();
-  }, [slug]);
+    fetchAppeals();
+  }, [slug, fetchAppeals]);
 
   // Real-time: subscribe to channel messages via WebSocket
   useEffect(() => {
@@ -156,6 +174,8 @@ export default function ChannelPage() {
         ...msg,
         id: msg.id || `ws-${Date.now()}`,
         createdAt: msg.createdAt || new Date().toISOString(),
+        replyToId: msg.replyToId || null,
+        replyCount: msg.replyCount || 0,
         user: msg.user || {
           id: "system",
           username: "System",
@@ -164,8 +184,20 @@ export default function ChannelPage() {
           role: "system",
         },
       };
+
       setMessages((prev) => {
         if (prev.some((m) => m.id === normalized.id)) return prev;
+
+        // If this is a reply, increment replyCount on the parent
+        if (normalized.replyToId) {
+          const updated = prev.map((m) =>
+            m.id === normalized.replyToId
+              ? { ...m, replyCount: (m.replyCount || 0) + 1 }
+              : m
+          );
+          return [...updated, normalized];
+        }
+
         return [...prev, normalized];
       });
     };
@@ -182,8 +214,6 @@ export default function ChannelPage() {
       socket.on(WS_EVENTS.TASK_UPDATED, handleTaskUpdate);
     };
 
-    // Subscribe — fires immediately if socket is already connected,
-    // otherwise waits for the connection to be established.
     const unsub = onSocketReady(setup);
 
     return () => {
@@ -210,15 +240,30 @@ export default function ChannelPage() {
       const res = await fetch(`/api/channels/${slug}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newMessage.trim() }),
+        body: JSON.stringify({
+          content: newMessage.trim(),
+          replyToId: replyingTo?.id || null,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
         setMessages((prev) => {
           if (prev.some((m) => m.id === data.message.id)) return prev;
+
+          // If replying, increment parent's replyCount
+          if (data.message.replyToId) {
+            const updated = prev.map((m) =>
+              m.id === data.message.replyToId
+                ? { ...m, replyCount: (m.replyCount || 0) + 1 }
+                : m
+            );
+            return [...updated, data.message];
+          }
+
           return [...prev, data.message];
         });
         setNewMessage("");
+        setReplyingTo(null);
       }
     } catch {
       // silent fail
@@ -226,6 +271,23 @@ export default function ChannelPage() {
       setSending(false);
     }
   };
+
+  const handleReply = useCallback((msg: Message) => {
+    setReplyingTo(msg);
+    inputRef.current?.focus();
+  }, []);
+
+  const toggleThread = useCallback((msgId: string) => {
+    setExpandedThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) {
+        next.delete(msgId);
+      } else {
+        next.add(msgId);
+      }
+      return next;
+    });
+  }, []);
 
   const canPost =
     channel?.name !== "announcements" ||
@@ -247,10 +309,20 @@ export default function ChannelPage() {
     return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
   };
 
-  // Group messages by date
+  // Separate top-level messages and replies
+  const topLevelMessages = messages.filter((m) => !m.replyToId);
+  const repliesByParent: Record<string, Message[]> = {};
+  for (const msg of messages) {
+    if (msg.replyToId) {
+      if (!repliesByParent[msg.replyToId]) repliesByParent[msg.replyToId] = [];
+      repliesByParent[msg.replyToId].push(msg);
+    }
+  }
+
+  // Group top-level messages by date
   const groupedMessages: { date: string; messages: Message[] }[] = [];
   let currentDate = "";
-  for (const msg of messages) {
+  for (const msg of topLevelMessages) {
     const date = formatDate(msg.createdAt);
     if (date !== currentDate) {
       currentDate = date;
@@ -258,6 +330,124 @@ export default function ChannelPage() {
     }
     groupedMessages[groupedMessages.length - 1].messages.push(msg);
   }
+
+  // Render a single message row
+  const renderMessage = (msg: Message, isReply = false) => (
+    <div
+      key={msg.id}
+      className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${
+        msg.type === "system"
+          ? "opacity-70"
+          : msg.type === "mod"
+          ? "border-l-2 border-discord-accent pl-4"
+          : ""
+      } ${isReply ? "ml-6" : ""}`}
+    >
+      {/* Avatar with role icon */}
+      <div className="relative flex-shrink-0 mt-0.5">
+        {msg.user?.avatarUrl ? (
+          <>
+            <img
+              src={msg.user.avatarUrl}
+              alt=""
+              className={`rounded-full ${isReply ? "w-7 h-7" : "w-10 h-10"}`}
+            />
+            {!isReply && <RoleIcon role={msg.user.role} />}
+          </>
+        ) : (
+          <>
+            <div
+              className={`rounded-full flex items-center justify-center text-white font-bold ${
+                isReply ? "w-7 h-7 text-xs" : "w-10 h-10 text-sm"
+              } ${
+                msg.type === "system"
+                  ? "bg-discord-text-muted"
+                  : (ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent")
+              }`}
+            >
+              {(msg.user?.displayName || msg.user?.username || "S")
+                .slice(0, 2)
+                .toUpperCase()}
+            </div>
+            {!isReply && msg.type !== "system" && msg.user && <RoleIcon role={msg.user.role} />}
+          </>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span
+            className={`font-medium ${isReply ? "text-xs" : "text-sm"} ${
+              ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
+            }`}
+          >
+            {msg.user?.displayName || msg.user?.username || "System"}
+          </span>
+          {msg.type === "mod" && (
+            <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
+              MOD
+            </span>
+          )}
+          {msg.type === "system" && (
+            <span className="text-xs px-1.5 py-0.5 bg-discord-text-muted/20 text-discord-text-muted rounded">
+              SYSTEM
+            </span>
+          )}
+          <span className="text-xs text-discord-text-muted">
+            {formatTime(msg.createdAt)}
+          </span>
+
+          {/* Reply button — visible on hover */}
+          {canPost && msg.type !== "system" && (
+            <button
+              onClick={() => handleReply(msg)}
+              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-xs text-discord-text-muted hover:text-discord-accent flex items-center gap-1"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
+              </svg>
+              Reply
+            </button>
+          )}
+        </div>
+        <p className={`text-discord-text-secondary break-words ${isReply ? "text-xs" : "text-sm"}`}>
+          {msg.content}
+        </p>
+      </div>
+    </div>
+  );
+
+  // Render thread toggle + inline replies for a parent message
+  const renderThread = (parentMsg: Message) => {
+    const replyCount = parentMsg.replyCount || repliesByParent[parentMsg.id]?.length || 0;
+    if (replyCount === 0) return null;
+
+    const isExpanded = expandedThreads.has(parentMsg.id);
+    const replies = repliesByParent[parentMsg.id] || [];
+
+    return (
+      <div className="ml-6 mt-0.5">
+        <button
+          onClick={() => toggleThread(parentMsg.id)}
+          className="flex items-center gap-1.5 text-xs text-discord-accent hover:text-discord-accent/80 transition-colors py-0.5 px-1 -ml-1 rounded hover:bg-discord-accent/10"
+        >
+          <span className="font-mono font-bold text-xs w-3 text-center">
+            {isExpanded ? "−" : "+"}
+          </span>
+          <span>
+            {replyCount} {replyCount === 1 ? "reply" : "replies"}
+          </span>
+        </button>
+
+        {isExpanded && replies.length > 0 && (
+          <div className="border-l-2 border-discord-border/50 pl-2 mt-1 space-y-0.5">
+            {replies.map((reply) => renderMessage(reply, true))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -309,6 +499,22 @@ export default function ChannelPage() {
           </div>
         )}
 
+        {/* Appeal cards in #appeals channel */}
+        {isAppealsChannel && appeals.length > 0 && (
+          <div className="mb-4">
+            {appeals.map((appeal) => (
+              <AppealCard
+                key={appeal.id}
+                appeal={appeal}
+                onResolved={() => {
+                  fetchAppeals();
+                  fetchData();
+                }}
+              />
+            ))}
+          </div>
+        )}
+
         {groupedMessages.map((group) => (
           <div key={group.date}>
             {/* Date divider */}
@@ -321,73 +527,9 @@ export default function ChannelPage() {
             </div>
 
             {group.messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${
-                  msg.type === "system"
-                    ? "opacity-70"
-                    : msg.type === "mod"
-                    ? "border-l-2 border-discord-accent pl-4"
-                    : ""
-                }`}
-              >
-                {/* Avatar with role icon */}
-                <div className="relative flex-shrink-0 mt-0.5">
-                  {msg.user?.avatarUrl ? (
-                    <>
-                      <img
-                        src={msg.user.avatarUrl}
-                        alt=""
-                        className="w-10 h-10 rounded-full"
-                      />
-                      <RoleIcon role={msg.user.role} />
-                    </>
-                  ) : (
-                    <>
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold ${
-                          msg.type === "system"
-                            ? "bg-discord-text-muted"
-                            : (ROLE_AVATAR_COLOR[msg.user?.role] ?? "bg-discord-accent")
-                        }`}
-                      >
-                        {(msg.user?.displayName || msg.user?.username || "S")
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </div>
-                      {msg.type !== "system" && msg.user && <RoleIcon role={msg.user.role} />}
-                    </>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
-                    <span
-                      className={`font-medium text-sm ${
-                        ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
-                      }`}
-                    >
-                      {msg.user?.displayName || msg.user?.username || "System"}
-                    </span>
-                    {msg.type === "mod" && (
-                      <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
-                        MOD
-                      </span>
-                    )}
-                    {msg.type === "system" && (
-                      <span className="text-xs px-1.5 py-0.5 bg-discord-text-muted/20 text-discord-text-muted rounded">
-                        SYSTEM
-                      </span>
-                    )}
-                    <span className="text-xs text-discord-text-muted">
-                      {formatTime(msg.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-discord-text-secondary break-words">
-                    {msg.content}
-                  </p>
-                </div>
+              <div key={msg.id}>
+                {renderMessage(msg)}
+                {renderThread(msg)}
               </div>
             ))}
           </div>
@@ -395,8 +537,36 @@ export default function ChannelPage() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Reply preview bar */}
+      {replyingTo && canPost && (
+        <div className="px-4 pt-2 bg-discord-bg flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 bg-discord-bg-dark rounded-t-lg border-l-2 border-discord-accent text-xs text-discord-text-muted">
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
+            </svg>
+            <span>
+              Replying to{" "}
+              <span className="font-medium text-discord-accent">
+                {replyingTo.user?.displayName || replyingTo.user?.username}
+              </span>
+              <span className="ml-1.5 text-discord-text-muted/70">
+                {replyingTo.content.length > 60
+                  ? replyingTo.content.slice(0, 60) + "…"
+                  : replyingTo.content}
+              </span>
+            </span>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="ml-auto text-discord-text-muted hover:text-discord-text flex-shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Message input */}
-      <div className="px-4 pb-4 pt-2 bg-discord-bg flex-shrink-0">
+      <div className={`px-4 pb-4 ${replyingTo && canPost ? "pt-0" : "pt-2"} bg-discord-bg flex-shrink-0`}>
         {!canPost ? (
           <div className="p-3 bg-discord-bg-dark rounded-lg text-center text-sm text-discord-text-muted border border-discord-border">
             <span className="mr-1.5">🔒</span>
@@ -405,12 +575,19 @@ export default function ChannelPage() {
         ) : (
           <form onSubmit={handleSend} className="relative">
             <input
+              ref={inputRef}
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value.slice(0, 2000))}
               maxLength={2000}
-              placeholder={`Message #${channel?.name || slug}`}
-              className="w-full p-3 bg-discord-bg-hover rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none pr-16"
+              placeholder={
+                replyingTo
+                  ? `Reply to ${replyingTo.user?.displayName || replyingTo.user?.username}…`
+                  : `Message #${channel?.name || slug}`
+              }
+              className={`w-full p-3 bg-discord-bg-hover text-sm text-discord-text placeholder-discord-text-muted focus:outline-none pr-16 ${
+                replyingTo ? "rounded-b-lg rounded-t-none" : "rounded-lg"
+              }`}
             />
             {newMessage.length > 1800 && (
               <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono ${newMessage.length >= 2000 ? "text-discord-red" : "text-discord-text-muted"}`}>

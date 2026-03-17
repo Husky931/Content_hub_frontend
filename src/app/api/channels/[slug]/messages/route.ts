@@ -16,7 +16,7 @@ export async function POST(
     }
 
     const { slug } = await params;
-    const { content } = await req.json();
+    const { content, replyToId } = await req.json();
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
@@ -54,6 +54,22 @@ export async function POST(
       );
     }
 
+    // Validate replyToId if provided
+    if (replyToId) {
+      const [parentMsg] = await db
+        .select({ id: messages.id, channelId: messages.channelId })
+        .from(messages)
+        .where(eq(messages.id, replyToId))
+        .limit(1);
+
+      if (!parentMsg || parentMsg.channelId !== channel.id) {
+        return NextResponse.json(
+          { error: "Reply target not found in this channel" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Determine message type
     const messageType =
       channel.slug === "announcements" ? "mod" : "text";
@@ -66,6 +82,7 @@ export async function POST(
         userId: auth.userId,
         type: messageType,
         content: content.trim(),
+        replyToId: replyToId || null,
       })
       .returning();
 
@@ -86,6 +103,8 @@ export async function POST(
       id: newMessage.id,
       content: newMessage.content,
       type: newMessage.type,
+      replyToId: newMessage.replyToId || null,
+      replyCount: 0,
       createdAt: newMessage.createdAt,
       user: msgUser,
     };

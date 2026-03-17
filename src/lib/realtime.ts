@@ -107,6 +107,8 @@ export interface RealtimeMessage {
   id: string;
   content: string;
   type: string;
+  replyToId?: string | null;
+  replyCount?: number;
   createdAt: string;
   user: {
     id: string;
