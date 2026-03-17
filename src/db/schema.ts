@@ -446,6 +446,30 @@ export const channelReads = pgTable(
 );
 
 // ============================================================
+// 16. TASK TEMPLATES
+// ============================================================
+
+export const taskTemplates = pgTable("task_templates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  nameCn: varchar("name_cn", { length: 100 }),
+  category: varchar("category", { length: 50 }).notNull(),
+  description: text("description"),
+  descriptionCn: text("description_cn"),
+  bountyUsd: decimal("bounty_usd", { precision: 10, scale: 2 }),
+  bountyRmb: decimal("bounty_rmb", { precision: 10, scale: 2 }),
+  bonusBountyUsd: decimal("bonus_bounty_usd", { precision: 10, scale: 2 }),
+  bonusBountyRmb: decimal("bonus_bounty_rmb", { precision: 10, scale: 2 }),
+  maxAttempts: integer("max_attempts").notNull().default(5),
+  checklist: jsonb("checklist").$type<{ label: string }[]>(),
+  createdById: uuid("created_by_id")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ============================================================
 // RELATIONS
 // ============================================================
 

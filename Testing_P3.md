@@ -124,34 +124,59 @@ pnpm add next-intl
 
 ### 5.2 Locked Task Behavior
 
-- [ ] 5.2.1 Locked creator can submit revision attempts (new deliverables)
-- [ ] 5.2.2 Revision attempts do NOT count against maxAttempts
-- [ ] 5.2.3 Other creators CANNOT submit attempts → shows "Task locked for revision" message
-- [ ] 5.2.4 Task card shows orange "LOCKED" badge + countdown timer (hours:minutes remaining)
-- [ ] 5.2.5 Timer updates in real-time (every minute refresh or JS countdown)
+- [x] 5.2.1 Locked creator can submit revision attempts (new deliverables)
+- [x] 5.2.2 Revision attempts do NOT count against maxAttempts
+- [x] 5.2.3 Other creators CANNOT submit attempts → shows "Task locked for revision" message
+- [x] 5.2.4 Task card shows orange "LOCKED" badge + countdown timer (hours:minutes remaining)
+- [x] 5.2.5 Timer updates in real-time (every minute refresh or JS countdown)
 
 ### 5.3 Lock Resolution
 
-- [ ] 5.3.1 Creator submits revision → mod reviews → can Approve (LOCKED → APPROVED) or Reject
-- [ ] 5.3.2 If mod rejects during lock → task stays LOCKED, creator can try again (within 48h)
-- [ ] 5.3.3 Lock expires (48h passes) → next task query auto-transitions LOCKED → ACTIVE
-- [ ] 5.3.4 After auto-unlock: task open for everyone again, system message: "Lock expired — task reopened"
-- [ ] 5.3.5 Mod can manually unlock early → LOCKED → ACTIVE, system message: "Task unlocked by [mod]"
+- [x] 5.3.1 Creator submits revision → mod reviews → can Approve (LOCKED → APPROVED) or Reject
+- [x] 5.3.2 If mod rejects during lock → task stays LOCKED, creator can try again (within 48h)
+- [x] 5.3.3 Lock expires (48h passes) → next task query auto-transitions LOCKED → ACTIVE
+- [x] 5.3.4 After auto-unlock: task open for everyone again, system message: "Lock expired — task reopened"
+- [x] 5.3.5 Mod can manually unlock early → LOCKED → ACTIVE, system message: "Task unlocked by [mod]"
 
 ### 5.4 Lock Expiry Check (Lazy Evaluation)
 
-- [ ] 5.4.1 `GET /api/tasks` checks any LOCKED tasks where `lockExpiresAt < now()` → auto-updates to ACTIVE
-- [ ] 5.4.2 Channel page load also triggers the lazy check
-- [ ] 5.4.3 No cron job needed — expiry resolved on next read
-- [ ] 5.4.4 After auto-unlock, lockedById and lockExpiresAt are cleared
+- [x] 5.4.1 `GET /api/tasks` checks any LOCKED tasks where `lockExpiresAt < now()` → auto-updates to ACTIVE
+- [x] 5.4.2 Channel page load also triggers the lazy check
+- [x] 5.4.3 No cron job needed — expiry resolved on next read
+- [x] 5.4.4 After auto-unlock, lockedById and lockExpiresAt are cleared
 
-### 5.5 Lock API
+---
 
-- [ ] 5.5.1 `POST /api/tasks/[taskId]/lock` — lock task for a specific creator (mod/supermod/admin only)
-- [ ] 5.5.2 `POST /api/tasks/[taskId]/unlock` — manually unlock (mod/supermod/admin only)
-- [ ] 5.5.3 Lock on non-active task → 400 "Can only lock active tasks"
-- [ ] 5.5.4 Unlock on non-locked task → 400 "Task is not locked"
-- [ ] 5.5.5 Submit attempt on locked task by wrong creator → 403 "Task is locked for another creator"
+## 6. Task Templates
+
+### 6.1 Template Management (Admin/Supermod)
+
+- [ ] 6.1.1 Settings Modal > Admin > Templates section
+- [ ] 6.1.2 List view shows all templates with name, category, slot count, created date
+- [ ] 6.1.3 "Create Template" button opens template builder form
+- [ ] 6.1.4 Template fields: name, nameCn, description, descriptionCn, category
+- [ ] 6.1.5 Deliverable slots: add slots with file type (audio/video/image/text), max file size
+- [ ] 6.1.6 Default checklist items (pre-filled when task is created from template)
+- [ ] 6.1.7 Default bounty amounts (USD + RMB)
+- [ ] 6.1.8 Save template → stored in `task_templates` table
+- [ ] 6.1.9 Edit existing template
+- [ ] 6.1.10 Delete template (no cascade — existing tasks keep their snapshot)
+
+### 6.2 Using Templates in Task Creation
+
+- [ ] 6.2.1 Task creation form has "Template" dropdown (first field)
+- [ ] 6.2.2 Select a template → form pre-fills: description, checklist, bounty, file type constraints
+- [ ] 6.2.3 Admin can still edit all pre-filled fields before publishing
+- [ ] 6.2.4 Task saves a snapshot of the template in `templateData` JSONB (decoupled from template changes)
+- [ ] 6.2.5 Creating a task without a template still works as before
+
+### 6.3 Template API
+
+- [ ] 6.3.1 `GET /api/templates` — list all templates
+- [ ] 6.3.2 `POST /api/templates` — create template (admin/supermod only)
+- [ ] 6.3.3 `PATCH /api/templates/[id]` — update template
+- [ ] 6.3.4 `DELETE /api/templates/[id]` — delete template
+- [ ] 6.3.5 Non-admin/supermod → 403
 
 ---
 
@@ -190,39 +215,6 @@ pnpm add next-intl
 - [ ] 3.4.1 Creator sees bounty in their selected currency (already works from P1)
 - [ ] 3.4.2 Currency symbol matches: $ for USD, ¥ for RMB
 - [ ] 3.4.3 Financials page shows amounts in user's currency
-
----
-
-## 6. Task Templates
-
-### 6.1 Template Management (Admin/Supermod)
-
-- [ ] 6.1.1 Settings Modal > Admin > Templates section
-- [ ] 6.1.2 List view shows all templates with name, category, slot count, created date
-- [ ] 6.1.3 "Create Template" button opens template builder form
-- [ ] 6.1.4 Template fields: name, nameCn, description, descriptionCn, category
-- [ ] 6.1.5 Deliverable slots: add slots with file type (audio/video/image/text), max file size
-- [ ] 6.1.6 Default checklist items (pre-filled when task is created from template)
-- [ ] 6.1.7 Default bounty amounts (USD + RMB)
-- [ ] 6.1.8 Save template → stored in `task_templates` table
-- [ ] 6.1.9 Edit existing template
-- [ ] 6.1.10 Delete template (no cascade — existing tasks keep their snapshot)
-
-### 6.2 Using Templates in Task Creation
-
-- [ ] 6.2.1 Task creation form has "Template" dropdown (first field)
-- [ ] 6.2.2 Select a template → form pre-fills: description, checklist, bounty, file type constraints
-- [ ] 6.2.3 Admin can still edit all pre-filled fields before publishing
-- [ ] 6.2.4 Task saves a snapshot of the template in `templateData` JSONB (decoupled from template changes)
-- [ ] 6.2.5 Creating a task without a template still works as before
-
-### 6.3 Template API
-
-- [ ] 6.3.1 `GET /api/templates` — list all templates
-- [ ] 6.3.2 `POST /api/templates` — create template (admin/supermod only)
-- [ ] 6.3.3 `PATCH /api/templates/[id]` — update template
-- [ ] 6.3.4 `DELETE /api/templates/[id]` — delete template
-- [ ] 6.3.5 Non-admin/supermod → 403
 
 ---
 
