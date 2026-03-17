@@ -346,16 +346,28 @@ function TaskListContent() {
                       </span>
                     )}
                     {isMod && task.status === "draft" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePublish(task.id);
-                        }}
-                        disabled={publishingId === task.id}
-                        className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                      >
-                        <ButtonSpinner loading={publishingId === task.id}>Publish</ButtonSpinner>
-                      </button>
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sessionStorage.setItem("editDraftTask", task.id);
+                            openSettings("admin-tasks");
+                          }}
+                          className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer flex items-center gap-1"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePublish(task.id);
+                          }}
+                          disabled={publishingId === task.id}
+                          className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <ButtonSpinner loading={publishingId === task.id}>Publish</ButtonSpinner>
+                        </button>
+                      </>
                     )}
                     {isMod && (task.submittedCount ?? 0) > 0 && (
                       <button

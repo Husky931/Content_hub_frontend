@@ -50,8 +50,8 @@ function MyAccountSection() {
   const initials = (user.displayName || user.username).slice(0, 2).toUpperCase();
   const currencyLabel =
     user.currency === "usd" ? "US Dollar (USD)"
-    : user.currency === "rmb" ? "Chinese Yuan (RMB)"
-    : "Not set";
+      : user.currency === "rmb" ? "Chinese Yuan (RMB)"
+        : "Not set";
 
   return (
     <div className="max-w-2xl">
@@ -187,7 +187,7 @@ function ProfileSection() {
     try {
       const res = await fetch("/api/settings/avatar", { method: "DELETE" });
       if (res.ok) await refreshUser();
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -331,16 +331,16 @@ function AdminOverviewSection() {
   const [stats, setStats] = useState<{ totalUsers: number; activeInvites: number; totalTags: number; totalChannels: number } | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/stats").then((r) => r.json()).then(setStats).catch(() => {});
+    fetch("/api/admin/stats").then((r) => r.json()).then(setStats).catch(() => { });
   }, []);
 
   const cards = stats
     ? [
-        { label: "Total Users", value: stats.totalUsers, color: "text-blue-400", bg: "from-blue-500/10 to-blue-500/5", border: "border-blue-500/20" },
-        { label: "Active Invites", value: stats.activeInvites, color: "text-discord-green", bg: "from-green-500/10 to-green-500/5", border: "border-green-500/20" },
-        { label: "Tags", value: stats.totalTags, color: "text-indigo-400", bg: "from-indigo-500/10 to-indigo-500/5", border: "border-indigo-500/20" },
-        { label: "Channels", value: stats.totalChannels, color: "text-yellow-400", bg: "from-yellow-500/10 to-yellow-500/5", border: "border-yellow-500/20" },
-      ]
+      { label: "Total Users", value: stats.totalUsers, color: "text-blue-400", bg: "from-blue-500/10 to-blue-500/5", border: "border-blue-500/20" },
+      { label: "Active Invites", value: stats.activeInvites, color: "text-discord-green", bg: "from-green-500/10 to-green-500/5", border: "border-green-500/20" },
+      { label: "Tags", value: stats.totalTags, color: "text-indigo-400", bg: "from-indigo-500/10 to-indigo-500/5", border: "border-indigo-500/20" },
+      { label: "Channels", value: stats.totalChannels, color: "text-yellow-400", bg: "from-yellow-500/10 to-yellow-500/5", border: "border-yellow-500/20" },
+    ]
     : [];
 
   return (
@@ -574,14 +574,13 @@ function AdminUsersSection() {
                             key={role}
                             onClick={() => patch(u.id, { userId: u.id, action: "changeRole", role })}
                             disabled={isLoading || u.role === role}
-                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                              u.role === role
-                                ? role === "admin" ? "bg-red-500/30 text-red-300 ring-1 ring-red-500/60"
-                                  : role === "supermod" ? "bg-indigo-500/30 text-indigo-300 ring-1 ring-indigo-500/60"
+                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${u.role === role
+                              ? role === "admin" ? "bg-red-500/30 text-red-300 ring-1 ring-red-500/60"
+                                : role === "supermod" ? "bg-indigo-500/30 text-indigo-300 ring-1 ring-indigo-500/60"
                                   : role === "mod" ? "bg-green-500/30 text-green-300 ring-1 ring-green-500/60"
-                                  : "bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/60"
-                                : "bg-discord-bg hover:bg-discord-bg-hover text-discord-text-muted hover:text-discord-text border border-discord-border"
-                            }`}
+                                    : "bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/60"
+                              : "bg-discord-bg hover:bg-discord-bg-hover text-discord-text-muted hover:text-discord-text border border-discord-border"
+                              }`}
                           >
                             {isLoading && u.role !== role ? <span className="flex items-center gap-1"><Spinner />{role}</span> : role}
                           </button>
@@ -942,6 +941,8 @@ function AdminTasksSection() {
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState<string | null>(null);
   // Checklist state
   const [checklistItems, setChecklistItems] = useState<string[]>([]);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -951,7 +952,7 @@ function AdminTasksSection() {
   const [previewDescEn, setPreviewDescEn] = useState(false);
   const [previewDescCn, setPreviewDescCn] = useState(false);
 
-  const fetchData =() => {
+  const fetchData = () => {
     Promise.all([
       fetch("/api/channels").then((r) => r.json()),
       fetch("/api/admin/tasks").then((r) => r.json()),
@@ -968,12 +969,18 @@ function AdminTasksSection() {
         }
         setTasks(taskData.tasks || []);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     fetchData();
+    // Check if we need to edit a draft task (from tasks list page)
+    const editId = sessionStorage.getItem("editDraftTask");
+    if (editId) {
+      sessionStorage.removeItem("editDraftTask");
+      handleEdit(editId);
+    }
     // Check if a template was selected from Task Templates section
     const stored = sessionStorage.getItem("useTemplate");
     if (stored) {
@@ -1046,6 +1053,77 @@ function AdminTasksSection() {
     setActionLoadingId(null);
   };
 
+  const handleEdit = async (taskId: string) => {
+    setEditLoading(taskId);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`);
+      if (!res.ok) return;
+      const { task } = await res.json();
+      setEditingTaskId(taskId);
+      setChannelId(task.channelId || "");
+      setTitle(task.title || "");
+      setTitleCn(task.titleCn || "");
+      setDescription(task.description || "");
+      setDescriptionCn(task.descriptionCn || "");
+      setBountyUsd(task.bountyUsd || "");
+      setBountyRmb(task.bountyRmb || "");
+      setBonusBountyUsd(task.bonusBountyUsd || "");
+      setBonusBountyRmb(task.bonusBountyRmb || "");
+      setMaxAttempts(String(task.maxAttempts || 5));
+      setDeadline(task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : "");
+      setPublishNow(false);
+      setChecklistItems((task.checklist || []).map((c: { label: string }) => c.label));
+      setTaskAttachments(task.attachments || []);
+      setShowForm(true);
+    } catch { /* ignore */ }
+    setEditLoading(null);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingTaskId || !channelId || !title || !description) {
+      setFormError("Channel, title, and description are required");
+      return;
+    }
+    setCreating(true);
+    setFormError("");
+
+    const body: Record<string, any> = {
+      channelId,
+      title,
+      titleCn: titleCn || undefined,
+      description,
+      descriptionCn: descriptionCn || undefined,
+      bountyUsd: bountyUsd || undefined,
+      bountyRmb: bountyRmb || undefined,
+      bonusBountyUsd: bonusBountyUsd || undefined,
+      bonusBountyRmb: bonusBountyRmb || undefined,
+      maxAttempts: parseInt(maxAttempts) || 5,
+      deadline: deadline || undefined,
+      checklist: checklistItems.length > 0 ? checklistItems.map((label) => ({ label })) : undefined,
+      attachments: taskAttachments.length > 0 ? taskAttachments.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size })) : undefined,
+    };
+    if (publishNow) body.status = "active";
+
+    const res = await fetch(`/api/tasks/${editingTaskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn("");
+      setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb("");
+      setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setShowForm(false);
+      setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]);
+      setEditingTaskId(null);
+      fetchData();
+    } else {
+      const data = await res.json();
+      setFormError(data.error || "Failed to update task");
+    }
+    setCreating(false);
+  };
+
   if (loading) return <div className="text-discord-text-muted text-sm">Loading tasks...</div>;
 
   return (
@@ -1053,7 +1131,7 @@ function AdminTasksSection() {
       <div className="flex items-center justify-between mb-6">
         <SectionTitle>Task Management</SectionTitle>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); if (showForm) { setEditingTaskId(null); setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn(""); setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb(""); setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); } }}
           className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
         >
           {showForm ? "Cancel" : "+ Create Task"}
@@ -1062,7 +1140,7 @@ function AdminTasksSection() {
 
       {showForm && (
         <div className="mb-6 p-4 bg-discord-bg-dark rounded-xl border border-discord-bg-darker/60">
-          <h3 className="text-sm font-semibold text-discord-text mb-3 uppercase">New Task</h3>
+          <h3 className="text-sm font-semibold text-discord-text mb-3 uppercase">{editingTaskId ? "Edit Task" : "New Task"}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Channel *</label>
@@ -1085,7 +1163,7 @@ function AdminTasksSection() {
             </div>
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-discord-text-muted">Description (EN) * — Markdown supported</label>
+                <label className="text-xs text-discord-text-muted">Description (EN)</label>
                 <button type="button" onClick={() => setPreviewDescEn(!previewDescEn)} className="text-[10px] px-2 py-0.5 rounded bg-discord-bg-hover text-discord-text-muted hover:text-discord-text transition">
                   {previewDescEn ? "Edit" : "Preview"}
                 </button>
@@ -1098,7 +1176,7 @@ function AdminTasksSection() {
             </div>
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-discord-text-muted">Description (CN) — Markdown supported</label>
+                <label className="text-xs text-discord-text-muted">Description (CN)</label>
                 <button type="button" onClick={() => setPreviewDescCn(!previewDescCn)} className="text-[10px] px-2 py-0.5 rounded bg-discord-bg-hover text-discord-text-muted hover:text-discord-text transition">
                   {previewDescCn ? "Edit" : "Preview"}
                 </button>
@@ -1185,17 +1263,17 @@ function AdminTasksSection() {
               <label className="block text-xs text-discord-text-muted mb-1">Deadline</label>
               <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
             </div>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 text-sm text-discord-text-secondary cursor-pointer">
-                <input type="checkbox" checked={publishNow} onChange={(e) => setPublishNow(e.target.checked)} className="rounded" />
-                Publish immediately
-              </label>
-            </div>
           </div>
           {formError && <p className="text-xs text-discord-red mt-2">{formError}</p>}
-          <button onClick={handleCreate} disabled={creating} className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
-            <ButtonSpinner loading={creating}>Create Task</ButtonSpinner>
-          </button>
+          <div className="mt-10 space-y-3">
+            <label className="flex items-center gap-2.5 text-sm text-discord-text cursor-pointer select-none group">
+              <input type="checkbox" checked={publishNow} onChange={(e) => setPublishNow(e.target.checked)} className="w-4 h-4 rounded border-discord-border accent-green-500" />
+              <span className="font-medium group-hover:text-green-400 transition">Publish immediately</span>
+            </label>
+            <button onClick={editingTaskId ? handleUpdate : handleCreate} disabled={creating} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
+              <ButtonSpinner loading={creating}>{editingTaskId ? "Update Task" : "Create Task"}</ButtonSpinner>
+            </button>
+          </div>
         </div>
       )}
 
@@ -1216,6 +1294,7 @@ function AdminTasksSection() {
               <div className="flex gap-1 shrink-0">
                 {task.status === "draft" && (
                   <>
+                    <button onClick={() => handleEdit(task.id)} disabled={editLoading === task.id} className="text-xs px-2 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={editLoading === task.id}>Edit</ButtonSpinner></button>
                     <button onClick={() => handleStatusChange(task.id, "active")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={actionLoadingId === task.id}>Publish</ButtonSpinner></button>
                     <button onClick={() => handleStatusChange(task.id, "archived")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={actionLoadingId === task.id}>Archive</ButtonSpinner></button>
                   </>
@@ -1638,7 +1717,7 @@ function AdminChannelsSection() {
         setModUsers((userData.users || []).filter((u: { role: string }) => ["mod", "supermod", "admin"].includes(u.role)));
         setChannelList(channelData.channels || []);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
 
@@ -2134,7 +2213,7 @@ function AdminAuditSection() {
     fetch("/api/admin/audit")
       .then((r) => r.json())
       .then((data) => setItems(data.auditItems || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   };
 
@@ -2278,11 +2357,10 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
   const NavBtn = ({ id, label }: NavItem) => (
     <button
       onClick={() => setSection(id)}
-      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors font-medium ${
-        section === id
-          ? "bg-discord-bg-hover text-discord-text"
-          : "text-discord-text-muted hover:text-discord-text hover:bg-discord-bg-hover/50"
-      }`}
+      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors font-medium ${section === id
+        ? "bg-discord-bg-hover text-discord-text"
+        : "text-discord-text-muted hover:text-discord-text hover:bg-discord-bg-hover/50"
+        }`}
     >
       {label}
     </button>
@@ -2336,16 +2414,16 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
 
         {/* ── Right content ── */}
         <div className="flex-1 bg-discord-bg overflow-y-auto px-12 py-14">
-          {section === "my-account"     && <MyAccountSection />}
-          {section === "profile"        && <ProfileSection />}
+          {section === "my-account" && <MyAccountSection />}
+          {section === "profile" && <ProfileSection />}
           {section === "admin-overview" && <AdminOverviewSection />}
-          {section === "admin-users"    && <AdminUsersSection />}
-          {section === "admin-invites"  && <AdminInvitesSection />}
-          {section === "admin-tags"     && <AdminTagsSection />}
-          {section === "admin-tasks"    && <AdminTasksSection />}
+          {section === "admin-users" && <AdminUsersSection />}
+          {section === "admin-invites" && <AdminInvitesSection />}
+          {section === "admin-tags" && <AdminTagsSection />}
+          {section === "admin-tasks" && <AdminTasksSection />}
           {section === "admin-templates" && <AdminTemplatesSection />}
           {section === "admin-channels" && <AdminChannelsSection />}
-          {section === "admin-audit"    && <AdminAuditSection />}
+          {section === "admin-audit" && <AdminAuditSection />}
         </div>
 
         {/* ── X close button ── */}

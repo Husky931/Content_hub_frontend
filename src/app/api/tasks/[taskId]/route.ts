@@ -33,6 +33,8 @@ export async function GET(
         bonusBountyRmb: tasks.bonusBountyRmb,
         maxAttempts: tasks.maxAttempts,
         deadline: tasks.deadline,
+        checklist: tasks.checklist,
+        attachments: tasks.attachments,
         createdAt: tasks.createdAt,
         updatedAt: tasks.updatedAt,
         channelName: channels.name,
@@ -222,6 +224,8 @@ export async function PATCH(
       "maxAttempts",
       "deadline",
       "status",
+      "checklist",
+      "attachments",
     ];
 
     for (const field of allowedFields) {
