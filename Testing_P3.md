@@ -24,14 +24,6 @@ pnpm add next-intl
 
 ## 1. Reply Messages (Inline Threads)
 
-### 1.1 Schema & API
-
-- [ ] 1.1.1 `messages` table has new `reply_to_id` column (nullable FK to messages.id)
-- [ ] 1.1.2 `POST /api/channels/[slug]/messages` accepts optional `replyToId` field
-- [ ] 1.1.3 `GET /api/channels/[slug]/messages` returns `replyTo` object (id, content preview, author name) for reply messages
-- [ ] 1.1.4 Sending a message with `replyToId` pointing to a deleted message → still saves (shows "Original message was deleted")
-- [ ] 1.1.5 Sending a message with invalid `replyToId` → 400 error
-
 ### 1.2 Reply UI — Initiating a Reply
 
 - [ ] 1.2.1 Hover over any message → "Reply" button appears in message action bar
@@ -42,8 +34,6 @@ pnpm add next-intl
 - [ ] 1.2.6 Reply preview bar persists while typing (doesn't disappear on focus change)
 
 ### 1.3 Reply UI — Display in Feed (Reddit-Style +/−)
-
-By default, **replies are hidden from the main feed**. Parent messages with replies show a **[+] X replies** toggle. Clicking expands replies inline; clicking again (now **[−]**) collapses them back. Simple Reddit-style.
 
 - [ ] 1.3.1 Reply messages are **not shown** in the main feed by default — only top-level messages appear
 - [ ] 1.3.2 Messages that have replies show **[+] X replies** below the message (collapsed state)

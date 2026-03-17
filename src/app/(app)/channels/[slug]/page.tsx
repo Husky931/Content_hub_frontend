@@ -114,7 +114,7 @@ export default function ChannelPage() {
   const [sending, setSending] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const tasksFetchRef = useRef<AbortController | null>(null);
   const fetchTasksRef = useRef<() => void>(() => {});
@@ -278,7 +278,7 @@ export default function ChannelPage() {
   }, []);
 
   const toggleThread = useCallback((msgId: string) => {
-    setExpandedThreads((prev) => {
+    setCollapsedThreads((prev) => {
       const next = new Set(prev);
       if (next.has(msgId)) {
         next.delete(msgId);
@@ -418,13 +418,39 @@ export default function ChannelPage() {
     </div>
   );
 
-  // Render thread toggle + inline replies for a parent message
-  const renderThread = (parentMsg: Message) => {
-    const replyCount = parentMsg.replyCount || repliesByParent[parentMsg.id]?.length || 0;
-    if (replyCount === 0) return null;
+  // Count all descendants recursively
+  const countAllReplies = (parentId: string): number => {
+    const directReplies = repliesByParent[parentId] || [];
+    let total = directReplies.length;
+    for (const reply of directReplies) {
+      total += countAllReplies(reply.id);
+    }
+    return total;
+  };
 
-    const isExpanded = expandedThreads.has(parentMsg.id);
-    const replies = repliesByParent[parentMsg.id] || [];
+  // Render nested replies recursively (Reddit-style tree)
+  const renderReplies = (parentId: string, depth: number = 0) => {
+    const replies = repliesByParent[parentId] || [];
+    if (replies.length === 0) return null;
+
+    return (
+      <div className={`border-l-2 border-discord-border/40 hover:border-discord-accent/40 ${depth === 0 ? "ml-6" : "ml-4"} pl-2 mt-0.5 space-y-0.5`}>
+        {replies.map((reply) => (
+          <div key={reply.id}>
+            {renderMessage(reply, true)}
+            {renderReplies(reply.id, depth + 1)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render thread for a top-level message — expanded by default, collapsible
+  const renderThread = (parentMsg: Message) => {
+    const totalReplies = countAllReplies(parentMsg.id);
+    if (totalReplies === 0) return null;
+
+    const isCollapsed = collapsedThreads.has(parentMsg.id);
 
     return (
       <div className="ml-6 mt-0.5">
@@ -433,18 +459,14 @@ export default function ChannelPage() {
           className="flex items-center gap-1.5 text-xs text-discord-accent hover:text-discord-accent/80 transition-colors py-0.5 px-1 -ml-1 rounded hover:bg-discord-accent/10"
         >
           <span className="font-mono font-bold text-xs w-3 text-center">
-            {isExpanded ? "−" : "+"}
+            {isCollapsed ? "+" : "−"}
           </span>
           <span>
-            {replyCount} {replyCount === 1 ? "reply" : "replies"}
+            {totalReplies} {totalReplies === 1 ? "reply" : "replies"}
           </span>
         </button>
 
-        {isExpanded && replies.length > 0 && (
-          <div className="border-l-2 border-discord-border/50 pl-2 mt-1 space-y-0.5">
-            {replies.map((reply) => renderMessage(reply, true))}
-          </div>
-        )}
+        {!isCollapsed && renderReplies(parentMsg.id)}
       </div>
     );
   };
