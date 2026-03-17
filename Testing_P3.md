@@ -1,20 +1,6 @@
 # P3 Manual Testing Plan
 
-#### 1. Schema Migration (Sections 1–4)
-
-After implementing each feature, run:
-
-```bash
-pnpm drizzle-kit push
-```
-
-New tables/columns added:
-
-- `messages.reply_to_id` — nullable FK to messages (Section 1)
-- `channel_reads` table — userId + channelId + lastReadMessageId (Section 2)
-- `users.language` — 'en' or 'zh' preference (Section 3)
-
-#### 2. i18n Library (Section 3)
+#### 1. i18n Library (Section 3)
 
 ```bash
 pnpm add next-intl

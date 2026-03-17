@@ -27,6 +27,7 @@ interface TaskCardProps {
     maxAttempts: number;
     deadline: string | null;
     attemptCount: number;
+    myAttemptCount?: number;
     channelSlug: string;
     createdByUsername: string;
     createdByDisplayName?: string | null;
@@ -397,7 +398,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         )}
 
         <span className="text-xs text-discord-text-muted">
-          {task.attemptCount}/{task.maxAttempts} attempts
+          {task.myAttemptCount ?? task.attemptCount}/{task.maxAttempts} attempts
         </span>
 
         <div className="ml-auto flex items-center gap-2">

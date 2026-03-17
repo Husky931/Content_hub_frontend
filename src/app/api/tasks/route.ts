@@ -185,6 +185,27 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Get per-user attempt counts (how many attempts the current user has made)
+    let myAttemptCounts: Record<string, number> = {};
+    if (taskIds.length > 0) {
+      const myCounts = await db
+        .select({
+          taskId: attempts.taskId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(attempts)
+        .where(
+          and(
+            inArray(attempts.taskId, taskIds),
+            eq(attempts.userId, auth.userId)
+          )
+        )
+        .groupBy(attempts.taskId);
+      for (const c of myCounts) {
+        myAttemptCounts[c.taskId] = c.count;
+      }
+    }
+
     // Get submitted attempt counts per task
     let submittedCounts: Record<string, number> = {};
     if (taskIds.length > 0) {
@@ -276,6 +297,7 @@ export async function GET(req: NextRequest) {
         return {
           ...t,
           attemptCount: attemptCounts[t.id] || 0,
+          myAttemptCount: myAttemptCounts[t.id] || 0,
           myAttempt: myAttempt
             ? { ...myAttempt, appealStatus: myAppealStatuses[myAttempt.id] || null }
             : null,

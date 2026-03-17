@@ -113,10 +113,14 @@ describe("GET /api/tasks", () => {
 
   it("returns tasks list for admin (bypasses tag filter)", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "admin-1", role: "admin" });
+    // Lazy lock expiry (no expired locks)
+    mockSelect([]);
     // Main tasks query
     mockSelect([sampleTaskRow]);
-    // Attempt counts
+    // Attempt counts (global)
     mockSelect([{ taskId: "task-1", count: 2 }]);
+    // Per-user attempt counts
+    mockSelect([{ taskId: "task-1", count: 1 }]);
     // Submitted counts
     mockSelect([{ taskId: "task-1", count: 1 }]);
     // Reviewer names (no reviewers)
@@ -129,6 +133,7 @@ describe("GET /api/tasks", () => {
     expect(json.tasks).toHaveLength(1);
     expect(json.tasks[0].title).toBe("Test Task");
     expect(json.tasks[0].attemptCount).toBe(2);
+    expect(json.tasks[0].myAttemptCount).toBe(1);
     expect(json.tasks[0].submittedCount).toBe(1);
   });
 
@@ -136,10 +141,14 @@ describe("GET /api/tasks", () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "c1", role: "creator" });
     // User tags query
     mockSelect([{ tagId: "tag-1" }]);
+    // Lazy lock expiry (no expired locks)
+    mockSelect([]);
     // Main tasks query
     mockSelect([sampleTaskRow]);
-    // Attempt counts
+    // Attempt counts (global)
     mockSelect([{ taskId: "task-1", count: 0 }]);
+    // Per-user attempt counts
+    mockSelect([]);
     // Submitted counts
     mockSelect([]);
     // myAttempts

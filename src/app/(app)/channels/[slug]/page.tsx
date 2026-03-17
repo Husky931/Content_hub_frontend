@@ -48,6 +48,7 @@ interface TaskInfo {
   maxAttempts: number;
   deadline: string | null;
   attemptCount: number;
+  myAttemptCount?: number;
   channelSlug: string;
   createdByUsername: string;
   createdByDisplayName?: string | null;
