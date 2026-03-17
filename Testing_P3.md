@@ -105,9 +105,8 @@ pnpm add next-intl
 - [x] 4.3.2 Upheld appeal → task status returns to "active" if it was moved past active
 - [x] 4.3.3 Upheld appeal → system message in the **task's original channel**: "Appeal upheld for [creator] on [task] — re-submitted for review"
 - [x] 4.3.4 Upheld appeal → notification sent to creator: "Your appeal was upheld"
-- [ ] 4.3.5 **Deny Appeal** → appeal status set to "denied", attempt stays rejected
+- [x] 4.3.5 **Deny Appeal** → appeal status set to "denied", attempt stays rejected
 - [x] 4.3.6 Denied appeal → notification sent to creator: "Your appeal was denied"
-- [ ] 4.3.8 Resolved appeals show in #appeals with "Granted" / "Denied" badge (greyed out, not actionable)
 
 ---
 

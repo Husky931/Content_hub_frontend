@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/Spinner";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { getSocket, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 import { FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
 
@@ -62,6 +63,9 @@ function ReviewContent() {
   const [reviewError, setReviewError] = useState("");
   // Checklist state: tracks which items pass (true = pass, false = fail)
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
+  // Lock for revision
+  const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
+  const [locking, setLocking] = useState(false);
 
   const fetchReviewItems = useCallback(async () => {
     setLoading(true);
@@ -288,6 +292,34 @@ function ReviewContent() {
       setReviewError("Network error");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleLockForRevision = async () => {
+    if (!selectedTask || !selectedAttempt) return;
+    setLocking(true);
+    setReviewError("");
+    try {
+      const res = await fetch(`/api/tasks/${selectedTask.id}/lock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: selectedAttempt.userId }),
+      });
+      if (res.ok) {
+        setLockConfirmOpen(false);
+        setSelectedTask(null);
+        setSelectedAttempt(null);
+        fetchReviewItems();
+      } else {
+        const data = await res.json();
+        setReviewError(data.error || "Failed to lock task");
+        setLockConfirmOpen(false);
+      }
+    } catch {
+      setReviewError("Network error");
+      setLockConfirmOpen(false);
+    } finally {
+      setLocking(false);
     }
   };
 
@@ -592,6 +624,16 @@ function ReviewContent() {
                         {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
                       </button>
                       <button
+                        onClick={() => setLockConfirmOpen(true)}
+                        disabled={submitting}
+                        className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Lock for Revision
+                      </button>
+                      <button
                         onClick={() => handleReview("rejected")}
                         disabled={submitting || !rejectionReason.trim()}
                         className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
@@ -613,6 +655,20 @@ function ReviewContent() {
           )}
         </div>
       </div>
+
+      {/* Lock for Revision confirmation */}
+      <ConfirmDialog
+        open={lockConfirmOpen}
+        onClose={() => setLockConfirmOpen(false)}
+        onConfirm={handleLockForRevision}
+        title="Lock for Revision"
+        confirmText="Lock Task"
+        variant="warning"
+        loading={locking}
+      >
+        Lock task for <strong>{selectedAttempt?.displayName || selectedAttempt?.username}</strong> for
+        48h exclusive revision? Other creators will not be able to submit during this time.
+      </ConfirmDialog>
     </div>
   );
 }
