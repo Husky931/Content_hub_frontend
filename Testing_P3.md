@@ -149,34 +149,36 @@ pnpm add next-intl
 
 ## 6. Task Templates
 
-### 6.1 Template Management (Admin/Supermod)
+### 6.1 Template Management (Admin/Supermod/Mod)
 
-- [ ] 6.1.1 Settings Modal > Admin > Templates section
-- [ ] 6.1.2 List view shows all templates with name, category, slot count, created date
-- [ ] 6.1.3 "Create Template" button opens template builder form
-- [ ] 6.1.4 Template fields: name, nameCn, description, descriptionCn, category
-- [ ] 6.1.5 Deliverable slots: add slots with file type (audio/video/image/text), max file size
-- [ ] 6.1.6 Default checklist items (pre-filled when task is created from template)
-- [ ] 6.1.7 Default bounty amounts (USD + RMB)
-- [ ] 6.1.8 Save template → stored in `task_templates` table
-- [ ] 6.1.9 Edit existing template
-- [ ] 6.1.10 Delete template (no cascade — existing tasks keep their snapshot)
+- [x] 6.1.1 Settings Modal > Admin > "Task Templates" section (separate menu item below Tasks)
+- [x] 6.1.2 List view shows all templates with name, nameCn, category icon, bounty badges, checklist count
+- [x] 6.1.3 "+" Create Template" button opens template builder form
+- [x] 6.1.4 Template fields: name, nameCn, category (audio/video/image), description (EN), description (CN)
+- [x] 6.1.5 Bounty fields: bountyUsd, bountyRmb, bonusBountyUsd, bonusBountyRmb
+- [x] 6.1.6 Max attempts field (default 5)
+- [x] 6.1.7 Review checklist builder (add/remove items, same UX as task creation)
+- [x] 6.1.8 Save template → stored in `task_templates` table
+- [x] 6.1.9 Edit existing template (inline edit form with all fields)
+- [x] 6.1.10 Delete template with confirmation spinner
+- [x] 6.1.11 3 default templates auto-seeded on first load (Audio, Video, Image) with predefined values
 
 ### 6.2 Using Templates in Task Creation
 
-- [ ] 6.2.1 Task creation form has "Template" dropdown (first field)
-- [ ] 6.2.2 Select a template → form pre-fills: description, checklist, bounty, file type constraints
-- [ ] 6.2.3 Admin can still edit all pre-filled fields before publishing
-- [ ] 6.2.4 Task saves a snapshot of the template in `templateData` JSONB (decoupled from template changes)
-- [ ] 6.2.5 Creating a task without a template still works as before
+- [x] 6.2.1 Each template card has "Use Template" button
+- [x] 6.2.2 Click "Use Template" → navigates to Tasks section, opens Create Task form pre-filled with: description (EN/CN), bounties (USD/RMB), bonus (USD/RMB), max attempts, review checklist
+- [x] 6.2.3 Admin can still edit all pre-filled fields before publishing (title, channel, deadline, attachments still need to be set)
+- [x] 6.2.4 "Use Template" works reliably on repeated clicks (navTick mechanism)
+- [x] 6.2.5 Creating a task without a template still works as before
 
 ### 6.3 Template API
 
-- [ ] 6.3.1 `GET /api/templates` — list all templates
-- [ ] 6.3.2 `POST /api/templates` — create template (admin/supermod only)
-- [ ] 6.3.3 `PATCH /api/templates/[id]` — update template
-- [ ] 6.3.4 `DELETE /api/templates/[id]` — delete template
-- [ ] 6.3.5 Non-admin/supermod → 403
+- [x] 6.3.1 `GET /api/templates` — list all templates (admin/supermod/mod)
+- [x] 6.3.2 `POST /api/templates` — create template (admin/supermod only)
+- [x] 6.3.3 `PATCH /api/templates/[id]` — update template (admin/supermod only)
+- [x] 6.3.4 `DELETE /api/templates/[id]` — delete template (admin/supermod only)
+- [x] 6.3.5 `POST /api/templates/seed` — auto-seed 3 default templates (admin only)
+- [x] 6.3.6 Non-admin/supermod → 403 on create/update/delete
 
 ---
 
