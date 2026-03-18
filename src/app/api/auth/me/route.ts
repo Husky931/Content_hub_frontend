@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, sessions, userTags, tags } from "@/db/schema";
-import { getAuthFromCookies } from "@/lib/auth";
+import { getAuthFromCookies, createJWT } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 
 export async function GET() {
@@ -52,7 +52,32 @@ export async function GET() {
       .innerJoin(tags, eq(userTags.tagId, tags.id))
       .where(eq(userTags.userId, auth.userId));
 
-    return NextResponse.json({ user: { ...user, tags: userTagRows } });
+    const response = NextResponse.json({ user: { ...user, tags: userTagRows } });
+
+    // If the DB role differs from the JWT role, re-issue the JWT so that
+    // subsequent API calls (which read role from JWT) use the current role.
+    if (user.role !== auth.role) {
+      const { token, jti, expiresAt } = await createJWT({
+        userId: auth.userId,
+        role: user.role,
+      });
+
+      // Update the session's tokenJti so the old JWT is effectively invalidated
+      await db
+        .update(sessions)
+        .set({ tokenJti: jti, expiresAt })
+        .where(and(eq(sessions.tokenJti, auth.jti), eq(sessions.userId, auth.userId)));
+
+      response.cookies.set("auth_token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        expires: expiresAt,
+      });
+    }
+
+    return response;
   } catch (error) {
     console.error("Me error:", error);
     return NextResponse.json(
