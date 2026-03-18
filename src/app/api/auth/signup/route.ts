@@ -149,10 +149,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         message: "Account created. Please check your email to verify your account.",
-        // DEV ONLY: include verify URL in response for testing
-        ...(process.env.NODE_ENV !== "production" && {
-          devVerifyUrl: `${req.nextUrl.origin}/api/auth/verify?token=${token}`,
-        }),
+        // TODO: remove after Resend email is wired up — keeps demo working
+        devVerifyUrl: `${req.nextUrl.origin}/api/auth/verify?token=${token}`,
       },
       { status: 201 }
     );
