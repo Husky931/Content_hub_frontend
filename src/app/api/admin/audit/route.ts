@@ -11,6 +11,12 @@ import {
 } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq, and, desc } from "drizzle-orm";
+import {
+  publishWalletUpdate,
+  publishNotification,
+  publishTaskUpdate,
+  publishSystemMessage,
+} from "@/lib/ws-publish";
 
 // GET /api/admin/audit — get approved tasks pending payout (supermod/admin)
 export async function GET() {
@@ -153,6 +159,32 @@ export async function POST(req: NextRequest) {
       body: `Your approved submission for "${task.title}" was reversed during audit. Reason: ${reason}`,
       data: { taskId, attemptId },
     });
+
+    // Get channel slug for real-time broadcasts
+    const [channel] = await db
+      .select({ slug: channels.slug })
+      .from(channels)
+      .where(eq(channels.id, task.channelId))
+      .limit(1);
+
+    // Broadcast real-time updates (non-blocking, fire-and-forget on serverless)
+    const publishes: Promise<void>[] = [
+      publishWalletUpdate(attempt.userId, { changed: true }),
+      publishNotification(attempt.userId, {
+        type: "audit_reversal",
+        title: "Approval reversed",
+        body: `Your approved submission for "${task.title}" was reversed during audit.`,
+      }),
+    ];
+    if (channel) {
+      publishes.push(
+        publishTaskUpdate(channel.slug, { taskId, status: "active" }),
+        publishSystemMessage(channel.slug, {
+          content: `Audit reversal: "${task.title}" approval was reversed by ${auditor.displayName || auditor.username}. Task reopened.`,
+        })
+      );
+    }
+    await Promise.all(publishes);
 
     return NextResponse.json({
       success: true,
