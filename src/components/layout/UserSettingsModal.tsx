@@ -1244,7 +1244,7 @@ function AdminTasksSection() {
             </div>
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Bonus RMB</label>
-              <input value={bonusBountyRmb} onChange={(e) => setBonusBountyRmb(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+              <input value={bonusBountyRmb} onChange={(e) => setBonusBountyRmb(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/[\d.,]/.test(e.key)) e.preventDefault(); }} placeholder="72.00" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
             </div>
             {/* Attachments */}
             <div className="col-span-2">
