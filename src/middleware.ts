@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyJWT } from "@/lib/auth";
+import { verifyJWT } from "@/lib/auth-edge";
 
 // Routes that don't require authentication
 const publicRoutes = ["/login", "/signup", "/", "/api/auth/signup", "/api/auth/login", "/api/auth/verify"];

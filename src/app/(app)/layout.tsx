@@ -14,13 +14,16 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { isOpen, initialSection, closeSettings } = useSettingsModal();
 
   useEffect(() => {
-    if (!loading && user && !user.onboardingCompleted) {
+    if (!loading && !user) {
+      router.push("/login");
+    } else if (!loading && user && !user.onboardingCompleted) {
       router.push("/onboarding");
     }
   }, [user, loading, router]);
 
   if (!mounted || loading) return null;
-  if (user && !user.onboardingCompleted) return null;
+  if (!user) return null;
+  if (!user.onboardingCompleted) return null;
 
   return (
     <div className="flex h-screen overflow-hidden">
