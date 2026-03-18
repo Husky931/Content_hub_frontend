@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, ne, notInArray } from "drizzle-orm";
 import {
   appeals,
   ledgerEntries,
@@ -13,6 +13,12 @@ import {
   channels,
   userTags,
   tags,
+  users,
+  taskTemplates,
+  sessions,
+  inviteCodes,
+  verificationTokens,
+  channelReads,
 } from "./schema";
 
 async function resetTestData() {
@@ -91,7 +97,77 @@ async function resetTestData() {
   const d10 = await db.delete(tags).returning({ id: tags.id });
   console.log(`    ${d10.length} rows deleted`);
 
-  // 5. Re-seed the standard special & discussion channels if missing
+  // 5. Delete custom task templates (keep audio, video, image)
+  const coreCategories = ["audio", "video", "image"];
+  console.log("  Deleting custom task templates...");
+  const d11 = await db
+    .delete(taskTemplates)
+    .where(notInArray(taskTemplates.category, coreCategories))
+    .returning({ id: taskTemplates.id });
+  console.log(`    ${d11.length} rows deleted`);
+
+  // 6. Delete all non-admin users and their dependent data
+  const ADMIN_EMAIL = "admin@creatorhub.local";
+
+  // Find admin user ID
+  const [adminUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, ADMIN_EMAIL));
+
+  if (!adminUser) {
+    console.log("  WARNING: Admin user not found! Skipping user deletion.");
+  } else {
+    const adminId = adminUser.id;
+
+    console.log("  Deleting sessions for non-admin users...");
+    const d12 = await db
+      .delete(sessions)
+      .where(ne(sessions.userId, adminId))
+      .returning({ id: sessions.id });
+    console.log(`    ${d12.length} rows deleted`);
+
+    console.log("  Deleting verification tokens for non-admin users...");
+    const d13 = await db
+      .delete(verificationTokens)
+      .where(ne(verificationTokens.userId, adminId))
+      .returning({ id: verificationTokens.id });
+    console.log(`    ${d13.length} rows deleted`);
+
+    console.log("  Deleting invite codes...");
+    const d14 = await db.delete(inviteCodes).returning({ id: inviteCodes.id });
+    console.log(`    ${d14.length} rows deleted`);
+
+    console.log("  Deleting channel reads for non-admin users...");
+    const d15 = await db
+      .delete(channelReads)
+      .where(ne(channelReads.userId, adminId))
+      .returning({ id: channelReads.id });
+    console.log(`    ${d15.length} rows deleted`);
+
+    console.log("  Deleting messages by non-admin users...");
+    const d16a = await db
+      .delete(messages)
+      .where(ne(messages.userId, adminId))
+      .returning({ id: messages.id });
+    console.log(`    ${d16a.length} rows deleted`);
+
+    console.log("  Deleting channel mods for non-admin users...");
+    const d16 = await db
+      .delete(channelMods)
+      .where(ne(channelMods.userId, adminId))
+      .returning({ channelId: channelMods.channelId });
+    console.log(`    ${d16.length} rows deleted`);
+
+    console.log("  Deleting non-admin users...");
+    const d17 = await db
+      .delete(users)
+      .where(ne(users.email, ADMIN_EMAIL))
+      .returning({ id: users.id });
+    console.log(`    ${d17.length} rows deleted`);
+  }
+
+  // 7. Re-seed the standard special & discussion channels if missing
   console.log("\n  Re-seeding standard channels if missing...");
 
   const standardChannels = [
@@ -120,8 +196,8 @@ async function resetTestData() {
     console.log("    All standard channels already exist.");
   }
 
-  console.log("\nDone! Task channels, tasks, attempts, appeals, ledger entries, notifications, and tags cleared.");
-  console.log("Users, sessions, invite codes, and standard channels are preserved.");
+  console.log("\nDone! Task channels, tasks, attempts, appeals, ledger entries, notifications, tags, custom templates, and non-admin users cleared.");
+  console.log("Admin user (admin@creatorhub.local), core templates (audio/video/image), and standard channels are preserved.");
 }
 
 resetTestData().catch((err) => {
