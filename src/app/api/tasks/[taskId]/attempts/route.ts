@@ -203,7 +203,7 @@ export async function POST(
     await Promise.all(notifyPromises);
 
     // Outgoing webhook to Edtech backend
-    webhookAttemptSubmitted({
+    await webhookAttemptSubmitted({
       taskId,
       attemptId: newAttempt.id,
       userId: auth.userId,

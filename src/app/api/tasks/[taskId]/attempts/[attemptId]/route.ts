@@ -268,7 +268,7 @@ export async function PATCH(
       await Promise.all(approvePublishes);
 
       // Outgoing webhook to Edtech backend
-      webhookTaskCompleted({
+      await webhookTaskCompleted({
         taskId,
         attemptId,
         userId: attempt.userId,
