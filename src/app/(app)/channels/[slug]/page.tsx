@@ -10,6 +10,7 @@ import { AppealCard } from "@/components/channel/AppealCard";
 import { getSocket, joinChannel, leaveChannel, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 import { Spinner } from "@/components/ui/Spinner";
 import { SystemMessage } from "@/components/channel/SystemMessage";
+import { TrainingView } from "@/components/training/TrainingView";
 
 interface Message {
   id: string;
@@ -421,6 +422,7 @@ export default function ChannelPage() {
     ["mod", "supermod", "admin"].includes(user?.role ?? "");
 
   const isTaskChannel = channel?.type === "task";
+  const isTrainingChannel = slug === "beginner-training";
   const isMod = ["admin", "supermod", "mod"].includes(user?.role ?? "");
   const activeTasks = tasks.filter(
     (t) => t.status === "active" || t.status === "locked"
@@ -697,6 +699,11 @@ export default function ChannelPage() {
       </div>
     );
   };
+
+  // Render training UI for #beginner-training channel
+  if (isTrainingChannel) {
+    return <TrainingView />;
+  }
 
   return (
     <>

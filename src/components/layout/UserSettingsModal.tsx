@@ -6,6 +6,9 @@ import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { Spinner, ButtonSpinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FileUpload } from "@/components/ui/FileUpload";
+import { AdminTrainingSection } from "@/components/admin/AdminTrainingSection";
+import { LessonEditor } from "@/components/admin/LessonEditor";
+import { AdminUploadReviewSection } from "@/components/admin/AdminUploadReviewSection";
 
 
 type Section =
@@ -18,7 +21,10 @@ type Section =
   | "admin-tasks"
   | "admin-templates"
   | "admin-channels"
-  | "admin-audit";
+  | "admin-audit"
+  | "admin-training"
+  | "admin-training-editor"
+  | "admin-upload-reviews";
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -2390,6 +2396,8 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
     if (isOpen) setSection(initialSection);
   }
 
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -2419,6 +2427,8 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
     { id: "admin-tasks", label: "Tasks" },
     { id: "admin-templates", label: "Task Templates" },
     { id: "admin-channels", label: "Channels" },
+    { id: "admin-training", label: "Training" },
+    { id: "admin-upload-reviews", label: "Upload Reviews" },
   ];
 
   const supermodItems: NavItem[] = [
@@ -2463,7 +2473,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
                 Admin Settings
               </div>
               {user.role === "admin" && adminItems.map((item) => <NavBtn key={item.id} {...item} />)}
-              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: "Tasks" }, { id: "admin-templates" as Section, label: "Task Templates" }].map((item) => <NavBtn key={item.id} {...item} />)}
+              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: "Tasks" }, { id: "admin-templates" as Section, label: "Task Templates" }, { id: "admin-upload-reviews" as Section, label: "Upload Reviews" }].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "supermod" && [...adminItems, ...supermodItems].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "admin" && supermodItems.map((item) => <NavBtn key={item.id} {...item} />)}
             </div>
@@ -2495,6 +2505,24 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
           {section === "admin-templates" && <AdminTemplatesSection />}
           {section === "admin-channels" && <AdminChannelsSection />}
           {section === "admin-audit" && <AdminAuditSection />}
+          {section === "admin-training" && !editingLessonId && (
+            <AdminTrainingSection
+              onOpenEditor={(id) => {
+                setEditingLessonId(id);
+                setSection("admin-training-editor");
+              }}
+            />
+          )}
+          {(section === "admin-training-editor" || (section === "admin-training" && editingLessonId)) && editingLessonId && (
+            <LessonEditor
+              lessonId={editingLessonId}
+              onBack={() => {
+                setEditingLessonId(null);
+                setSection("admin-training");
+              }}
+            />
+          )}
+          {section === "admin-upload-reviews" && <AdminUploadReviewSection />}
         </div>
 
         {/* ── X close button ── */}

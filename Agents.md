@@ -17,6 +17,12 @@ Before generating code or suggesting architecture, you **must** index and refere
 
 ---
 
+## EXTRA IMPORTANT
+
+- We just received an updated `/vue-docs-app`. Its in the root directory in a directory named vue-docs-app-new. This is the new source of truth
+
+---
+
 ## 🏗️ Architectural "Source of Truth"
 
 The internal architecture, design patterns, and component writing style must mirror the reference project located at: **`../react_structure_example`**.

@@ -81,6 +81,33 @@ export const appealStatusEnum = pgEnum("appeal_status", [
   "denied",
 ]);
 
+export const lessonStatusEnum = pgEnum("lesson_status", [
+  "draft",
+  "published",
+]);
+
+export const testQuestionTypeEnum = pgEnum("test_question_type", [
+  "mc",
+  "tf",
+  "rating",
+  "upload",
+]);
+
+export const userProgressStatusEnum = pgEnum("user_progress_status", [
+  "not_started",
+  "in_training",
+  "in_test",
+  "pending_review",
+  "passed",
+  "failed",
+]);
+
+export const uploadSubmissionStatusEnum = pgEnum("upload_submission_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
 // ============================================================
 // 1. USERS
 // ============================================================
@@ -470,6 +497,179 @@ export const taskTemplates = pgTable("task_templates", {
 });
 
 // ============================================================
+// 17. LESSONS (Training/Test system)
+// ============================================================
+
+export const lessons = pgTable(
+  "lessons",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: varchar("title", { length: 255 }).notNull(),
+    titleCn: varchar("title_cn", { length: 255 }),
+    description: text("description"),
+    descriptionCn: text("description_cn"),
+    order: integer("order").notNull().default(0),
+    prerequisiteTagId: uuid("prerequisite_tag_id").references(() => tags.id, {
+      onDelete: "set null",
+    }),
+    passingScore: integer("passing_score").notNull().default(100),
+    retryAfterHours: integer("retry_after_hours").notNull().default(24),
+    tagId: uuid("tag_id").references(() => tags.id, {
+      onDelete: "set null",
+    }),
+    status: lessonStatusEnum("status").notNull().default("draft"),
+    createdById: uuid("created_by_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("lessons_status_idx").on(table.status),
+    index("lessons_order_idx").on(table.order),
+  ]
+);
+
+// ============================================================
+// 18. TRAINER PROMPTS
+// ============================================================
+
+export const trainerPrompts = pgTable(
+  "trainer_prompts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => lessons.id, { onDelete: "cascade" }),
+    order: integer("order").notNull().default(0),
+    content: text("content").notNull().default(""),
+    /** Array of { name, url, type, size } for embedded media */
+    resources: jsonb("resources").$type<
+      { name: string; url: string; type: string; size: number }[]
+    >(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("trainer_prompts_lesson_id_idx").on(table.lessonId)]
+);
+
+// ============================================================
+// 19. TESTS (1:1 with lessons)
+// ============================================================
+
+export const tests = pgTable(
+  "tests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => lessons.id, { onDelete: "cascade" }),
+  },
+  (table) => [uniqueIndex("tests_lesson_id_idx").on(table.lessonId)]
+);
+
+// ============================================================
+// 20. TEST QUESTIONS
+// ============================================================
+
+export const testQuestions = pgTable(
+  "test_questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    testId: uuid("test_id")
+      .notNull()
+      .references(() => tests.id, { onDelete: "cascade" }),
+    type: testQuestionTypeEnum("type").notNull(),
+    prompt: text("prompt").notNull(),
+    promptCn: text("prompt_cn"),
+    /** MC: { options: string[] } | Rating: { ratingOptions, reasonOptions } | Upload: { acceptedTypes, maxSize } */
+    options: jsonb("options"),
+    /** MC: { correctIndex: number } | TF: { correct: boolean } | Rating: { correctRating, correctReasonIndex } */
+    correctAnswers: jsonb("correct_answers"),
+    points: integer("points").notNull().default(25),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("test_questions_test_id_idx").on(table.testId)]
+);
+
+// ============================================================
+// 21. USER PROGRESS (per user per lesson)
+// ============================================================
+
+export const userProgress = pgTable(
+  "user_progress",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => lessons.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: userProgressStatusEnum("status")
+      .notNull()
+      .default("not_started"),
+    currentPromptIndex: integer("current_prompt_index").notNull().default(0),
+    attempts: integer("attempts").notNull().default(0),
+    cheatingWarnings: integer("cheating_warnings").notNull().default(0),
+    score: integer("score"),
+    completedAt: timestamp("completed_at"),
+    retryAfter: timestamp("retry_after"),
+    /** Full chat history for resume: Array of { role, content } */
+    conversationHistory: jsonb("conversation_history").$type<
+      { role: "teacher" | "student" | "system"; content: string }[]
+    >(),
+    /** Per-question answers for the test phase */
+    testAnswers: jsonb("test_answers").$type<
+      { questionId: string; answer: unknown; correct: boolean; points: number }[]
+    >(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("user_progress_user_lesson_idx").on(
+      table.userId,
+      table.lessonId
+    ),
+    index("user_progress_lesson_id_idx").on(table.lessonId),
+  ]
+);
+
+// ============================================================
+// 22. UPLOAD SUBMISSIONS (for test upload questions)
+// ============================================================
+
+export const uploadSubmissions = pgTable(
+  "upload_submissions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    testQuestionId: uuid("test_question_id")
+      .notNull()
+      .references(() => testQuestions.id, { onDelete: "cascade" }),
+    userProgressId: uuid("user_progress_id")
+      .notNull()
+      .references(() => userProgress.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    fileUrl: text("file_url").notNull(),
+    fileName: text("file_name").notNull(),
+    fileType: text("file_type").notNull(),
+    fileSize: integer("file_size").notNull(),
+    status: uploadSubmissionStatusEnum("status").notNull().default("pending"),
+    reviewerId: uuid("reviewer_id").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at"),
+    rejectionReason: text("rejection_reason"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("upload_submissions_user_progress_idx").on(table.userProgressId),
+    index("upload_submissions_status_idx").on(table.status),
+  ]
+);
+
+// ============================================================
 // RELATIONS
 // ============================================================
 
@@ -550,3 +750,80 @@ export const channelReadsRelations = relations(channelReads, ({ one }) => ({
     references: [channels.id],
   }),
 }));
+
+// ── Training Relations ────────────────────────────────────────────────────────
+
+export const lessonsRelations = relations(lessons, ({ one, many }) => ({
+  tag: one(tags, {
+    fields: [lessons.tagId],
+    references: [tags.id],
+    relationName: "lessonTag",
+  }),
+  prerequisiteTag: one(tags, {
+    fields: [lessons.prerequisiteTagId],
+    references: [tags.id],
+    relationName: "lessonPrereqTag",
+  }),
+  createdBy: one(users, {
+    fields: [lessons.createdById],
+    references: [users.id],
+  }),
+  trainerPrompts: many(trainerPrompts),
+  tests: many(tests),
+  progress: many(userProgress),
+}));
+
+export const trainerPromptsRelations = relations(trainerPrompts, ({ one }) => ({
+  lesson: one(lessons, {
+    fields: [trainerPrompts.lessonId],
+    references: [lessons.id],
+  }),
+}));
+
+export const testsRelations = relations(tests, ({ one, many }) => ({
+  lesson: one(lessons, {
+    fields: [tests.lessonId],
+    references: [lessons.id],
+  }),
+  questions: many(testQuestions),
+}));
+
+export const testQuestionsRelations = relations(testQuestions, ({ one }) => ({
+  test: one(tests, {
+    fields: [testQuestions.testId],
+    references: [tests.id],
+  }),
+}));
+
+export const userProgressRelations = relations(userProgress, ({ one }) => ({
+  lesson: one(lessons, {
+    fields: [userProgress.lessonId],
+    references: [lessons.id],
+  }),
+  user: one(users, {
+    fields: [userProgress.userId],
+    references: [users.id],
+  }),
+}));
+
+export const uploadSubmissionsRelations = relations(
+  uploadSubmissions,
+  ({ one }) => ({
+    testQuestion: one(testQuestions, {
+      fields: [uploadSubmissions.testQuestionId],
+      references: [testQuestions.id],
+    }),
+    userProgress: one(userProgress, {
+      fields: [uploadSubmissions.userProgressId],
+      references: [userProgress.id],
+    }),
+    user: one(users, {
+      fields: [uploadSubmissions.userId],
+      references: [users.id],
+    }),
+    reviewer: one(users, {
+      fields: [uploadSubmissions.reviewerId],
+      references: [users.id],
+    }),
+  })
+);
