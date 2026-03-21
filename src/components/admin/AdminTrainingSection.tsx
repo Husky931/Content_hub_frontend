@@ -117,9 +117,18 @@ export function AdminTrainingSection({
   }
 
   async function deleteLesson(id: string) {
-    if (!confirm("Delete this lesson?")) return;
+    if (!confirm("Delete this lesson? If learners have progress on it, it will be archived (set to draft) instead.")) return;
     try {
-      await fetch(`/api/training/lessons/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/training/lessons/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.archived) {
+          alert("This lesson has learner progress and cannot be fully deleted. It has been unpublished (set to draft) instead.");
+        }
+      } else {
+        const data = await res.json().catch(() => ({ error: "Unknown error" }));
+        alert(data.error || "Failed to delete lesson");
+      }
       await loadLessons();
     } catch (err) {
       console.error("Failed to delete:", err);

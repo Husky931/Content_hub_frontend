@@ -2520,6 +2520,10 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
                 setEditingLessonId(null);
                 setSection("admin-training");
               }}
+              onNavigateToTags={() => {
+                setEditingLessonId(null);
+                setSection("admin-tags");
+              }}
             />
           )}
           {section === "admin-upload-reviews" && <AdminUploadReviewSection />}

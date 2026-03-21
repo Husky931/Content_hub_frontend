@@ -1,7 +1,52 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Spinner } from "@/components/ui/Spinner";
+import { FileUpload, type UploadedFile } from "@/components/ui/FileUpload";
+
+/** Renders an OSS file (audio/video/image) using a signed URL */
+function SignedMedia({ url, type, name }: { url: string; type: string; name: string }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    // Local files don't need signing
+    if (url.startsWith("/")) {
+      setSignedUrl(url);
+      return;
+    }
+    fetch(`/api/upload/signed-url?url=${encodeURIComponent(url)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.signedUrl) setSignedUrl(data.signedUrl);
+        else setError(true);
+      })
+      .catch(() => setError(true));
+  }, [url]);
+
+  if (error) {
+    return <div className="text-xs text-red-400">Failed to load media: {name}</div>;
+  }
+  if (!signedUrl) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Spinner className="w-4 h-4" />
+        <span className="ml-2 text-xs text-discord-text-muted">Loading {name}...</span>
+      </div>
+    );
+  }
+
+  if (type.startsWith("audio")) {
+    return <audio controls className="w-full" src={signedUrl} />;
+  }
+  if (type.startsWith("video")) {
+    return <video controls className="w-full max-h-64 rounded" src={signedUrl} />;
+  }
+  if (type.startsWith("image")) {
+    return <img src={signedUrl} alt={name} className="max-w-full max-h-64 rounded" />;
+  }
+  return <div className="text-sm text-discord-text">{name}</div>;
+}
 
 interface LessonInfo {
   id: string;
@@ -11,6 +56,7 @@ interface LessonInfo {
   status: "completed" | "in_progress" | "available" | "locked" | "failed";
   tagId?: string | null;
   prerequisiteTagId?: string | null;
+  prerequisiteLessonTitle?: string | null;
   progress?: {
     id: string;
     status: string;
@@ -65,6 +111,8 @@ export function TrainingView() {
   } | null>(null);
   const [testScore, setTestScore] = useState(0);
   const [testStatus, setTestStatus] = useState("");
+  const [uploadFiles, setUploadFiles] = useState<UploadedFile[]>([]);
+  const [uploadSubmitted, setUploadSubmitted] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -112,10 +160,16 @@ export function TrainingView() {
         setPromptIndex(0);
         setAttempts(0);
         setMessages([]);
-        setStage("training");
 
-        // Load first prompt's opening message
-        await loadOpeningMessage(data.progress.id, 0);
+        // Check if resuming into test phase
+        if (data.progress.status === "in_test") {
+          setStage("test");
+          await loadTestQuestions(data.progress.id);
+        } else {
+          setStage("training");
+          // Load the prompt at the current index (resume support)
+          await loadOpeningMessage(data.progress.id, data.progress.currentPromptIndex || 0);
+        }
       } else {
         const err = await res.json();
         alert(err.error || "Failed to start lesson");
@@ -225,16 +279,38 @@ export function TrainingView() {
     }
   }
 
-  async function loadTestQuestions() {
-    if (!activeLesson) return;
+  async function loadTestQuestions(explicitProgressId?: string) {
+    const pid = explicitProgressId || progressId;
+    if (!pid) return;
     try {
-      const res = await fetch(`/api/training/lessons/${activeLesson.id}`);
+      const res = await fetch("/api/training/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-test-questions",
+          userProgressId: pid,
+        }),
+      });
       if (res.ok) {
         const data = await res.json();
-        setTestQuestions(data.test?.questions || []);
-        setCurrentQuestionIndex(0);
+        const allQuestions: TestQuestionData[] = data.questions || [];
+        const answeredSet = new Set<string>(data.answeredIds || []);
+
+        setTestQuestions(allQuestions);
+        setTestScore(data.score || 0);
         setSelectedAnswer(null);
         setAnswerResult(null);
+
+        // Skip to first unanswered question
+        const firstUnanswered = allQuestions.findIndex(
+          (q) => !answeredSet.has(q.id)
+        );
+        if (firstUnanswered === -1) {
+          // All questions answered — go to result
+          setStage("result");
+        } else {
+          setCurrentQuestionIndex(firstUnanswered);
+        }
       }
     } catch (err) {
       console.error("Failed to load test questions:", err);
@@ -282,6 +358,8 @@ export function TrainingView() {
     setCurrentQuestionIndex((i) => i + 1);
     setSelectedAnswer(null);
     setAnswerResult(null);
+    setUploadFiles([]);
+    setUploadSubmitted(false);
   }
 
   // ── Welcome Stage ─────────────────────────────────────────────────────────
@@ -392,7 +470,7 @@ export function TrainingView() {
                   </div>
                   {lesson.status === "locked" && lesson.prerequisiteTagId && (
                     <div className="mt-1 ml-8 text-[10px] text-discord-text-muted">
-                      🔒 Complete the prerequisite lesson first
+                      🔒 Complete the {lesson.prerequisiteLessonTitle ? `"${lesson.prerequisiteLessonTitle}"` : "prerequisite"} lesson first
                     </div>
                   )}
                 </div>
@@ -656,44 +734,169 @@ export function TrainingView() {
               )}
 
               {/* Rating Options */}
-              {question.type === "rating" && (
-                <div className="space-y-3">
-                  <div className="flex gap-3">
-                    {(
-                      (question.options as { ratingOptions?: string[] })
-                        ?.ratingOptions || ["Good", "OK", "Bad"]
-                    ).map((rating) => (
-                      <button
-                        key={rating}
-                        onClick={() => {
-                          if (!answerResult) {
-                            setSelectedAnswer({ rating, reasonIndex: undefined });
-                          }
-                        }}
-                        disabled={!!answerResult}
-                        className={`px-6 py-3 rounded-lg text-sm font-medium border transition cursor-pointer ${
-                          (selectedAnswer as { rating?: string })?.rating === rating
-                            ? "border-discord-accent bg-discord-accent/10 text-discord-text"
-                            : "border-discord-bg-darker/60 text-discord-text hover:border-discord-accent/50"
-                        }`}
-                      >
-                        {rating}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {question.type === "rating" && (() => {
+                const opts = question.options as {
+                  ratingOptions?: string[];
+                  reasonOptions?: string[];
+                  sampleFile?: { name: string; url: string; type: string };
+                };
+                const userRating = (selectedAnswer as { rating?: string; reasonIndex?: number })?.rating;
+                const userReasonIndex = (selectedAnswer as { rating?: string; reasonIndex?: number })?.reasonIndex;
+                const hasReasons = (opts.reasonOptions || []).length > 0;
 
-              {/* Upload placeholder */}
+                return (
+                  <div className="space-y-3">
+                    {/* Sample content (audio/video/image) */}
+                    {opts.sampleFile && (
+                      <div className="bg-discord-bg-dark rounded-lg p-4 border border-discord-bg-darker/60 mb-2">
+                        <div className="text-[10px] text-discord-text-muted uppercase mb-2">Sample Content</div>
+                        <SignedMedia url={opts.sampleFile.url} type={opts.sampleFile.type} name={opts.sampleFile.name} />
+                        <div className="text-[10px] text-discord-text-muted mt-1">{opts.sampleFile.name}</div>
+                      </div>
+                    )}
+
+                    {/* Rating buttons */}
+                    <div className="flex gap-3">
+                      {(opts.ratingOptions || ["Good", "OK", "Bad"]).map((rating) => (
+                        <button
+                          key={rating}
+                          onClick={() => {
+                            if (!answerResult) {
+                              setSelectedAnswer({ rating, reasonIndex: undefined });
+                            }
+                          }}
+                          disabled={!!answerResult}
+                          className={`px-6 py-3 rounded-lg text-sm font-medium border transition cursor-pointer ${
+                            userRating === rating
+                              ? "border-discord-accent bg-discord-accent/10 text-discord-text"
+                              : "border-discord-bg-darker/60 text-discord-text hover:border-discord-accent/50"
+                          }`}
+                        >
+                          {rating}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Reason options — shown when "Bad" is selected and reasons exist */}
+                    {userRating === "Bad" && hasReasons && !answerResult && (
+                      <div>
+                        <div className="text-[10px] text-discord-text-muted uppercase mb-2">
+                          Why is it bad?
+                        </div>
+                        <div className="space-y-2">
+                          {(opts.reasonOptions || []).map((reason, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                setSelectedAnswer({ rating: "Bad", reasonIndex: i });
+                              }}
+                              className={`w-full text-left px-4 py-3 rounded-lg text-sm border transition cursor-pointer flex items-center gap-3 ${
+                                userReasonIndex === i
+                                  ? "border-discord-accent bg-discord-accent/10 text-discord-text"
+                                  : "border-discord-bg-darker/60 text-discord-text hover:border-discord-accent/50"
+                              }`}
+                            >
+                              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                userReasonIndex === i
+                                  ? "border-discord-accent bg-discord-accent"
+                                  : "border-discord-text-muted/40"
+                              }`}>
+                                {userReasonIndex === i && (
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </span>
+                              {reason}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Upload question */}
               {question.type === "upload" && (
-                <div className="bg-discord-bg-dark rounded-lg p-8 border-2 border-dashed border-discord-bg-darker/60 text-center">
-                  <p className="text-sm text-discord-text-muted mb-2">
-                    Upload question — not yet implemented in this view
-                  </p>
-                  <p className="text-[10px] text-discord-text-muted">
-                    Human reviewed — test held as pending until reviewer
-                    approves
-                  </p>
+                <div className="space-y-3">
+                  {!uploadSubmitted ? (
+                    <>
+                      {/* File type/size info */}
+                      {(() => {
+                        const uploadOpts = question.options as { acceptedTypes?: string[]; maxSize?: number } | null;
+                        const types = uploadOpts?.acceptedTypes || [];
+                        const maxMB = uploadOpts?.maxSize ? Math.round(uploadOpts.maxSize / (1024 * 1024)) : 200;
+                        return (
+                          <div className="text-[10px] text-discord-text-muted mb-1">
+                            Accepted: {types.length > 0 ? types.map(t => t.toUpperCase()).join(", ") : "All files"} · Max {maxMB} MB
+                          </div>
+                        );
+                      })()}
+
+                      <FileUpload
+                        files={uploadFiles}
+                        onFilesChange={setUploadFiles}
+                        context="attempt-deliverable"
+                        maxFiles={1}
+                        maxSizeMb={(() => {
+                          const uploadOpts = question.options as { maxSize?: number } | null;
+                          return uploadOpts?.maxSize ? Math.round(uploadOpts.maxSize / (1024 * 1024)) : 200;
+                        })()}
+                        accept={(() => {
+                          const uploadOpts = question.options as { acceptedTypes?: string[] } | null;
+                          const types = uploadOpts?.acceptedTypes || [];
+                          return types.length > 0 ? types.map(t => `.${t}`).join(",") : undefined;
+                        })()}
+                        label="Upload your deliverable"
+                      />
+
+                      {uploadFiles.length > 0 && (
+                        <button
+                          onClick={async () => {
+                            if (!progressId || uploadFiles.length === 0) return;
+                            setSending(true);
+                            try {
+                              const file = uploadFiles[0];
+                              const res = await fetch("/api/training/session", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  action: "test-upload",
+                                  userProgressId: progressId,
+                                  questionId: question.id,
+                                  fileUrl: file.url,
+                                  fileName: file.name,
+                                  fileType: file.type,
+                                  fileSize: file.size,
+                                }),
+                              });
+                              if (res.ok) {
+                                setUploadSubmitted(true);
+                              }
+                            } catch (err) {
+                              console.error("Upload submission failed:", err);
+                            } finally {
+                              setSending(false);
+                            }
+                          }}
+                          disabled={sending}
+                          className="px-6 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                        >
+                          {sending && <Spinner className="w-3 h-3" />}
+                          Submit for Review
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <div className="bg-discord-bg-dark rounded-lg p-6 border border-orange-500/20 text-center">
+                      <span className="text-2xl mb-2 block">📤</span>
+                      <p className="text-sm text-orange-300 font-medium mb-1">Submitted for review</p>
+                      <p className="text-[10px] text-discord-text-muted">
+                        A moderator will review your upload. The test is held as pending until they approve or reject it.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -701,7 +904,8 @@ export function TrainingView() {
 
           {/* Submit / Next buttons */}
           <div className="ml-[52px]">
-            {!answerResult && question.type !== "upload" ? (
+            {/* Submit button for MC/TF/Rating */}
+            {!answerResult && question.type !== "upload" && (
               <button
                 onClick={submitTestAnswer}
                 disabled={
@@ -712,14 +916,32 @@ export function TrainingView() {
                 {sending && <Spinner className="w-3 h-3" />}
                 Submit Answer
               </button>
-            ) : answerResult && currentQuestionIndex < testQuestions.length - 1 ? (
+            )}
+
+            {/* Next button — after answering OR after upload submitted */}
+            {((answerResult || (question.type === "upload" && uploadSubmitted)) && currentQuestionIndex < testQuestions.length - 1) && (
               <button
                 onClick={nextQuestion}
                 className="px-6 py-2.5 bg-discord-accent text-white rounded-lg text-sm font-medium hover:bg-discord-accent/80 cursor-pointer"
               >
                 Next Question →
               </button>
-            ) : null}
+            )}
+
+            {/* See Results — last question answered or upload submitted */}
+            {((answerResult || (question.type === "upload" && uploadSubmitted)) && currentQuestionIndex >= testQuestions.length - 1) && (
+              <button
+                onClick={() => {
+                  if (question.type === "upload") {
+                    setTestStatus("pending_review");
+                  }
+                  setStage("result");
+                }}
+                className="px-6 py-2.5 bg-discord-accent text-white rounded-lg text-sm font-medium hover:bg-discord-accent/80 cursor-pointer"
+              >
+                See Results
+              </button>
+            )}
 
             {answerResult && (
               <div

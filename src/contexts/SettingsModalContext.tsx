@@ -12,7 +12,10 @@ type SettingsSection =
   | "admin-tasks"
   | "admin-templates"
   | "admin-channels"
-  | "admin-audit";
+  | "admin-audit"
+  | "admin-training"
+  | "admin-training-editor"
+  | "admin-upload-reviews";
 
 interface SettingsModalContextValue {
   isOpen: boolean;

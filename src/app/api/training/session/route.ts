@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
         return handleChatOpen(auth, body);
       case "chat-reply":
         return handleChatReply(auth, body);
+      case "get-test-questions":
+        return handleGetTestQuestions(auth, body);
       case "test-answer":
         return handleTestAnswer(auth, body);
       case "test-upload":
@@ -122,6 +124,17 @@ async function handleWelcome(userId: string) {
       status = "locked";
     }
 
+    // Find which lesson awards the prerequisite tag (so we can show its name)
+    let prerequisiteLessonTitle: string | null = null;
+    if (lesson.prerequisiteTagId && status === "locked") {
+      const prereqLesson = publishedLessons.find(
+        (l) => l.tagId === lesson.prerequisiteTagId
+      );
+      if (prereqLesson) {
+        prerequisiteLessonTitle = prereqLesson.title;
+      }
+    }
+
     return {
       id: lesson.id,
       title: lesson.title,
@@ -132,6 +145,7 @@ async function handleWelcome(userId: string) {
       status,
       tagId: lesson.tagId,
       prerequisiteTagId: lesson.prerequisiteTagId,
+      prerequisiteLessonTitle,
       progress: progress
         ? {
             id: progress.id,
@@ -492,6 +506,67 @@ async function handleChatReply(
       { status: 503 }
     );
   }
+}
+
+// ── Get Test Questions: load questions for the learner ───────────────────────
+
+async function handleGetTestQuestions(
+  auth: { userId: string },
+  body: { userProgressId: string }
+) {
+  const { userProgressId } = body;
+
+  const [progress] = await db
+    .select()
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.id, userProgressId),
+        eq(userProgress.userId, auth.userId)
+      )
+    );
+
+  if (!progress) {
+    return NextResponse.json({ error: "Progress not found" }, { status: 404 });
+  }
+  if (progress.status !== "in_test") {
+    return NextResponse.json({ error: "Not in test phase" }, { status: 400 });
+  }
+
+  const [test] = await db
+    .select()
+    .from(tests)
+    .where(eq(tests.lessonId, progress.lessonId));
+
+  if (!test) {
+    return NextResponse.json({ error: "Test not found" }, { status: 404 });
+  }
+
+  const questions = await db
+    .select({
+      id: testQuestions.id,
+      type: testQuestions.type,
+      prompt: testQuestions.prompt,
+      promptCn: testQuestions.promptCn,
+      options: testQuestions.options,
+      points: testQuestions.points,
+      sortOrder: testQuestions.sortOrder,
+    })
+    .from(testQuestions)
+    .where(eq(testQuestions.testId, test.id))
+    .orderBy(asc(testQuestions.sortOrder));
+
+  // Include which questions are already answered so frontend can skip them
+  const answeredIds = (progress.testAnswers || []).map(
+    (a: { questionId: string }) => a.questionId
+  );
+
+  // Don't send correctAnswers to the learner!
+  return NextResponse.json({
+    questions,
+    answeredIds,
+    score: progress.score,
+  });
 }
 
 // ── Test Answer: deterministic scoring ──────────────────────────────────────
