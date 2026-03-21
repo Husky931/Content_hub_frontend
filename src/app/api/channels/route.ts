@@ -25,18 +25,11 @@ export async function GET() {
 
     const userTagIds = new Set(userTagRecords.map((t) => t.tagId));
 
-    // Filter channels based on role and tags
+    // Filter channels: hide only payment-issues for non-admin/supermod.
+    // All other channels are visible — tag-gated channels are shown but marked as restricted.
     const visibleChannels = allChannels.filter((ch) => {
       if (ch.slug === "payment-issues") {
         return ["supermod", "admin"].includes(auth.role);
-      }
-      if (ch.type === "special" || ch.type === "discussion") {
-        return true;
-      }
-      if (ch.type === "task") {
-        if (["supermod", "admin"].includes(auth.role)) return true;
-        if (!ch.requiredTagId) return true;
-        return userTagIds.has(ch.requiredTagId);
       }
       return true;
     });
@@ -82,18 +75,26 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      channels: visibleChannels.map((ch) => ({
-        id: ch.id,
-        name: ch.name,
-        nameCn: ch.nameCn,
-        slug: ch.slug,
-        type: ch.type,
-        description: ch.description,
-        isFixed: ch.isFixed,
-        requiredTagId: ch.requiredTagId,
-        hasUnread: unreadSet.has(ch.id),
-        ...(ch.slug === "appeals" ? { pendingAppealsCount } : {}),
-      })),
+      channels: visibleChannels.map((ch) => {
+        // Determine if user has access (can interact) with this channel
+        let hasAccess = true;
+        if (ch.type === "task" && ch.requiredTagId) {
+          hasAccess = ["supermod", "admin"].includes(auth.role) || userTagIds.has(ch.requiredTagId);
+        }
+        return {
+          id: ch.id,
+          name: ch.name,
+          nameCn: ch.nameCn,
+          slug: ch.slug,
+          type: ch.type,
+          description: ch.description,
+          isFixed: ch.isFixed,
+          requiredTagId: ch.requiredTagId,
+          hasAccess,
+          hasUnread: unreadSet.has(ch.id),
+          ...(ch.slug === "appeals" ? { pendingAppealsCount } : {}),
+        };
+      }),
     });
   } catch (error) {
     console.error("Channels error:", error);

@@ -67,6 +67,7 @@ export async function GET(
         name: channel.name,
         type: channel.type,
         description: channel.description,
+        requiredTagId: channel.requiredTagId,
       },
       messages: channelMessages.map((m) => ({
         id: m.id,

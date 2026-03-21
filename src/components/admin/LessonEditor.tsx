@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 
 interface TrainerPrompt {
@@ -67,6 +67,7 @@ export function LessonEditor({
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [promptContent, setPromptContent] = useState("");
   const [promptSaving, setPromptSaving] = useState(false);
+  const [promptSaved, setPromptSaved] = useState(false);
 
   // Settings editing
   const [settingsForm, setSettingsForm] = useState({
@@ -150,6 +151,7 @@ export function LessonEditor({
   async function savePrompt() {
     if (!selectedPromptId) return;
     setPromptSaving(true);
+    setPromptSaved(false);
     try {
       await fetch(`/api/training/prompts/${selectedPromptId}`, {
         method: "PUT",
@@ -157,6 +159,8 @@ export function LessonEditor({
         body: JSON.stringify({ content: promptContent }),
       });
       await loadLesson();
+      setPromptSaved(true);
+      setTimeout(() => setPromptSaved(false), 3000);
     } catch (err) {
       console.error("Failed to save prompt:", err);
     } finally {
@@ -287,22 +291,25 @@ export function LessonEditor({
     );
   }
 
-  const questions = lesson.test?.questions || [];
+  const questions = [...(lesson.test?.questions || [])].sort((a, b) => b.sortOrder - a.sortOrder);
   const totalPoints = questions.reduce((s, q) => s + q.points, 0);
 
   return (
     <div className="max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      {/* Breadcrumb Header */}
+      <div className="flex items-center gap-2 mb-6">
         <button
           onClick={onBack}
-          className="text-discord-text-muted hover:text-discord-text text-sm cursor-pointer"
+          className="text-sm text-discord-accent hover:text-discord-accent/80 hover:underline cursor-pointer font-medium"
         >
-          ← Back
+          Training Management
         </button>
-        <h2 className="text-2xl font-bold text-discord-text">{lesson.title}</h2>
+        <svg className="w-3.5 h-3.5 text-discord-text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <h2 className="text-lg font-bold text-discord-text truncate">{lesson.title}</h2>
         <span
-          className={`px-2 py-0.5 rounded text-[10px] font-semibold ${lesson.status === "published"
+          className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${lesson.status === "published"
             ? "bg-green-500/20 text-green-300"
             : "bg-yellow-500/20 text-yellow-300"
             }`}
@@ -356,8 +363,13 @@ export function LessonEditor({
                   : "bg-discord-bg-dark border-discord-bg-darker/60 text-discord-text-muted hover:bg-discord-bg-hover"
                   }`}
                 onClick={() => {
-                  setSelectedPromptId(p.id);
-                  setPromptContent(p.content);
+                  if (selectedPromptId === p.id) {
+                    setSelectedPromptId(null);
+                    setPromptContent("");
+                  } else {
+                    setSelectedPromptId(p.id);
+                    setPromptContent(p.content);
+                  }
                 }}
               >
                 <span className="font-mono text-[10px]">#{i + 1}</span>
@@ -403,6 +415,14 @@ export function LessonEditor({
                   {promptSaving && <Spinner className="w-3 h-3" />}
                   Save Prompt
                 </button>
+                {promptSaved && (
+                  <span className="flex items-center gap-1 text-xs text-green-400 font-medium animate-in fade-in">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Saved
+                  </span>
+                )}
                 <span className="text-[10px] text-discord-text-muted">
                   Sections: ### Question, ### Correct Answer, ### Hints, ### Wrong Answer Guidance, ### After Correct
                 </span>
@@ -429,20 +449,33 @@ export function LessonEditor({
           <div className="flex gap-2 mb-4">
             {(
               [
-                { type: "mc" as const, label: "+ Multiple Choice" },
-                { type: "tf" as const, label: "+ True/False" },
-                { type: "rating" as const, label: "+ Rating" },
-                { type: "upload" as const, label: "+ Upload" },
-              ]
-            ).map(({ type, label }) => (
-              <button
-                key={type}
-                onClick={() => addQuestion(type)}
-                className="px-3 py-2 rounded-lg text-xs bg-discord-accent/10 text-discord-accent border border-discord-accent/30 hover:bg-discord-accent/20 cursor-pointer"
-              >
-                {label}
-              </button>
-            ))}
+                { type: "mc" as const, label: "Multiple Choice", icon: "Aa", color: "blue" },
+                { type: "tf" as const, label: "True / False", icon: "T/F", color: "purple" },
+                { type: "rating" as const, label: "Rating", icon: "★", color: "yellow" },
+                { type: "upload" as const, label: "Upload", icon: "↑", color: "orange" },
+              ] as const
+            ).map(({ type, label, icon, color }) => {
+              const hasQuestions = questions.some((q) => q.type === type);
+              const colorMap: Record<string, { active: string; idle: string }> = {
+                blue: { active: "bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-blue-500/10 shadow-sm", idle: "bg-discord-bg text-discord-text-muted border-discord-bg-darker/60 hover:border-blue-500/30 hover:text-blue-300" },
+                purple: { active: "bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-purple-500/10 shadow-sm", idle: "bg-discord-bg text-discord-text-muted border-discord-bg-darker/60 hover:border-purple-500/30 hover:text-purple-300" },
+                yellow: { active: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40 shadow-yellow-500/10 shadow-sm", idle: "bg-discord-bg text-discord-text-muted border-discord-bg-darker/60 hover:border-yellow-500/30 hover:text-yellow-300" },
+                orange: { active: "bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-orange-500/10 shadow-sm", idle: "bg-discord-bg text-discord-text-muted border-discord-bg-darker/60 hover:border-orange-500/30 hover:text-orange-300" },
+              };
+              const styles = colorMap[color];
+              return (
+                <button
+                  key={type}
+                  onClick={() => addQuestion(type)}
+                  className={`px-4 py-2.5 rounded-lg text-xs font-medium border transition cursor-pointer flex items-center gap-2 ${
+                    hasQuestions ? styles.active : styles.idle
+                  }`}
+                >
+                  <span className="text-sm font-bold opacity-70">{icon}</span>
+                  + {label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Questions list */}
@@ -535,9 +568,9 @@ export function LessonEditor({
                   </select>
                   <button
                     onClick={() => onNavigateToTags?.()}
-                    className="px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition cursor-pointer shrink-0"
+                    className="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition cursor-pointer shrink-0"
                   >
-                    Create New
+                    Create New Tag
                   </button>
                 </div>
               </div>
@@ -692,6 +725,7 @@ function QuestionCard({
 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const typeBadge: Record<string, { label: string; color: string }> = {
     mc: { label: "MC", color: "bg-blue-500/20 text-blue-300" },
@@ -779,9 +813,17 @@ function QuestionCard({
 
   return (
     <div className="bg-discord-bg-dark rounded-lg border border-discord-bg-darker/60 overflow-hidden">
-      {/* Header bar */}
-      <div className="px-4 py-3 flex items-center gap-3 border-b border-discord-bg-darker/40">
-        <span className="text-discord-text-muted cursor-grab">⠿</span>
+      {/* Header bar — click to toggle collapse */}
+      <div
+        className="px-4 py-3 flex items-center gap-3 border-b border-discord-bg-darker/40 cursor-pointer select-none hover:bg-discord-bg-hover/20 transition"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-discord-text-muted transition-transform shrink-0 ${collapsed ? "" : "rotate-90"}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
         <span
           className={`px-2 py-0.5 rounded text-[10px] font-semibold ${badge.color}`}
         >
@@ -798,8 +840,11 @@ function QuestionCard({
         <span className="text-[10px] text-discord-text-muted">
           {points} pts
         </span>
+        {dirty && (
+          <span className="w-2 h-2 rounded-full bg-discord-accent shrink-0" title="Unsaved changes" />
+        )}
         <button
-          onClick={onDelete}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="text-discord-text-muted hover:text-red-400 cursor-pointer"
           title="Delete question"
         >
@@ -809,8 +854,8 @@ function QuestionCard({
         </button>
       </div>
 
-      {/* Editor body */}
-      <div className="p-4 space-y-4">
+      {/* Editor body — collapsible */}
+      {!collapsed && <div className="p-4 space-y-4">
         {/* Question prompt (not shown for T/F or Upload — they have their own input) */}
         {question.type !== "tf" && question.type !== "upload" && (
           <div>
@@ -1194,7 +1239,7 @@ function QuestionCard({
             </button>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

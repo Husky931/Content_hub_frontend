@@ -35,6 +35,7 @@ interface ChannelInfo {
   name: string;
   type: string;
   description: string | null;
+  requiredTagId?: string | null;
 }
 
 interface TaskInfo {
@@ -417,9 +418,17 @@ export default function ChannelPage() {
     return false;
   }, [user]);
 
+  // Check if user has tag access for tag-gated channels
+  const hasTagAccess = (() => {
+    if (!channel?.requiredTagId) return true;
+    if (["supermod", "admin"].includes(user?.role ?? "")) return true;
+    return user?.tags?.some((t) => t.id === channel.requiredTagId) ?? false;
+  })();
+
   const canPost =
-    channel?.name !== "announcements" ||
-    ["mod", "supermod", "admin"].includes(user?.role ?? "");
+    (channel?.name !== "announcements" ||
+      ["mod", "supermod", "admin"].includes(user?.role ?? "")) &&
+    hasTagAccess;
 
   const isTaskChannel = channel?.type === "task";
   const isTrainingChannel = slug === "beginner-training";
@@ -826,7 +835,9 @@ export default function ChannelPage() {
         {!canPost ? (
           <div className="p-3 bg-discord-bg-dark rounded-lg text-center text-sm text-discord-text-muted border border-discord-border">
             <span className="mr-1.5">🔒</span>
-            You do not have permission to send messages in this channel
+            {!hasTagAccess
+              ? "You need the required tag to interact with this channel. Complete the related training to earn it."
+              : "You do not have permission to send messages in this channel"}
           </div>
         ) : (
           <form onSubmit={handleSend} className="relative">

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { channels, messages, users } from "@/db/schema";
+import { channels, messages, users, userTags } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { publishMessage } from "@/lib/ws-publish";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function POST(
   req: NextRequest,
@@ -52,6 +52,31 @@ export async function POST(
         { error: "You cannot post in this channel" },
         { status: 403 }
       );
+    }
+
+    // Check tag-gated channel access
+    if (
+      channel.type === "task" &&
+      channel.requiredTagId &&
+      !["supermod", "admin"].includes(auth.role)
+    ) {
+      const [hasTag] = await db
+        .select({ tagId: userTags.tagId })
+        .from(userTags)
+        .where(
+          and(
+            eq(userTags.userId, auth.userId),
+            eq(userTags.tagId, channel.requiredTagId)
+          )
+        )
+        .limit(1);
+
+      if (!hasTag) {
+        return NextResponse.json(
+          { error: "You need the required tag to interact with this channel" },
+          { status: 403 }
+        );
+      }
     }
 
     // Validate replyToId if provided
