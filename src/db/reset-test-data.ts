@@ -19,6 +19,12 @@ import {
   inviteCodes,
   verificationTokens,
   channelReads,
+  uploadSubmissions,
+  userProgress,
+  testQuestions,
+  tests,
+  trainerPrompts,
+  lessons,
 } from "./schema";
 
 async function resetTestData() {
@@ -88,7 +94,32 @@ async function resetTestData() {
     console.log(`    ${d8.length} rows deleted`);
   }
 
-  // 4. Delete tags (clear userTags first due to FK)
+  // 4. Delete lesson / training data (FK-safe order: submissions → progress → questions → tests → prompts → lessons)
+  console.log("  Deleting upload submissions...");
+  const dL1 = await db.delete(uploadSubmissions).returning({ id: uploadSubmissions.id });
+  console.log(`    ${dL1.length} rows deleted`);
+
+  console.log("  Deleting user progress...");
+  const dL2 = await db.delete(userProgress).returning({ id: userProgress.id });
+  console.log(`    ${dL2.length} rows deleted`);
+
+  console.log("  Deleting test questions...");
+  const dL3 = await db.delete(testQuestions).returning({ id: testQuestions.id });
+  console.log(`    ${dL3.length} rows deleted`);
+
+  console.log("  Deleting tests...");
+  const dL4 = await db.delete(tests).returning({ id: tests.id });
+  console.log(`    ${dL4.length} rows deleted`);
+
+  console.log("  Deleting trainer prompts...");
+  const dL5 = await db.delete(trainerPrompts).returning({ id: trainerPrompts.id });
+  console.log(`    ${dL5.length} rows deleted`);
+
+  console.log("  Deleting lessons...");
+  const dL6 = await db.delete(lessons).returning({ id: lessons.id });
+  console.log(`    ${dL6.length} rows deleted`);
+
+  // 5. Delete tags (clear userTags first due to FK)
   console.log("  Deleting user-tag assignments...");
   const d9 = await db.delete(userTags).returning({ id: userTags.id });
   console.log(`    ${d9.length} rows deleted`);
@@ -97,7 +128,7 @@ async function resetTestData() {
   const d10 = await db.delete(tags).returning({ id: tags.id });
   console.log(`    ${d10.length} rows deleted`);
 
-  // 5. Delete custom task templates (keep audio, video, image)
+  // 6. Delete custom task templates (keep audio, video, image)
   const coreCategories = ["audio", "video", "image"];
   console.log("  Deleting custom task templates...");
   const d11 = await db
@@ -106,7 +137,7 @@ async function resetTestData() {
     .returning({ id: taskTemplates.id });
   console.log(`    ${d11.length} rows deleted`);
 
-  // 6. Delete all non-admin users and their dependent data
+  // 7. Delete all non-admin users and their dependent data
   const ADMIN_EMAIL = "admin@creatorhub.local";
 
   // Find admin user ID
@@ -167,7 +198,7 @@ async function resetTestData() {
     console.log(`    ${d17.length} rows deleted`);
   }
 
-  // 7. Re-seed the standard special & discussion channels if missing
+  // 8. Re-seed the standard special & discussion channels if missing
   console.log("\n  Re-seeding standard channels if missing...");
 
   const standardChannels = [
@@ -196,7 +227,7 @@ async function resetTestData() {
     console.log("    All standard channels already exist.");
   }
 
-  console.log("\nDone! Task channels, tasks, attempts, appeals, ledger entries, notifications, tags, custom templates, and non-admin users cleared.");
+  console.log("\nDone! Task channels, tasks, attempts, appeals, ledger entries, notifications, lessons, training progress, tags, custom templates, and non-admin users cleared.");
   console.log("Admin user (admin@creatorhub.local), core templates (audio/video/image), and standard channels are preserved.");
 }
 

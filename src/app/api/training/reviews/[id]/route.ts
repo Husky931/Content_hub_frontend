@@ -7,7 +7,9 @@ import {
   userTags,
   testQuestions,
   tests,
+  notifications,
 } from "@/db/schema";
+import { publishNotification } from "@/lib/ws-publish";
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -193,6 +195,47 @@ export async function POST(
               .where(eq(userProgress.id, submission.userProgressId));
           }
         }
+      }
+    }
+
+    // Notify the creator of the final result (after all uploads reviewed)
+    if (testStatus === "passed" || testStatus === "failed") {
+      const [progress] = await db
+        .select({ userId: userProgress.userId, lessonId: userProgress.lessonId, score: userProgress.score })
+        .from(userProgress)
+        .where(eq(userProgress.id, submission.userProgressId));
+
+      if (progress) {
+        const [lessonInfo] = await db
+          .select({ title: lessons.title })
+          .from(lessons)
+          .where(eq(lessons.id, progress.lessonId));
+
+        const lessonTitle = lessonInfo?.title || "Training";
+
+        if (testStatus === "passed") {
+          await db.insert(notifications).values({
+            userId: progress.userId,
+            type: "training_passed",
+            title: "Training passed!",
+            body: `Your upload for "${lessonTitle}" was approved. You passed with ${progress.score}%! A new tag has been awarded.`,
+            data: { lessonId: progress.lessonId, score: progress.score },
+          });
+        } else {
+          await db.insert(notifications).values({
+            userId: progress.userId,
+            type: "training_failed",
+            title: "Training not passed",
+            body: `Your upload for "${lessonTitle}" was reviewed. Unfortunately you did not pass. You can retry later.`,
+            data: { lessonId: progress.lessonId, score: progress.score },
+          });
+        }
+
+        publishNotification(progress.userId, {
+          type: testStatus === "passed" ? "training_passed" : "training_failed",
+          title: testStatus === "passed" ? "Training passed!" : "Training not passed",
+          unreadCount: -1,
+        });
       }
     }
 

@@ -10,9 +10,11 @@ import {
   tags,
   uploadSubmissions,
   users,
+  notifications,
 } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq, and, asc, sql, inArray } from "drizzle-orm";
+import { publishNotification } from "@/lib/ws-publish";
 import {
   openQuestion,
   evaluateReply,
@@ -741,6 +743,38 @@ async function handleTestAnswer(
     await awardTag(auth.userId, progress.lessonId);
   }
 
+  // Send notification on test completion (immediate — no uploads)
+  if (isComplete && (newStatus === "passed" || newStatus === "failed")) {
+    const [lessonInfo] = await db
+      .select({ title: lessons.title })
+      .from(lessons)
+      .where(eq(lessons.id, progress.lessonId));
+
+    if (newStatus === "passed") {
+      await db.insert(notifications).values({
+        userId: auth.userId,
+        type: "training_passed",
+        title: "Training passed!",
+        body: `You passed "${lessonInfo?.title}" with a score of ${score}%. A new tag has been awarded!`,
+        data: { lessonId: progress.lessonId, score },
+      });
+    } else {
+      await db.insert(notifications).values({
+        userId: auth.userId,
+        type: "training_failed",
+        title: "Training not passed",
+        body: `You scored ${score}% on "${lessonInfo?.title}". You can retry later.`,
+        data: { lessonId: progress.lessonId, score },
+      });
+    }
+
+    publishNotification(auth.userId, {
+      type: newStatus === "passed" ? "training_passed" : "training_failed",
+      title: newStatus === "passed" ? "Training passed!" : "Training not passed",
+      unreadCount: -1,
+    });
+  }
+
   return NextResponse.json({
     correct: isCorrect,
     correctAnswers: question.correctAnswers,
@@ -797,6 +831,47 @@ async function handleTestUpload(
       fileSize,
     })
     .returning();
+
+  // Notify admins/supermods/mods that there's a new upload to review
+  const [lessonInfo] = await db
+    .select({ title: lessons.title })
+    .from(lessons)
+    .where(eq(lessons.id, progress.lessonId));
+
+  const [userData] = await db
+    .select({ username: users.username, displayName: users.displayName })
+    .from(users)
+    .where(eq(users.id, auth.userId));
+
+  const creatorName = userData?.displayName || userData?.username || "A learner";
+
+  // Get all mods/supermods/admins to notify
+  const reviewers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      sql`${users.role} IN ('mod', 'supermod', 'admin') AND ${users.status} = 'verified'`
+    );
+
+  if (reviewers.length > 0) {
+    await db.insert(notifications).values(
+      reviewers.map((r) => ({
+        userId: r.id,
+        type: "upload_pending_review",
+        title: "New upload for review",
+        body: `${creatorName} submitted an upload for "${lessonInfo?.title || "Training"}". Review it in Upload Reviews.`,
+        data: { submissionId: submission.id, lessonId: progress.lessonId },
+      }))
+    );
+
+    for (const r of reviewers) {
+      publishNotification(r.id, {
+        type: "upload_pending_review",
+        title: "New upload for review",
+        unreadCount: -1,
+      });
+    }
+  }
 
   return NextResponse.json(submission, { status: 201 });
 }

@@ -290,9 +290,9 @@ export function AdminTrainingSection({
           </p>
         </div>
       ) : (
-        <div className="bg-discord-bg-dark rounded-lg border border-discord-bg-darker/60 overflow-hidden">
+        <div className="bg-discord-bg-dark rounded-lg border border-discord-bg-darker/60 overflow-visible">
           {/* Table header */}
-          <div className="px-5 py-3 bg-discord-bg-darker border-b border-discord-bg-darker/60 grid grid-cols-12 gap-4 text-[10px] text-discord-text-muted uppercase font-semibold items-center">
+          <div className="px-5 py-3 bg-discord-bg-darker border-b border-discord-bg-darker/60 grid grid-cols-12 gap-4 text-[10px] text-discord-text-muted uppercase font-semibold items-center rounded-t-lg">
             <div className="col-span-1">#</div>
             <div className="col-span-3">Lesson</div>
             <div className="col-span-2">Bound Tag</div>
