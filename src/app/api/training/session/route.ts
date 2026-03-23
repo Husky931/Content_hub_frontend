@@ -609,6 +609,17 @@ async function handleGetTestQuestions(
     (a: { questionId: string }) => a.questionId
   );
 
+  // Also include upload questions that have submissions
+  const existingUploads = await db
+    .select({ testQuestionId: uploadSubmissions.testQuestionId })
+    .from(uploadSubmissions)
+    .where(eq(uploadSubmissions.userProgressId, userProgressId));
+  for (const u of existingUploads) {
+    if (!answeredIds.includes(u.testQuestionId)) {
+      answeredIds.push(u.testQuestionId);
+    }
+  }
+
   // Don't send correctAnswers to the learner!
   return NextResponse.json({
     questions,
@@ -741,14 +752,29 @@ async function handleTestAnswer(
   const earnedPoints = nonUploadAnswers.reduce((sum, a) => sum + a.points, 0);
   const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 100;
 
-  // Upload questions are answered via test-upload, not test-answer,
-  // so check completion against non-upload questions only
+  // Check completion: non-upload questions are tracked in testAnswers,
+  // upload questions are tracked in uploadSubmissions
   const nonUploadQuestions = allQuestions.filter((q) => q.type !== "upload");
+  const uploadQuestions = allQuestions.filter((q) => q.type === "upload");
   const answeredNonUpload = updatedAnswers.filter((a) => {
     const q = allQuestions.find((q) => q.id === a.questionId);
     return q?.type !== "upload";
   });
-  const isComplete = answeredNonUpload.length >= nonUploadQuestions.length;
+  const allNonUploadDone = answeredNonUpload.length >= nonUploadQuestions.length;
+
+  // Check if all upload questions have submissions
+  let allUploadsDone = true;
+  if (uploadQuestions.length > 0) {
+    const uploadQuestionIds = uploadQuestions.map((q) => q.id);
+    const existingUploads = await db
+      .select({ testQuestionId: uploadSubmissions.testQuestionId })
+      .from(uploadSubmissions)
+      .where(eq(uploadSubmissions.userProgressId, userProgressId));
+    const uploadedIds = new Set(existingUploads.map((u) => u.testQuestionId));
+    allUploadsDone = uploadQuestionIds.every((id) => uploadedIds.has(id));
+  }
+
+  const isComplete = allNonUploadDone && allUploadsDone;
 
   let newStatus: string = progress.status;
   if (isComplete) {
@@ -924,7 +950,44 @@ async function handleTestUpload(
     }
   }
 
-  return NextResponse.json(submission, { status: 201 });
+  // Check if all questions are now done (all uploads submitted + all non-upload answered)
+  const [test] = await db
+    .select()
+    .from(tests)
+    .where(eq(tests.lessonId, progress.lessonId));
+
+  let allDone = false;
+  if (test) {
+    const allQuestions = await db
+      .select()
+      .from(testQuestions)
+      .where(eq(testQuestions.testId, test.id));
+    const uploadQuestionIds = allQuestions.filter((q) => q.type === "upload").map((q) => q.id);
+    const nonUploadQuestions = allQuestions.filter((q) => q.type !== "upload");
+
+    // Check all uploads have submissions
+    const allUploadSubs = await db
+      .select({ testQuestionId: uploadSubmissions.testQuestionId })
+      .from(uploadSubmissions)
+      .where(eq(uploadSubmissions.userProgressId, userProgressId));
+    const uploadedIds = new Set(allUploadSubs.map((u) => u.testQuestionId));
+    const allUploadsDone = uploadQuestionIds.every((id) => uploadedIds.has(id));
+
+    // Check all non-upload questions answered
+    const answeredCount = (progress.testAnswers || []).length;
+    const allNonUploadDone = answeredCount >= nonUploadQuestions.length;
+
+    allDone = allUploadsDone && allNonUploadDone;
+  }
+
+  if (allDone && progress.status === "in_test") {
+    await db
+      .update(userProgress)
+      .set({ status: "pending_review", updatedAt: new Date() })
+      .where(eq(userProgress.id, userProgressId));
+  }
+
+  return NextResponse.json({ ...submission, allDone }, { status: 201 });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

@@ -71,6 +71,9 @@ export function TrainingView() {
   const [uploadFiles, setUploadFiles] = useState<UploadedFile[]>([]);
   const [uploadSubmitted, setUploadSubmitted] = useState(false);
 
+  // Transition state (training → test)
+  const [showTestTransition, setShowTestTransition] = useState(false);
+
   // Review state (read-only lesson replay)
   const [reviewMessages, setReviewMessages] = useState<ChatMessage[]>([]);
   const [reviewingFromTest, setReviewingFromTest] = useState(false);
@@ -127,6 +130,11 @@ export function TrainingView() {
         if (data.progress.status === "in_test") {
           setStage("test");
           await loadTestQuestions(data.progress.id);
+        } else if (data.progress.status === "pending_review") {
+          // Uploads pending review — show result screen
+          setTestScore(data.progress.score || 0);
+          setTestStatus("pending_review");
+          setStage("result");
         } else {
           setStage("training");
           // Load the prompt at the current index (resume support)
@@ -235,17 +243,8 @@ export function TrainingView() {
         setAttempts(data.attempts);
 
         if (data.transitionToTest) {
-          // Transition to test
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "system",
-              content:
-                "Lesson completed — Test started. No AI involved, answers evaluated deterministically.",
-            },
-          ]);
-          setStage("test");
-          await loadTestQuestions();
+          // Show congratulations banner instead of auto-transitioning
+          setShowTestTransition(true);
         } else if (data.advanceToNext) {
           // Load next prompt
           setTimeout(() => {
@@ -585,32 +584,54 @@ export function TrainingView() {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input */}
+        {/* Input or transition banner */}
         <div className="px-6 py-4 border-t border-discord-bg-darker/60">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendReply();
-                }
-              }}
-              disabled={sending}
-              className="flex-1 bg-discord-bg-dark rounded-lg px-4 py-3 text-sm text-discord-text placeholder-discord-text-muted disabled:opacity-50"
-              placeholder="Type your answer..."
-            />
-            <button
-              onClick={sendReply}
-              disabled={sending || !inputText.trim()}
-              className="px-4 py-3 bg-discord-accent text-white rounded-lg text-sm font-medium hover:bg-discord-accent/80 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
-            >
-              {sending && <Spinner className="w-3 h-3" />}
-              Send
-            </button>
-          </div>
+          {showTestTransition ? (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
+              <div className="text-lg mb-1">🎉</div>
+              <div className="text-sm font-semibold text-green-300 mb-1">
+                Training Complete!
+              </div>
+              <div className="text-[11px] text-discord-text-muted mb-3">
+                Great job finishing the lesson. Ready to test your knowledge?
+              </div>
+              <button
+                onClick={async () => {
+                  setShowTestTransition(false);
+                  setStage("test");
+                  await loadTestQuestions();
+                }}
+                className="px-6 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 cursor-pointer"
+              >
+                Continue to Test
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendReply();
+                  }
+                }}
+                disabled={sending}
+                className="flex-1 bg-discord-bg-dark rounded-lg px-4 py-3 text-sm text-discord-text placeholder-discord-text-muted disabled:opacity-50"
+                placeholder="Type your answer..."
+              />
+              <button
+                onClick={sendReply}
+                disabled={sending || !inputText.trim()}
+                className="px-4 py-3 bg-discord-accent text-white rounded-lg text-sm font-medium hover:bg-discord-accent/80 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+              >
+                {sending && <Spinner className="w-3 h-3" />}
+                Send
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -890,7 +911,13 @@ export function TrainingView() {
                                 }),
                               });
                               if (res.ok) {
+                                const data = await res.json();
                                 setUploadSubmitted(true);
+                                // If all questions are done, go to pending review
+                                if (data.allDone) {
+                                  setTestStatus("pending_review");
+                                  setTimeout(() => setStage("result"), 1500);
+                                }
                               }
                             } catch (err) {
                               console.error("Upload submission failed:", err);
@@ -950,7 +977,8 @@ export function TrainingView() {
             {((answerResult || (question.type === "upload" && uploadSubmitted)) && currentQuestionIndex >= testQuestions.length - 1) && (
               <button
                 onClick={() => {
-                  if (question.type === "upload") {
+                  const hasUploads = testQuestions.some((q) => q.type === "upload");
+                  if (hasUploads && !testStatus) {
                     setTestStatus("pending_review");
                   }
                   setStage("result");
