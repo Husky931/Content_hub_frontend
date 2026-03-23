@@ -1882,8 +1882,8 @@ function AdminChannelsSection() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: editName,
-        description: editDescription || undefined,
-        requiredTagId: ch.type === "task" ? editRequiredTagId || undefined : undefined,
+        description: editDescription || null,
+        requiredTagId: ch.type === "task" ? (editRequiredTagId || null) : undefined,
       }),
     });
 

@@ -207,24 +207,37 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Get submitted attempt counts per task
+    // Get submitted attempts by OTHER users (pending review) — for "Others Currently Attempting"
     let submittedCounts: Record<string, number> = {};
+    let othersAttempting: Record<string, { username: string; displayName: string | null; avatarUrl: string | null; createdAt: Date }[]> = {};
     if (taskIds.length > 0) {
       const submitted = await db
         .select({
           taskId: attempts.taskId,
-          count: sql<number>`count(*)::int`,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+          createdAt: attempts.createdAt,
         })
         .from(attempts)
+        .innerJoin(users, eq(attempts.userId, users.id))
         .where(
           and(
             inArray(attempts.taskId, taskIds),
-            eq(attempts.status, "submitted")
+            eq(attempts.status, "submitted"),
+            sql`${attempts.userId} != ${auth.userId}`
           )
         )
-        .groupBy(attempts.taskId);
+        .orderBy(desc(attempts.createdAt));
       for (const s of submitted) {
-        submittedCounts[s.taskId] = s.count;
+        submittedCounts[s.taskId] = (submittedCounts[s.taskId] || 0) + 1;
+        if (!othersAttempting[s.taskId]) othersAttempting[s.taskId] = [];
+        othersAttempting[s.taskId].push({
+          username: s.username,
+          displayName: s.displayName,
+          avatarUrl: s.avatarUrl,
+          createdAt: s.createdAt,
+        });
       }
     }
 
@@ -316,6 +329,7 @@ export async function GET(req: NextRequest) {
             ? { ...myAttempt, appealStatus: myAppealStatuses[myAttempt.id] || null }
             : null,
           submittedCount: submittedCounts[t.id] || 0,
+          othersAttempting: othersAttempting[t.id] || [],
           myAllAttempts: myAllAttempts[t.id] || [],
           reviewClaimedBy: t.reviewClaimedById ? reviewerMap[t.reviewClaimedById] || null : null,
         };

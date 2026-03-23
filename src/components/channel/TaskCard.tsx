@@ -52,6 +52,12 @@ interface TaskCardProps {
     checklist?: { label: string }[] | null;
     attachments?: { name: string; url: string; type: string; size: number }[] | null;
     deliverableSlots?: DeliverableSlot[] | null;
+    othersAttempting?: {
+      username: string;
+      displayName: string | null;
+      avatarUrl: string | null;
+      createdAt: string;
+    }[];
     myAllAttempts?: {
       id: string;
       status: string;
@@ -479,12 +485,23 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         </span>
 
         <div className="ml-auto flex items-center gap-2">
-          {canSubmit && !hasSubmittedAttempt && (
+          {/* Pending Review badge when user has submitted */}
+          {hasSubmittedAttempt && (
+            <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
+              ⏳ Pending Review
+            </span>
+          )}
+          {/* View Task button — always available for active/locked tasks */}
+          {(task.status === "active" || task.status === "locked") && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className={`text-xs px-3 py-1 ${isLockedForMe ? "bg-amber-600 hover:bg-amber-700" : "bg-green-600 hover:bg-green-700"} text-white rounded font-semibold transition cursor-pointer`}
+              className={`text-xs px-3 py-1.5 ${
+                isLockedForMe ? "bg-amber-600 hover:bg-amber-700" :
+                hasSubmittedAttempt ? "bg-discord-accent hover:bg-discord-accent/80" :
+                "bg-green-600 hover:bg-green-700"
+              } text-white rounded font-semibold transition cursor-pointer`}
             >
-              {isLockedForMe ? "Submit Revision" : "View Task"}
+              {expanded ? "Close" : isLockedForMe ? "Submit Revision" : "View Task"}
             </button>
           )}
           {submittedCount > 0 && (
@@ -518,14 +535,14 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         <div className="border-t border-discord-border/50 bg-discord-bg-dark/40">
           {/* ── Task Description ── */}
           <div className="px-4 py-3 border-b border-discord-border/30">
-            <p className="text-xs text-discord-text-secondary whitespace-pre-wrap leading-relaxed">{task.description}</p>
+            <p className="text-sm text-discord-text-secondary whitespace-pre-wrap leading-relaxed">{task.description}</p>
           </div>
 
           {/* ── Meta Stats Row ── */}
-          <div className="px-4 py-2 flex flex-wrap gap-4 text-[11px] text-discord-text-muted border-b border-discord-border/30">
+          <div className="px-4 py-2.5 flex flex-wrap gap-4 text-xs text-discord-text-muted border-b border-discord-border/30">
             {deadlineStr && <span className="flex items-center gap-1">🕐 {deadlineStr}</span>}
             <span className="flex items-center gap-1">👥 {task.submittedCount || 0} others submitted</span>
-            <span className={`flex items-center gap-1 ${(task.maxAttempts - (task.myAttemptCount || 0)) <= 1 ? "text-red-400" : ""}`}>
+            <span className={`flex items-center gap-1 font-medium ${(task.maxAttempts - (task.myAttemptCount || 0)) <= 1 ? "text-red-400" : ""}`}>
               🔄 {task.maxAttempts - (task.myAttemptCount || 0)} attempt{(task.maxAttempts - (task.myAttemptCount || 0)) !== 1 ? "s" : ""} remaining
             </span>
             <span className="flex items-center gap-1"># {task.channelSlug}</span>
@@ -533,12 +550,15 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
 
           {/* ── Requirements / Checklist ── */}
           {task.checklist && task.checklist.length > 0 && (
-            <div className="px-4 py-2.5 border-b border-discord-border/30">
-              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1.5">📋 Requirements</h4>
+            <div className="px-4 py-3 border-b border-discord-border/30">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">📋</span>
+                <h4 className="text-base font-semibold text-discord-text">Requirements</h4>
+              </div>
               <div className="space-y-0.5">
                 {task.checklist.map((item, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-xs text-discord-text-secondary">
-                    <span className="text-green-400 text-[10px]">✓</span> {item.label}
+                  <div key={i} className="flex items-center gap-1.5 text-sm text-discord-text-secondary">
+                    <span className="text-green-400 text-xs">✓</span> {item.label}
                   </div>
                 ))}
               </div>
@@ -547,72 +567,126 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
 
           {/* ── Attachments (pill-style) ── */}
           {task.attachments && task.attachments.length > 0 && (
-            <div className="px-4 py-2.5 border-b border-discord-border/30">
-              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1.5">📎 Attachments</h4>
+            <div className="px-4 py-3 border-b border-discord-border/30">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">📎</span>
+                <h4 className="text-base font-semibold text-discord-text">Attachments</h4>
+              </div>
               <div className="flex flex-wrap gap-1.5">
-                {task.attachments.map((f, i) => {
-                  const ext = f.name.split(".").pop()?.toLowerCase() || "";
-                  const iconMap: Record<string, string> = { md: "📄", txt: "📄", mp3: "🎵", wav: "🎵", mp4: "🎬", png: "🖼️", jpg: "🖼️", jpeg: "🖼️", pdf: "📕" };
-                  return (
-                    <a key={i} href={f.url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-discord-bg-dark rounded-lg border border-discord-border hover:border-discord-accent/50 transition text-xs text-discord-text-secondary">
-                      <span>{iconMap[ext] || "📁"}</span><span>{f.name}</span>
-                    </a>
-                  );
-                })}
+                {task.attachments.map((f, i) => (
+                  <AttachmentPill key={i} file={f} />
+                ))}
               </div>
             </div>
           )}
 
           {/* ── Others Currently Attempting ── */}
-          <div className="px-4 py-2.5 border-b border-discord-border/30">
-            <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1">
-              👥 Others Currently Attempting
-              <span className="ml-1.5 px-1.5 py-0.5 bg-discord-bg-hover rounded text-[9px]">{task.submittedCount || 0}</span>
-            </h4>
-            <p className="text-[10px] text-discord-text-muted mb-1">ℹ You can only see the count of pending submissions. Details are private.</p>
-            {(task.submittedCount || 0) === 0 ? (
-              <p className="text-xs text-discord-text-muted italic">No other creators are currently attempting this task.</p>
+          <div className="px-4 py-3 border-b border-discord-border/30">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">👥</span>
+              <h4 className="text-base font-semibold text-discord-text">Others Currently Attempting</h4>
+              <span className="px-2 py-0.5 bg-discord-bg-hover rounded-full text-[10px] font-bold text-discord-text-muted">{task.othersAttempting?.length || 0}</span>
+            </div>
+            <p className="text-xs text-discord-text-muted mb-2.5 pl-7">
+              You can only see attempts that are pending review. Rejected attempts are not shown to other creators.
+            </p>
+            {(!task.othersAttempting || task.othersAttempting.length === 0) ? (
+              <div className="flex flex-col items-center py-4 text-discord-text-muted">
+                <span className="text-lg mb-1">📭</span>
+                <span className="text-xs">No other creators are currently attempting this task.</span>
+              </div>
             ) : (
-              <p className="text-xs text-discord-text-secondary">{task.submittedCount} submission{(task.submittedCount || 0) !== 1 ? "s" : ""} pending review.</p>
+              <div className="space-y-1.5">
+                {task.othersAttempting.map((other, i) => {
+                  const name = other.displayName || other.username;
+                  const initials = name.split(/[\s_]+/).map((w) => w[0]?.toUpperCase()).join("").slice(0, 2);
+                  const colors = ["bg-blue-600", "bg-amber-600", "bg-purple-600", "bg-emerald-600", "bg-pink-600", "bg-cyan-600"];
+                  const bgColor = colors[i % colors.length];
+                  return (
+                    <div key={`${other.username}-${i}`} className="flex items-center gap-3 p-2.5 rounded-lg border border-discord-border bg-discord-bg-dark hover:bg-discord-bg-hover/50 transition">
+                      {other.avatarUrl ? (
+                        <img src={other.avatarUrl} alt={name} className="w-9 h-9 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className={`w-9 h-9 rounded-full ${bgColor} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                          {initials}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-discord-text">{name}</div>
+                        <div className="text-xs text-discord-text-muted">
+                          Submitted {formatRelativeDate(other.createdAt)}
+                        </div>
+                      </div>
+                      <span className="shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                        ⏳ Pending Review
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
           {/* ── Your Previous Attempts ── */}
-          <div className="px-4 py-2.5 border-b border-discord-border/30">
-            <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1.5">
-              📜 Your Previous Attempts
-              <span className="ml-1.5 px-1.5 py-0.5 bg-discord-bg-hover rounded text-[9px]">{task.myAllAttempts?.length || 0}</span>
-            </h4>
+          <div className="px-4 py-3 border-b border-discord-border/30">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🕘</span>
+              <h4 className="text-base font-semibold text-discord-text">Your Previous Attempts</h4>
+              <span className="px-2 py-0.5 bg-discord-bg-hover rounded-full text-[10px] font-bold text-discord-text-muted">{task.myAllAttempts?.length || 0}</span>
+            </div>
             {(!task.myAllAttempts || task.myAllAttempts.length === 0) ? (
-              <p className="text-xs text-discord-text-muted italic">No previous attempts. This will be your first submission.</p>
+              <div className="flex flex-col items-center py-4 text-discord-text-muted">
+                <span className="text-lg mb-1">📭</span>
+                <span className="text-xs">No previous attempts. This will be your first submission.</span>
+              </div>
             ) : (
               <div className="space-y-1.5">
                 {task.myAllAttempts.map((attempt, i) => {
-                  const sc: Record<string, string> = { submitted: "bg-amber-500/20 text-amber-400", approved: "bg-green-500/20 text-green-400", rejected: "bg-red-500/20 text-red-400", blocked: "bg-gray-500/20 text-gray-400", paid: "bg-blue-500/20 text-blue-400" };
-                  const sl: Record<string, string> = { submitted: "Pending Review", approved: "Approved", rejected: "Rejected", blocked: "Blocked", paid: "Paid" };
+                  const statusConfig: Record<string, { bg: string; border: string; label: string; icon: string }> = {
+                    submitted: { bg: "bg-amber-500/10", border: "border-amber-500/30", label: "Pending Review", icon: "⏳" },
+                    approved: { bg: "bg-green-500/10", border: "border-green-500/30", label: "Approved", icon: "✅" },
+                    rejected: { bg: "bg-red-500/10", border: "border-red-500/30", label: "Rejected", icon: "❌" },
+                    blocked: { bg: "bg-gray-500/10", border: "border-gray-500/30", label: "Blocked", icon: "🚫" },
+                    paid: { bg: "bg-blue-500/10", border: "border-blue-500/30", label: "Paid", icon: "💰" },
+                  };
+                  const sc = statusConfig[attempt.status] || { bg: "bg-gray-500/10", border: "border-gray-500/30", label: attempt.status, icon: "❓" };
+                  const tagColors: Record<string, string> = {
+                    submitted: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+                    approved: "border-green-500/30 bg-green-500/10 text-green-400",
+                    rejected: "border-red-500/30 bg-red-500/10 text-red-400",
+                    blocked: "border-gray-500/30 bg-gray-500/10 text-gray-400",
+                    paid: "border-blue-500/30 bg-blue-500/10 text-blue-400",
+                  };
                   return (
-                    <div key={attempt.id} className={`p-2 rounded-lg border ${attempt.status === "rejected" ? "border-red-500/20 bg-red-500/5" : "border-discord-border bg-discord-bg-dark"}`}>
-                      <div className="flex items-center justify-between mb-0.5">
+                    <div key={attempt.id} className={`p-3 rounded-lg border ${sc.border} ${sc.bg}`}>
+                      <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-discord-text-muted">#{i + 1}</span>
-                          <span className="text-[10px] text-discord-text-muted">{formatRelativeDate(attempt.createdAt)}</span>
+                          <span className="text-sm font-bold text-discord-text">#{i + 1}</span>
+                          <span className="text-xs text-discord-text-muted">{formatRelativeDate(attempt.createdAt)}</span>
                         </div>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sc[attempt.status] || "bg-gray-500/20 text-gray-400"}`}>{sl[attempt.status] || attempt.status}</span>
+                        <span className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded border ${tagColors[attempt.status] || "border-gray-500/30 bg-gray-500/10 text-gray-400"}`}>
+                          {sc.icon} {sc.label}
+                        </span>
                       </div>
                       {attempt.status === "rejected" && attempt.rejectionReason && (
-                        <div className="text-[11px] text-red-400 mt-0.5"><span className="font-semibold">Reason:</span> {attempt.rejectionReason}</div>
+                        <div className="mt-1.5 pl-1 border-l-2 border-red-500/40 ml-1">
+                          <div className="text-xs text-red-300 pl-2">
+                            <span className="font-semibold text-red-400">Reason:</span> {attempt.rejectionReason}
+                          </div>
+                        </div>
                       )}
                       {attempt.reviewNote && (
-                        <div className="text-[11px] text-discord-text-muted mt-0.5"><span className="font-semibold">Mod note:</span> {attempt.reviewNote}</div>
+                        <div className="mt-1 text-xs text-discord-text-muted pl-2">
+                          <span className="font-semibold">🛡 Mod note:</span> {attempt.reviewNote}
+                        </div>
                       )}
                       {attempt.status === "submitted" && (
-                        <div className="text-[10px] text-amber-400/70 mt-0.5">⏳ Under review</div>
+                        <div className="mt-1 text-xs text-amber-400/70 pl-2">⏳ Under review — you&apos;ll be notified when a mod reviews it.</div>
                       )}
                     </div>
                   );
                 })}
-                <p className="text-[10px] text-discord-text-muted">🔒 Only you and moderators can see your rejection details.</p>
+                <p className="text-xs text-discord-text-muted mt-1.5 pl-1">🔒 Only you and moderators can see your rejection details.</p>
               </div>
             )}
           </div>
@@ -620,7 +694,10 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
           {/* ── Current Submission (edit/delete) ── */}
           {hasSubmittedAttempt && !editing && (
             <div className="px-4 py-2.5 border-b border-discord-border/30 space-y-2">
-              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase">Current Submission</h4>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">📤</span>
+                <h4 className="text-base font-semibold text-discord-text">Current Submission</h4>
+              </div>
               {myAttempt?.deliverables?.text && (
                 <div className="text-xs text-discord-text-secondary bg-discord-bg-dark p-2 rounded border border-discord-border whitespace-pre-wrap">{myAttempt.deliverables.text}</div>
               )}
@@ -658,7 +735,10 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
           {/* ── Submit New Attempt ── */}
           {canSubmit && !hasSubmittedAttempt && (
             <div className="px-4 py-3 space-y-3">
-              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase">⬆ Submit New Attempt</h4>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">⬆</span>
+                <h4 className="text-base font-semibold text-discord-text">Submit New Attempt</h4>
+              </div>
               {/* Attempts gauge */}
               {(() => {
                 const used = task.myAttemptCount || 0;
@@ -666,9 +746,9 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
                 const remaining = max - used;
                 const pct = Math.min((used / max) * 100, 100);
                 return (
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="text-discord-text-muted shrink-0">Attempts: {used}/{max}</span>
-                    <div className="flex-1 h-1.5 bg-discord-border rounded-full overflow-hidden">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-discord-text-muted shrink-0 font-medium">Attempts: {used}/{max}</span>
+                    <div className="flex-1 h-2 bg-discord-border rounded-full overflow-hidden">
                       <div className={`h-full rounded-full transition-all ${remaining <= 1 ? "bg-red-500" : remaining <= 2 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${pct}%` }} />
                     </div>
                     {remaining <= 1 && remaining > 0 && <span className="text-red-400 font-bold">Last attempt!</span>}
@@ -786,6 +866,48 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Attachment pill with signed URL ──────────────────────────────────────── */
+
+function AttachmentPill({ file }: { file: { name: string; url: string; type: string; size: number } }) {
+  const [loading, setLoading] = useState(false);
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  const iconMap: Record<string, string> = {
+    md: "📄", txt: "📄", mp3: "🎵", wav: "🎵", m4a: "🎵",
+    mp4: "🎬", mov: "🎬", png: "🖼️", jpg: "🖼️", jpeg: "🖼️",
+    gif: "🖼️", pdf: "📕", srt: "🔤", tsv: "📊", csv: "📊",
+  };
+
+  const handleClick = async () => {
+    // Local files open directly
+    if (file.url.startsWith("/")) {
+      window.open(file.url, "_blank");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/upload/signed-url?url=${encodeURIComponent(file.url)}`);
+      const data = await res.json();
+      if (data.signedUrl) {
+        window.open(data.signedUrl, "_blank");
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className="flex items-center gap-1.5 px-3 py-2 bg-discord-bg-dark rounded-lg border border-discord-border hover:border-discord-accent/50 transition text-sm text-discord-text-secondary cursor-pointer disabled:opacity-60"
+    >
+      <span>{iconMap[ext] || "📁"}</span>
+      <span>{file.name}</span>
+      {loading && <span className="text-[10px] text-discord-text-muted animate-pulse">opening...</span>}
+    </button>
   );
 }
 
