@@ -26,8 +26,7 @@ export function ChannelNavbar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Channel info (only for /channels/[slug] pages)
-  const [channelName, setChannelName] = useState("");
-  const [channelDescription, setChannelDescription] = useState<string | null>(null);
+  const [channelInfo, setChannelInfo] = useState<{ slug: string; name: string; description: string | null } | null>(null);
 
   // Determine current page context
   const channelMatch = pathname.match(/^\/channels\/([^/]+)/);
@@ -47,7 +46,7 @@ export function ChannelNavbar() {
             });
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     };
     fetchBalance();
 
@@ -68,7 +67,7 @@ export function ChannelNavbar() {
       fetch("/api/notifications?unread=true")
         .then((r) => r.json())
         .then((data) => setUnreadCount(data.unreadCount || 0))
-        .catch(() => {});
+        .catch(() => { });
     };
     fetchUnread();
 
@@ -86,22 +85,23 @@ export function ChannelNavbar() {
 
   // Fetch channel info when slug changes
   useEffect(() => {
-    if (!currentSlug) {
-      setChannelName("");
-      setChannelDescription(null);
-      return;
-    }
+    if (!currentSlug) return;
+
+    let cancelled = false;
+
     fetch(`/api/channels/${currentSlug}`)
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         if (data.channel) {
-          setChannelName(data.channel.name);
-          setChannelDescription(data.channel.description);
+          setChannelInfo({ slug: currentSlug, name: data.channel.name, description: data.channel.description });
         }
       })
       .catch(() => {
-        setChannelName(currentSlug);
+        if (!cancelled) setChannelInfo({ slug: currentSlug, name: currentSlug, description: null });
       });
+
+    return () => { cancelled = true; };
   }, [currentSlug]);
 
   // Close dropdown on outside click
@@ -126,13 +126,18 @@ export function ChannelNavbar() {
       : `$${walletBalance.usd}`
     : "$0.00";
 
+  // Derive channel fields — only use if fetched data matches current slug
+  const isCurrentChannel = channelInfo?.slug === currentSlug;
+  const channelName = isCurrentChannel ? channelInfo?.name ?? "" : "";
+  const channelDescription = isCurrentChannel ? channelInfo?.description ?? null : null;
+
   // Title to display
   const displayTitle = isChannelPage
     ? channelName || currentSlug
     : PAGE_TITLES[pathname] || "Creator Hub";
 
   return (
-    <div className="h-12 px-4 flex items-center border-b border-discord-bg-darker shadow-sm bg-discord-bg flex-shrink-0 gap-3">
+    <div className="h-12 px-4 flex items-center border-b border-discord-bg-darker shadow-sm bg-discord-bg shrink-0 gap-3">
       {/* Page/channel title + description */}
       <div className="flex items-center flex-1 min-w-0">
         {isChannelPage && (
@@ -166,11 +171,10 @@ export function ChannelNavbar() {
         {/* Notification bell — always visible, color changes based on unread */}
         <button
           onClick={() => router.push("/notifications")}
-          className={`relative p-1.5 transition rounded ${
-            unreadCount > 0
-              ? "text-discord-red hover:text-red-300"
-              : "text-discord-text-muted hover:text-discord-text"
-          }`}
+          className={`relative p-1.5 transition rounded ${unreadCount > 0
+            ? "text-discord-red hover:text-red-300"
+            : "text-discord-text-muted hover:text-discord-text"
+            }`}
           title="Notifications"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
