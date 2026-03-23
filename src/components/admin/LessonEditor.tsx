@@ -79,7 +79,6 @@ export function LessonEditor({
     retryAfterHours: 24,
     tagId: "",
     prerequisiteTagId: "",
-    order: 0,
   });
 
   useEffect(() => {
@@ -103,7 +102,6 @@ export function LessonEditor({
           retryAfterHours: data.retryAfterHours,
           tagId: data.tagId || "",
           prerequisiteTagId: data.prerequisiteTagId || "",
-          order: data.order,
         });
         // Select first prompt if any
         if (data.prompts.length > 0 && !selectedPromptId) {
@@ -615,8 +613,8 @@ export function LessonEditor({
                 </div>
               </div>
 
-              {/* Prerequisite Tag + Order + Passing Score */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Prerequisite Tag + Passing Score */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] text-discord-text-muted uppercase tracking-wide block mb-1.5">
                     Prerequisite Tag
@@ -635,19 +633,6 @@ export function LessonEditor({
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="text-[10px] text-discord-text-muted uppercase tracking-wide block mb-1.5">
-                    Order
-                  </label>
-                  <input
-                    type="number"
-                    value={settingsForm.order}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, order: parseInt(e.target.value) || 0 })
-                    }
-                    className="w-full bg-discord-bg border border-discord-bg-darker/60 rounded-lg px-4 py-2.5 text-sm text-discord-text"
-                  />
                 </div>
                 <div>
                   <label className="text-[10px] text-discord-text-muted uppercase tracking-wide block mb-1.5">

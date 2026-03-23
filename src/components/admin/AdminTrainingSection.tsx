@@ -42,6 +42,7 @@ export function AdminTrainingSection({
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -116,6 +117,40 @@ export function AdminTrainingSection({
     }
   }
 
+  async function moveLesson(lessonId: string, direction: "up" | "down") {
+    // Work on the full unfiltered list sorted by order
+    const sorted = [...lessons].sort((a, b) => a.order - b.order);
+    const idx = sorted.findIndex((l) => l.id === lessonId);
+    if (idx < 0) return;
+    if (direction === "up" && idx === 0) return;
+    if (direction === "down" && idx === sorted.length - 1) return;
+
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    // Swap in the array
+    [sorted[idx], sorted[swapIdx]] = [sorted[swapIdx], sorted[idx]];
+
+    // Optimistic update
+    const newLessons = sorted.map((l, i) => ({ ...l, order: i + 1 }));
+    setLessons(newLessons);
+    setReorderingId(lessonId);
+
+    try {
+      const res = await fetch("/api/training/lessons", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: sorted.map((l) => l.id) }),
+      });
+      if (!res.ok) {
+        await loadLessons(); // revert on failure
+      }
+    } catch (err) {
+      console.error("Failed to reorder:", err);
+      await loadLessons();
+    } finally {
+      setReorderingId(null);
+    }
+  }
+
   async function deleteLesson(id: string) {
     if (!confirm("Delete this lesson? If learners have progress on it, it will be archived (set to draft) instead.")) return;
     try {
@@ -134,6 +169,11 @@ export function AdminTrainingSection({
       console.error("Failed to delete:", err);
     }
   }
+
+  // Sorted by order for consistent reference
+  const sortedAll = [...lessons].sort((a, b) => a.order - b.order);
+  const firstId = sortedAll[0]?.id;
+  const lastId = sortedAll[sortedAll.length - 1]?.id;
 
   // Filters
   const filtered = lessons.filter((l) => {
@@ -293,7 +333,7 @@ export function AdminTrainingSection({
         <div className="bg-discord-bg-dark rounded-lg border border-discord-bg-darker/60 overflow-visible">
           {/* Table header */}
           <div className="px-5 py-3 bg-discord-bg-darker border-b border-discord-bg-darker/60 grid grid-cols-12 gap-4 text-[10px] text-discord-text-muted uppercase font-semibold items-center rounded-t-lg">
-            <div className="col-span-1">#</div>
+            <div className="col-span-1">Order</div>
             <div className="col-span-3">Lesson</div>
             <div className="col-span-2">Bound Tag</div>
             <div className="col-span-1">Prompts</div>
@@ -309,8 +349,32 @@ export function AdminTrainingSection({
               key={lesson.id}
               className="px-5 py-4 border-b border-discord-bg-darker/30 grid grid-cols-12 gap-4 items-center hover:bg-discord-bg-hover/20 transition"
             >
-              <div className="col-span-1 text-xs text-discord-text-muted font-mono">
-                {lesson.order}
+              <div className="col-span-1 flex items-center gap-1">
+                <span className="text-xs text-discord-text-muted font-mono w-4">
+                  {lesson.order}
+                </span>
+                <div className="flex flex-col">
+                  <button
+                    onClick={() => moveLesson(lesson.id, "up")}
+                    disabled={reorderingId !== null || lesson.id === firstId}
+                    className="text-discord-text-muted hover:text-discord-text disabled:opacity-30 disabled:cursor-default cursor-pointer transition p-0 leading-none"
+                    title="Move up"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => moveLesson(lesson.id, "down")}
+                    disabled={reorderingId !== null || lesson.id === lastId}
+                    className="text-discord-text-muted hover:text-discord-text disabled:opacity-30 disabled:cursor-default cursor-pointer transition p-0 leading-none"
+                    title="Move down"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <div className="col-span-3">
                 <div className="text-sm font-medium text-discord-text">

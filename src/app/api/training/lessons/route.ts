@@ -11,7 +11,7 @@ import {
   tags,
 } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
-import { eq, sql, count, and, desc } from "drizzle-orm";
+import { eq, sql, count, and, desc, asc } from "drizzle-orm";
 
 // GET /api/training/lessons — list all lessons with stats (admin/supermod only)
 export async function GET() {
@@ -150,6 +150,39 @@ export async function GET() {
     return NextResponse.json(enriched);
   } catch (err) {
     console.error("GET /api/training/lessons error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/training/lessons — reorder lessons (send full id array in desired order)
+export async function PUT(req: NextRequest) {
+  try {
+    const auth = await getAuthFromCookies();
+    if (!auth || !["admin", "supermod"].includes(auth.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { ids } = (await req.json()) as { ids: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "ids array required" }, { status: 400 });
+    }
+
+    // Set each lesson's order to its index in the array
+    await Promise.all(
+      ids.map((id, index) =>
+        db
+          .update(lessons)
+          .set({ order: index + 1 })
+          .where(eq(lessons.id, id))
+      )
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("PUT /api/training/lessons reorder error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

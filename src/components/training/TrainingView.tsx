@@ -374,7 +374,7 @@ export function TrainingView() {
 
   if (stage === "welcome") {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full bg-discord-bg">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {/* Bot welcome */}
           <div className="flex gap-3 items-start">
@@ -493,7 +493,7 @@ export function TrainingView() {
 
   if (stage === "training") {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full bg-discord-bg">
         {/* Progress bar */}
         <div className="px-6 py-2 bg-discord-bg-dark border-b border-discord-bg-darker/60 flex items-center gap-3">
           <button
@@ -629,9 +629,9 @@ export function TrainingView() {
     }
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0 bg-discord-bg">
         {/* Header */}
-        <div className="px-6 py-2 bg-discord-bg-dark border-b border-discord-bg-darker/60 flex items-center gap-3">
+        <div className="px-6 py-2 bg-discord-bg-dark border-b border-discord-bg-darker/60 flex items-center gap-3 shrink-0">
           <span className="text-xs text-discord-text font-medium">
             Test — {activeLesson?.title}
           </span>
@@ -641,10 +641,15 @@ export function TrainingView() {
           </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           {/* System banner */}
-          <div className="text-center text-[11px] text-discord-text-muted py-2 mb-6">
-            No AI involved — answers evaluated deterministically
+          <div className="flex items-center gap-2.5 px-4 py-3 mb-6 rounded-lg bg-purple-500/10 border border-purple-500/30">
+            <svg className="w-5 h-5 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs text-purple-300">
+              Lesson completed — Test started. No AI involved, answers are evaluated deterministically.
+            </span>
           </div>
 
           {/* Question */}
@@ -684,10 +689,10 @@ export function TrainingView() {
                             ? "border-green-500 bg-green-500/10 text-green-300"
                             : selectedAnswer === i
                             ? "border-red-500 bg-red-500/10 text-red-300"
-                            : "border-discord-bg-darker/60 text-discord-text-muted"
+                            : "border-discord-bg-darker/60 bg-discord-bg-dark text-discord-text-muted"
                           : selectedAnswer === i
                           ? "border-discord-accent bg-discord-accent/10 text-discord-text"
-                          : "border-discord-bg-darker/60 text-discord-text hover:border-discord-accent/50"
+                          : "border-discord-bg-darker/60 bg-discord-bg-dark text-discord-text hover:border-discord-accent/50 hover:bg-discord-bg-dark/80"
                       }`}
                     >
                       <span className="font-mono mr-2">
@@ -721,10 +726,10 @@ export function TrainingView() {
                             ? "border-green-500 bg-green-500/10 text-green-300"
                             : selectedAnswer === val
                             ? "border-red-500 bg-red-500/10 text-red-300"
-                            : "border-discord-bg-darker/60 text-discord-text-muted"
+                            : "border-discord-bg-darker/60 bg-discord-bg-dark text-discord-text-muted"
                           : selectedAnswer === val
                           ? "border-discord-accent bg-discord-accent/10 text-discord-text"
-                          : "border-discord-bg-darker/60 text-discord-text hover:border-discord-accent/50"
+                          : "border-discord-bg-darker/60 bg-discord-bg-dark text-discord-text hover:border-discord-accent/50 hover:bg-discord-bg-dark/80"
                       }`}
                     >
                       {val ? "True" : "False"}
@@ -769,7 +774,7 @@ export function TrainingView() {
                           className={`px-6 py-3 rounded-lg text-sm font-medium border transition cursor-pointer ${
                             userRating === rating
                               ? "border-discord-accent bg-discord-accent/10 text-discord-text"
-                              : "border-discord-bg-darker/60 text-discord-text hover:border-discord-accent/50"
+                              : "border-discord-bg-darker/60 bg-discord-bg-dark text-discord-text hover:border-discord-accent/50 hover:bg-discord-bg-dark/80"
                           }`}
                         >
                           {rating}
@@ -793,7 +798,7 @@ export function TrainingView() {
                               className={`w-full text-left px-4 py-3 rounded-lg text-sm border transition cursor-pointer flex items-center gap-3 ${
                                 userReasonIndex === i
                                   ? "border-discord-accent bg-discord-accent/10 text-discord-text"
-                                  : "border-discord-bg-darker/60 text-discord-text hover:border-discord-accent/50"
+                                  : "border-discord-bg-darker/60 bg-discord-bg-dark text-discord-text hover:border-discord-accent/50 hover:bg-discord-bg-dark/80"
                               }`}
                             >
                               <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
@@ -965,7 +970,7 @@ export function TrainingView() {
     const pendingReview = testStatus === "pending_review";
 
     return (
-      <div className="flex flex-col h-full items-center justify-center p-6">
+      <div className="flex flex-col h-full bg-discord-bg items-center justify-center p-6">
         <div className="bg-discord-bg-dark rounded-xl p-8 border border-discord-bg-darker/60 text-center max-w-md w-full">
           <div className="text-5xl mb-4">
             {passed ? "🏅" : pendingReview ? "⏳" : "❌"}
