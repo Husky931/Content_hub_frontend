@@ -91,7 +91,8 @@ export async function POST(
         .from(userProgress)
         .where(eq(userProgress.id, submission.userProgressId));
 
-      if (progress) {
+      // Guard: only finalize if still pending_review (prevents race condition double-finalization)
+      if (progress && progress.status === "pending_review") {
         // Check if any upload was rejected
         const [rejectedCount] = await db
           .select({ count: sql<number>`count(*)::int` })

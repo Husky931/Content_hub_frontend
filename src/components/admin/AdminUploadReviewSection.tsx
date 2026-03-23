@@ -35,6 +35,7 @@ export function AdminUploadReviewSection() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("pending");
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [actioningType, setActioningType] = useState<"approve" | "reject" | null>(null);
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export function AdminUploadReviewSection() {
 
   async function reviewSubmission(id: string, action: "approve" | "reject") {
     setActioningId(id);
+    setActioningType(action);
     try {
       const res = await fetch(`/api/training/reviews/${id}`, {
         method: "POST",
@@ -77,6 +79,7 @@ export function AdminUploadReviewSection() {
       console.error("Review action failed:", err);
     } finally {
       setActioningId(null);
+      setActioningType(null);
     }
   }
 
@@ -236,18 +239,18 @@ export function AdminUploadReviewSection() {
                   <div className="mt-4 flex items-center gap-3 pt-4 border-t border-discord-bg-darker/60">
                     <button
                       onClick={() => reviewSubmission(sub.id, "approve")}
-                      disabled={actioningId === sub.id}
+                      disabled={!!actioningId}
                       className="px-6 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                     >
-                      {actioningId === sub.id && <Spinner className="w-3 h-3" />}
+                      {actioningId === sub.id && actioningType === "approve" && <Spinner className="w-3 h-3" />}
                       Approve
                     </button>
                     <button
                       onClick={() => reviewSubmission(sub.id, "reject")}
-                      disabled={actioningId === sub.id}
+                      disabled={!!actioningId}
                       className="px-6 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                     >
-                      {actioningId === sub.id && <Spinner className="w-3 h-3" />}
+                      {actioningId === sub.id && actioningType === "reject" && <Spinner className="w-3 h-3" />}
                       Reject
                     </button>
                     <input
