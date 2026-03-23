@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
         return handleTestAnswer(auth, body);
       case "test-upload":
         return handleTestUpload(auth, body);
+      case "review-lesson":
+        return handleReviewLesson(auth, body);
       default:
         return NextResponse.json(
           { error: "Unknown action" },
@@ -302,6 +304,50 @@ async function handleStartLesson(
       title: lesson.title,
       titleCn: lesson.titleCn,
     },
+  });
+}
+
+// ── Review Lesson: read-only conversation history for completed lessons ─────
+
+async function handleReviewLesson(
+  auth: { userId: string },
+  body: { lessonId: string }
+) {
+  const { lessonId } = body;
+
+  // Get progress for this user + lesson
+  const [progress] = await db
+    .select()
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.lessonId, lessonId),
+        eq(userProgress.userId, auth.userId)
+      )
+    );
+
+  if (!progress || !["passed", "in_test", "pending_review"].includes(progress.status)) {
+    return NextResponse.json(
+      { error: "No reviewable progress found for this lesson" },
+      { status: 404 }
+    );
+  }
+
+  // Get lesson info
+  const [lesson] = await db
+    .select({ id: lessons.id, title: lessons.title, titleCn: lessons.titleCn })
+    .from(lessons)
+    .where(eq(lessons.id, lessonId));
+
+  const [promptCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(trainerPrompts)
+    .where(eq(trainerPrompts.lessonId, lessonId));
+
+  return NextResponse.json({
+    lesson: lesson || { id: lessonId, title: "Lesson" },
+    totalPrompts: promptCount?.count || 0,
+    conversationHistory: progress.conversationHistory || [],
   });
 }
 
@@ -645,10 +691,13 @@ async function handleTestAnswer(
         rating: string;
         reasonIndex?: number;
       };
-      isCorrect =
-        ca.correctRating === userAnswer.rating &&
-        (ca.correctReasonIndex === undefined ||
-          ca.correctReasonIndex === userAnswer.reasonIndex);
+      // Rating must match; reasonIndex only matters when correct answer is "Bad"
+      const ratingMatches = ca.correctRating === userAnswer.rating;
+      const reasonMatches =
+        ca.correctRating !== "Bad" ||
+        ca.correctReasonIndex === undefined ||
+        ca.correctReasonIndex === userAnswer.reasonIndex;
+      isCorrect = ratingMatches && reasonMatches;
       break;
     }
     case "upload": {

@@ -109,7 +109,7 @@ interface TestQuestionData {
   sortOrder: number;
 }
 
-type Stage = "welcome" | "training" | "test" | "result";
+type Stage = "welcome" | "training" | "test" | "result" | "review";
 
 export function TrainingView() {
   const [stage, setStage] = useState<Stage>("welcome");
@@ -142,6 +142,11 @@ export function TrainingView() {
   const [testStatus, setTestStatus] = useState("");
   const [uploadFiles, setUploadFiles] = useState<UploadedFile[]>([]);
   const [uploadSubmitted, setUploadSubmitted] = useState(false);
+
+  // Review state (read-only lesson replay)
+  const [reviewMessages, setReviewMessages] = useState<ChatMessage[]>([]);
+  const [reviewingFromTest, setReviewingFromTest] = useState(false);
+  const [reviewTotalPrompts, setReviewTotalPrompts] = useState(0);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -205,6 +210,36 @@ export function TrainingView() {
       }
     } catch (err) {
       console.error("Failed to start lesson:", err);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function reviewLesson(lessonId: string, fromTest: boolean) {
+    setSending(true);
+    try {
+      const res = await fetch("/api/training/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "review-lesson", lessonId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActiveLesson({ id: data.lesson.id, title: data.lesson.title });
+        setReviewTotalPrompts(data.totalPrompts);
+        setReviewingFromTest(fromTest);
+        // Convert saved history to ChatMessage format
+        const history: ChatMessage[] = (data.conversationHistory || []).map(
+          (m: { role: string; content: string }) => ({
+            role: m.role === "teacher" ? "teacher" : m.role === "system" ? "system" : "student",
+            content: m.content,
+          })
+        );
+        setReviewMessages(history);
+        setStage("review");
+      }
+    } catch (err) {
+      console.error("Failed to load lesson review:", err);
     } finally {
       setSending(false);
     }
@@ -441,13 +476,15 @@ export function TrainingView() {
                       lesson.status === "in_progress"
                     ) {
                       startLesson(lesson.id);
+                    } else if (lesson.status === "completed") {
+                      reviewLesson(lesson.id, false);
                     }
                   }}
                   className={`p-3 rounded-lg border transition ${
                     lesson.status === "available" || lesson.status === "in_progress"
                       ? "bg-discord-bg-dark border-discord-accent/30 hover:border-discord-accent cursor-pointer"
                       : lesson.status === "completed"
-                      ? "bg-discord-bg-dark border-green-500/20"
+                      ? "bg-discord-bg-dark border-green-500/20 hover:border-green-500/50 cursor-pointer"
                       : "bg-discord-bg-dark border-discord-bg-darker/60 opacity-50"
                   }`}
                 >
@@ -493,7 +530,14 @@ export function TrainingView() {
                         : lesson.status === "available"
                         ? "START"
                         : lesson.status === "failed"
-                        ? `RETRY LATER`
+                        ? (() => {
+                            const retryAt = lesson.progress?.retryAfter ? new Date(lesson.progress.retryAfter) : null;
+                            if (retryAt && retryAt.getTime() > Date.now()) {
+                              const hoursLeft = Math.ceil((retryAt.getTime() - Date.now()) / (1000 * 60 * 60));
+                              return hoursLeft >= 1 ? `RETRY IN ${hoursLeft}H` : `RETRY IN <1H`;
+                            }
+                            return "RETRY NOW";
+                          })()
                         : "LOCKED"}
                     </span>
                   </div>
@@ -679,6 +723,18 @@ export function TrainingView() {
             <span className="text-xs text-purple-300">
               Lesson completed — Test started. No AI involved, answers are evaluated deterministically.
             </span>
+            <button
+              onClick={() => {
+                if (activeLesson) {
+                  reviewLesson(activeLesson.id, true);
+                }
+              }}
+              disabled={sending}
+              className="ml-auto px-3 py-1 bg-green-600 text-white rounded text-[11px] font-medium hover:bg-green-700 disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1"
+            >
+              {sending && <Spinner className="w-3 h-3" />}
+              View Lesson
+            </button>
           </div>
 
           {/* Question */}
@@ -986,6 +1042,98 @@ export function TrainingView() {
                 {answerResult.correct ? "✓ Correct!" : "✕ Wrong"}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Review Stage (read-only lesson replay) ────────────────────────────────
+
+  if (stage === "review") {
+    return (
+      <div className="flex flex-col h-full bg-discord-bg">
+        {/* Header */}
+        <div className="px-6 py-2 bg-discord-bg-dark border-b border-discord-bg-darker/60 flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (reviewingFromTest) {
+                setStage("test");
+              } else {
+                setStage("welcome");
+                loadWelcome();
+              }
+            }}
+            className="text-discord-text-muted hover:text-discord-text text-xs cursor-pointer"
+          >
+            ← {reviewingFromTest ? "Back to Test" : "Back to Training"}
+          </button>
+          <span className="text-xs text-discord-text font-medium">
+            {activeLesson?.title} — Review
+          </span>
+          <div className="flex-1" />
+          <span className="text-[10px] text-green-400 font-medium">
+            READ-ONLY
+          </span>
+        </div>
+
+        {/* Chat messages (read-only) */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {reviewMessages.length === 0 ? (
+            <div className="text-center text-sm text-discord-text-muted py-8">
+              No conversation history saved for this lesson.
+            </div>
+          ) : (
+            reviewMessages.map((msg, i) => {
+              if (msg.role === "system") {
+                return (
+                  <div
+                    key={i}
+                    className="text-center text-[11px] text-discord-text-muted py-2"
+                  >
+                    {msg.content}
+                  </div>
+                );
+              }
+              if (msg.role === "teacher") {
+                return (
+                  <div key={i} className="flex gap-3 items-start">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm shrink-0">
+                      🤖
+                    </div>
+                    <div className="max-w-[80%]">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-discord-text">
+                          Training Bot
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded font-semibold">
+                          BOT
+                        </span>
+                      </div>
+                      <div className="text-sm text-discord-text leading-relaxed whitespace-pre-wrap">
+                        {msg.content}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={i} className="flex gap-3 items-start justify-end">
+                  <div className="max-w-[80%] bg-discord-accent/20 rounded-lg px-4 py-2">
+                    <div className="text-sm text-discord-text">
+                      {msg.content}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Bottom bar */}
+        <div className="px-6 py-4 border-t border-discord-bg-darker/60">
+          <div className="bg-discord-bg-dark rounded-lg px-4 py-3 text-sm text-discord-text-muted text-center">
+            This is a read-only review of your completed lesson.
           </div>
         </div>
       </div>

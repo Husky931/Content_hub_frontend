@@ -205,7 +205,7 @@ export function LessonEditor({
       upload: {
         prompt: "Upload your deliverable file.",
         options: {
-          acceptedTypes: ["mp4", "mov", "avi"],
+          acceptedTypes: ["mp4", "mov", "avi", "mkv", "webm", "mp3", "wav", "aac", "ogg", "m4a", "jpg", "jpeg", "png", "gif", "webp"],
           maxSize: 200 * 1024 * 1024,
         },
         correctAnswers: null,
@@ -705,7 +705,7 @@ function QuestionCard({
   const [uploading, setUploading] = useState(false);
   // Upload question state
   const uploadOpts = (question.options as { acceptedTypes?: string[]; maxSize?: number }) || {};
-  const [acceptedTypes, setAcceptedTypes] = useState<string[]>(uploadOpts.acceptedTypes || ["mp4", "mov", "avi"]);
+  const [acceptedTypes, setAcceptedTypes] = useState<string[]>(uploadOpts.acceptedTypes || ["mp4", "mov", "avi", "mkv", "webm", "mp3", "wav", "aac", "ogg", "m4a", "jpg", "jpeg", "png", "gif", "webp"]);
   const [maxSizeMB, setMaxSizeMB] = useState<number>(Math.round((uploadOpts.maxSize || 200 * 1024 * 1024) / (1024 * 1024)));
 
   const [dirty, setDirty] = useState(false);
@@ -784,7 +784,9 @@ function QuestionCard({
         reasonOptions,
         sampleFile,
       };
-      updates.correctAnswers = { correctRating, correctReasonIndex };
+      updates.correctAnswers = correctRating === "Bad"
+        ? { correctRating, correctReasonIndex }
+        : { correctRating };
     } else if (question.type === "upload") {
       updates.options = {
         acceptedTypes,
@@ -1144,10 +1146,11 @@ function QuestionCard({
                 {/* Preset buttons to change */}
                 <div className="flex gap-1.5 mt-2">
                   {[
-                    { label: "Video", types: ["mp4", "mov", "avi"] },
-                    { label: "Audio", types: ["mp3", "wav", "aac"] },
-                    { label: "Image", types: ["jpg", "png", "gif"] },
-                    { label: "All Media", types: ["mp4", "mov", "avi", "mp3", "wav", "jpg", "png", "gif"] },
+                    { label: "Video", types: ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"] },
+                    { label: "Audio", types: ["mp3", "wav", "aac", "ogg", "flac", "m4a", "wma"] },
+                    { label: "Image", types: ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"] },
+                    { label: "Document", types: ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt"] },
+                    { label: "All Media", types: ["mp4", "mov", "avi", "mkv", "webm", "mp3", "wav", "aac", "ogg", "m4a", "jpg", "jpeg", "png", "gif", "webp"] },
                   ].map((preset) => {
                     const isActive = preset.types.length === acceptedTypes.length && preset.types.every((t) => acceptedTypes.includes(t));
                     return (
