@@ -141,6 +141,7 @@ export async function GET(req: NextRequest) {
         source: tasks.source,
         checklist: tasks.checklist,
         attachments: tasks.attachments,
+        deliverableSlots: tasks.deliverableSlots,
         channelName: channels.name,
         channelSlug: channels.slug,
         createdByUsername: users.username,
@@ -244,6 +245,8 @@ export async function GET(req: NextRequest) {
 
     // Get current user's latest attempt for each task
     let myAttempts: Record<string, { id: string; status: string; deliverables: any }> = {};
+    // Also get ALL user attempts per task for the "Your Previous Attempts" section
+    let myAllAttempts: Record<string, { id: string; status: string; deliverables: any; rejectionReason: string | null; reviewNote: string | null; createdAt: Date }[]> = {};
     if (taskIds.length > 0) {
       const userAttempts = await db
         .select({
@@ -251,6 +254,8 @@ export async function GET(req: NextRequest) {
           taskId: attempts.taskId,
           status: attempts.status,
           deliverables: attempts.deliverables,
+          rejectionReason: attempts.rejectionReason,
+          reviewNote: attempts.reviewNote,
           createdAt: attempts.createdAt,
         })
         .from(attempts)
@@ -262,11 +267,20 @@ export async function GET(req: NextRequest) {
         )
         .orderBy(desc(attempts.createdAt));
 
-      // Keep only the latest attempt per task
+      // Keep only the latest attempt per task + collect all attempts
       for (const a of userAttempts) {
         if (!myAttempts[a.taskId]) {
           myAttempts[a.taskId] = { id: a.id, status: a.status, deliverables: a.deliverables };
         }
+        if (!myAllAttempts[a.taskId]) myAllAttempts[a.taskId] = [];
+        myAllAttempts[a.taskId].push({
+          id: a.id,
+          status: a.status,
+          deliverables: a.deliverables,
+          rejectionReason: a.rejectionReason,
+          reviewNote: a.reviewNote,
+          createdAt: a.createdAt,
+        });
       }
     }
 
@@ -302,6 +316,7 @@ export async function GET(req: NextRequest) {
             ? { ...myAttempt, appealStatus: myAppealStatuses[myAttempt.id] || null }
             : null,
           submittedCount: submittedCounts[t.id] || 0,
+          myAllAttempts: myAllAttempts[t.id] || [],
           reviewClaimedBy: t.reviewClaimedById ? reviewerMap[t.reviewClaimedById] || null : null,
         };
       }),
@@ -343,6 +358,7 @@ export async function POST(req: NextRequest) {
       status: taskStatus,
       checklist,
       attachments,
+      deliverableSlots,
     } = body;
 
     if (!channelId || !title || !description) {
@@ -388,6 +404,7 @@ export async function POST(req: NextRequest) {
         status: taskStatus === "active" ? "active" : "draft",
         checklist: Array.isArray(checklist) ? checklist : null,
         attachments: Array.isArray(attachments) ? attachments : null,
+        deliverableSlots: Array.isArray(deliverableSlots) ? deliverableSlots : null,
       })
       .returning();
 

@@ -6,6 +6,8 @@ import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { Spinner, ButtonSpinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FileUpload } from "@/components/ui/FileUpload";
+import { DeliverableSlotEditor } from "@/components/ui/DeliverableSlotEditor";
+import type { DeliverableSlot } from "@/types/deliverable-slot";
 import { AdminTrainingSection } from "@/components/admin/AdminTrainingSection";
 import { LessonEditor } from "@/components/admin/LessonEditor";
 import { AdminUploadReviewSection } from "@/components/admin/AdminUploadReviewSection";
@@ -974,6 +976,8 @@ function AdminTasksSection() {
   const [newChecklistItem, setNewChecklistItem] = useState("");
   // Attachments state
   const [taskAttachments, setTaskAttachments] = useState<import("@/components/ui/FileUpload").UploadedFile[]>([]);
+  // Deliverable slots state
+  const [deliverableSlots, setDeliverableSlots] = useState<DeliverableSlot[]>([]);
   // Markdown preview toggle
   const [previewDescEn, setPreviewDescEn] = useState(false);
   const [previewDescCn, setPreviewDescCn] = useState(false);
@@ -1020,6 +1024,7 @@ function AdminTasksSection() {
       setPublishNow(false);
       setChecklistItems((task.checklist || []).map((c: { label: string }) => c.label));
       setTaskAttachments(task.attachments || []);
+      setDeliverableSlots(task.deliverableSlots || []);
       setShowForm(true);
     } catch { /* ignore */ }
     setEditLoading(null);
@@ -1068,6 +1073,7 @@ function AdminTasksSection() {
           setBonusBountyRmb(t.bonusBountyRmb || "");
           setMaxAttempts(String(t.maxAttempts || 5));
           setChecklistItems((t.checklist || []).map((c: { label: string }) => c.label));
+          setDeliverableSlots(t.deliverableSlots || []);
           setShowForm(true);
         });
       } catch { /* ignore */ }
@@ -1075,7 +1081,8 @@ function AdminTasksSection() {
     return () => { active = false; };
   }, []);
 
-  const handleCreate = async () => {
+  const handleCreate = async (publish?: boolean) => {
+    const shouldPublish = publish ?? publishNow;
     if (!channelId || !title || !description) {
       setFormError("Channel, title, and description are required");
       return;
@@ -1098,9 +1105,10 @@ function AdminTasksSection() {
         bonusBountyRmb: bonusBountyRmb || undefined,
         maxAttempts: parseInt(maxAttempts) || 5,
         deadline: deadline || undefined,
-        status: publishNow ? "active" : "draft",
+        status: shouldPublish ? "active" : "draft",
         checklist: checklistItems.length > 0 ? checklistItems.map((label) => ({ label })) : undefined,
         attachments: taskAttachments.length > 0 ? taskAttachments.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size })) : undefined,
+        deliverableSlots: deliverableSlots.length > 0 ? deliverableSlots : undefined,
       }),
     });
 
@@ -1108,7 +1116,7 @@ function AdminTasksSection() {
       setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn("");
       setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb("");
       setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setShowForm(false);
-      setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]);
+      setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]);
       fetchData();
     } else {
       const data = await res.json();
@@ -1128,7 +1136,8 @@ function AdminTasksSection() {
     setActionLoadingId(null);
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (publish?: boolean) => {
+    const shouldPublish = publish ?? publishNow;
     if (!editingTaskId || !channelId || !title || !description) {
       setFormError("Channel, title, and description are required");
       return;
@@ -1150,8 +1159,9 @@ function AdminTasksSection() {
       deadline: deadline || undefined,
       checklist: checklistItems.length > 0 ? checklistItems.map((label) => ({ label })) : undefined,
       attachments: taskAttachments.length > 0 ? taskAttachments.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size })) : undefined,
+      deliverableSlots: deliverableSlots.length > 0 ? deliverableSlots : undefined,
     };
-    if (publishNow) body.status = "active";
+    if (shouldPublish) body.status = "active";
 
     const res = await fetch(`/api/tasks/${editingTaskId}`, {
       method: "PATCH",
@@ -1163,7 +1173,7 @@ function AdminTasksSection() {
       setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn("");
       setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb("");
       setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setShowForm(false);
-      setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]);
+      setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]);
       setEditingTaskId(null);
       fetchData();
     } else {
@@ -1180,7 +1190,7 @@ function AdminTasksSection() {
       <div className="flex items-center justify-between mb-6">
         <SectionTitle>Task Management</SectionTitle>
         <button
-          onClick={() => { setShowForm(!showForm); if (showForm) { setEditingTaskId(null); setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn(""); setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb(""); setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); } }}
+          onClick={() => { setShowForm(!showForm); if (showForm) { setEditingTaskId(null); setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn(""); setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb(""); setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]); } }}
           className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
         >
           {showForm ? "Cancel" : "+ Create Task"}
@@ -1265,6 +1275,14 @@ function AdminTasksSection() {
               />
             </div>
 
+            {/* Deliverable Slots Editor */}
+            <div className="col-span-2">
+              <DeliverableSlotEditor
+                slots={deliverableSlots}
+                onChange={setDeliverableSlots}
+              />
+            </div>
+
             {/* Review Checklist Builder */}
             <div className="col-span-2">
               <label className="block text-xs text-discord-text-muted mb-1">Review Checklist — items reviewers will check</label>
@@ -1316,13 +1334,23 @@ function AdminTasksSection() {
             </div>
           </div>
           {formError && <p className="text-xs text-discord-red mt-2">{formError}</p>}
-          <div className="mt-10 space-y-3">
-            <label className="flex items-center gap-2.5 text-sm text-discord-text cursor-pointer select-none group">
-              <input type="checkbox" checked={publishNow} onChange={(e) => setPublishNow(e.target.checked)} className="w-4 h-4 rounded border-discord-border accent-green-500" />
-              <span className="font-medium group-hover:text-green-400 transition">Publish immediately</span>
-            </label>
-            <button onClick={editingTaskId ? handleUpdate : handleCreate} disabled={creating || (!!deadline && new Date(deadline) < new Date())} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1">
-              <ButtonSpinner loading={creating}>{editingTaskId ? "Update Task" : "Create Task"}</ButtonSpinner>
+          {deliverableSlots.length === 0 && (
+            <p className="text-xs text-red-400 mt-2">⚠ Cannot publish: add at least one deliverable slot.</p>
+          )}
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={() => { setPublishNow(false); (editingTaskId ? handleUpdate : handleCreate)(false); }}
+              disabled={creating || (!!deadline && new Date(deadline) < new Date())}
+              className="flex-1 py-2.5 bg-discord-bg-hover hover:bg-discord-border text-discord-text-secondary rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              <ButtonSpinner loading={creating && !publishNow}>💾 Save as Draft</ButtonSpinner>
+            </button>
+            <button
+              onClick={() => { setPublishNow(true); (editingTaskId ? handleUpdate : handleCreate)(true); }}
+              disabled={creating || deliverableSlots.length === 0 || (!!deadline && new Date(deadline) < new Date())}
+              className="flex-1 py-2.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              <ButtonSpinner loading={creating && publishNow}>✈ Publish</ButtonSpinner>
             </button>
           </div>
         </div>

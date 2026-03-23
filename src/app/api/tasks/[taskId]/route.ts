@@ -35,6 +35,7 @@ export async function GET(
         deadline: tasks.deadline,
         checklist: tasks.checklist,
         attachments: tasks.attachments,
+        deliverableSlots: tasks.deliverableSlots,
         createdAt: tasks.createdAt,
         updatedAt: tasks.updatedAt,
         channelName: channels.name,
@@ -226,6 +227,7 @@ export async function PATCH(
       "status",
       "checklist",
       "attachments",
+      "deliverableSlots",
     ];
 
     for (const field of allowedFields) {

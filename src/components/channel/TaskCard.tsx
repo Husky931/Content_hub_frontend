@@ -5,11 +5,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
 import { FileUpload, FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
 import { useRouter } from "next/navigation";
+import type { DeliverableSlot } from "@/types/deliverable-slot";
+import { slotTypeLabel, slotTypeIcon, isUploadType, SLOT_TYPE_BADGE } from "@/types/deliverable-slot";
+
+/** Per-slot deliverable data submitted by creator */
+export interface SlotDeliverable {
+  slotId: string;
+  text?: string;
+  files?: UploadedFile[];
+  selections?: string[];
+  rating?: number;
+}
 
 interface MyAttempt {
   id: string;
   status: string;
-  deliverables: { text?: string; files?: UploadedFile[] } | null;
+  deliverables: { text?: string; files?: UploadedFile[]; slots?: SlotDeliverable[] } | null;
   appealStatus?: string | null;
 }
 
@@ -40,6 +51,15 @@ interface TaskCardProps {
     source?: string | null;
     checklist?: { label: string }[] | null;
     attachments?: { name: string; url: string; type: string; size: number }[] | null;
+    deliverableSlots?: DeliverableSlot[] | null;
+    myAllAttempts?: {
+      id: string;
+      status: string;
+      deliverables: any;
+      rejectionReason: string | null;
+      reviewNote: string | null;
+      createdAt: string;
+    }[];
   };
   onAttemptSubmitted?: () => void;
 }
@@ -76,7 +96,14 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
   const [deleting, setDeleting] = useState(false);
   const [deliverableText, setDeliverableText] = useState("");
   const [deliverableFiles, setDeliverableFiles] = useState<UploadedFile[]>([]);
+  // Per-slot deliverable state (keyed by slot id)
+  const [slotTexts, setSlotTexts] = useState<Record<string, string>>({});
+  const [slotFiles, setSlotFiles] = useState<Record<string, UploadedFile[]>>({});
+  const [slotSelections, setSlotSelections] = useState<Record<string, string[]>>({});
+  const [slotRatings, setSlotRatings] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
+
+  const hasSlots = (task.deliverableSlots?.length ?? 0) > 0;
   const [showAppealForm, setShowAppealForm] = useState(false);
   const [appealReason, setAppealReason] = useState("");
   const [appealSubmitting, setAppealSubmitting] = useState(false);
@@ -152,17 +179,58 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
       })()
     : null;
 
+  const buildSlotDeliverables = (): SlotDeliverable[] | null => {
+    if (!hasSlots) return null;
+    return task.deliverableSlots!.map((slot) => {
+      const sd: SlotDeliverable = { slotId: slot.id };
+      if (slot.type === "textbox" || slot.type === "upload-text") {
+        sd.text = slotTexts[slot.id] || "";
+      }
+      if (slot.type === "multiple-selection") {
+        sd.selections = slotSelections[slot.id] || [];
+      }
+      if (slot.type === "rating") {
+        sd.rating = slotRatings[slot.id];
+      }
+      if (isUploadType(slot.type)) {
+        sd.files = (slotFiles[slot.id] || []).map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size }));
+      }
+      return sd;
+    });
+  };
+
+  const validateSlotDeliverables = (): string | null => {
+    if (!hasSlots) return null;
+    for (const slot of task.deliverableSlots!) {
+      if (slot.required === false) continue; // skip optional slots
+      if (isUploadType(slot.type) && slot.type !== "upload-text") {
+        if (!(slotFiles[slot.id]?.length)) return `Slot "${slot.title || slotTypeLabel(slot.type)}": file required`;
+      }
+      if (slot.type === "textbox") {
+        if (!slotTexts[slot.id]?.trim()) return `Slot "${slot.title || "Textbox"}": text required`;
+      }
+    }
+    return null;
+  };
+
   const handleSubmit = async () => {
-    if (!deliverableText.trim() && deliverableFiles.length === 0) {
+    if (hasSlots) {
+      const slotErr = validateSlotDeliverables();
+      if (slotErr) { setError(slotErr); return; }
+    } else if (!deliverableText.trim() && deliverableFiles.length === 0) {
       setError("Please enter text or upload files");
       return;
     }
     setSubmitting(true);
     setError("");
     try {
-      const deliverables: { text?: string; files?: UploadedFile[] } = {};
-      if (deliverableText.trim()) deliverables.text = deliverableText.trim();
-      if (deliverableFiles.length > 0) deliverables.files = deliverableFiles.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size }));
+      const deliverables: { text?: string; files?: UploadedFile[]; slots?: SlotDeliverable[] } = {};
+      if (hasSlots) {
+        deliverables.slots = buildSlotDeliverables()!;
+      } else {
+        if (deliverableText.trim()) deliverables.text = deliverableText.trim();
+        if (deliverableFiles.length > 0) deliverables.files = deliverableFiles.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size }));
+      }
       const res = await fetch(`/api/tasks/${task.id}/attempts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -175,6 +243,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
       }
       setDeliverableText("");
       setDeliverableFiles([]);
+      setSlotTexts({}); setSlotFiles({}); setSlotSelections({}); setSlotRatings({});
       setExpanded(false);
       onAttemptSubmitted?.();
     } catch {
@@ -185,16 +254,24 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
   };
 
   const handleEdit = async () => {
-    if ((!deliverableText.trim() && deliverableFiles.length === 0) || !myAttempt) {
+    if (!myAttempt) return;
+    if (hasSlots) {
+      const slotErr = validateSlotDeliverables();
+      if (slotErr) { setError(slotErr); return; }
+    } else if (!deliverableText.trim() && deliverableFiles.length === 0) {
       setError("Please enter text or upload files");
       return;
     }
     setSubmitting(true);
     setError("");
     try {
-      const deliverables: { text?: string; files?: UploadedFile[] } = {};
-      if (deliverableText.trim()) deliverables.text = deliverableText.trim();
-      if (deliverableFiles.length > 0) deliverables.files = deliverableFiles.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size }));
+      const deliverables: { text?: string; files?: UploadedFile[]; slots?: SlotDeliverable[] } = {};
+      if (hasSlots) {
+        deliverables.slots = buildSlotDeliverables()!;
+      } else {
+        if (deliverableText.trim()) deliverables.text = deliverableText.trim();
+        if (deliverableFiles.length > 0) deliverables.files = deliverableFiles.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size }));
+      }
       const res = await fetch(
         `/api/tasks/${task.id}/attempts/${myAttempt.id}`,
         {
@@ -407,7 +484,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
               onClick={() => setExpanded(!expanded)}
               className={`text-xs px-3 py-1 ${isLockedForMe ? "bg-amber-600 hover:bg-amber-700" : "bg-green-600 hover:bg-green-700"} text-white rounded font-semibold transition cursor-pointer`}
             >
-              {isLockedForMe ? "Submit Revision" : "Submit Attempt"}
+              {isLockedForMe ? "Submit Revision" : "View Task"}
             </button>
           )}
           {submittedCount > 0 && (
@@ -436,164 +513,195 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         </div>
       </div>
 
-      {/* User's submitted attempt — show with Edit/Delete */}
-      {hasSubmittedAttempt && !editing && (
-        <div className="px-4 py-3 bg-discord-bg-dark/50 border-t border-discord-border/50">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
-              Submitted
+      {/* ═══════ EXPANDED TASK DETAIL VIEW ═══════ */}
+      {expanded && (
+        <div className="border-t border-discord-border/50 bg-discord-bg-dark/40">
+          {/* ── Task Description ── */}
+          <div className="px-4 py-3 border-b border-discord-border/30">
+            <p className="text-xs text-discord-text-secondary whitespace-pre-wrap leading-relaxed">{task.description}</p>
+          </div>
+
+          {/* ── Meta Stats Row ── */}
+          <div className="px-4 py-2 flex flex-wrap gap-4 text-[11px] text-discord-text-muted border-b border-discord-border/30">
+            {deadlineStr && <span className="flex items-center gap-1">🕐 {deadlineStr}</span>}
+            <span className="flex items-center gap-1">👥 {task.submittedCount || 0} others submitted</span>
+            <span className={`flex items-center gap-1 ${(task.maxAttempts - (task.myAttemptCount || 0)) <= 1 ? "text-red-400" : ""}`}>
+              🔄 {task.maxAttempts - (task.myAttemptCount || 0)} attempt{(task.maxAttempts - (task.myAttemptCount || 0)) !== 1 ? "s" : ""} remaining
             </span>
-            <span className="text-xs text-discord-text-muted">
-              {task.status === "locked" && !isLockedForMe
-                ? "Task is locked for revision — your submission is on hold"
-                : "Your submission is pending review"}
-            </span>
+            <span className="flex items-center gap-1"># {task.channelSlug}</span>
           </div>
-          <div className="mb-2 px-2.5 py-1.5 rounded border border-emerald-500/30 bg-emerald-500/10">
-            <span className="text-xs text-emerald-400">This submission is only visible to you and reviewers</span>
-          </div>
-          {myAttempt?.deliverables?.text && (
-            <div className="p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text-secondary whitespace-pre-wrap mb-2">
-              {myAttempt.deliverables.text}
-            </div>
-          )}
-          {myAttempt?.deliverables?.files && myAttempt.deliverables.files.length > 0 && (
-            <FilePreviewList files={myAttempt.deliverables.files} label="Uploaded Files" />
-          )}
-          {error && (
-            <p className="text-xs text-discord-red mt-1">{error}</p>
-          )}
-          {/* Hide Edit/Delete when task is locked for another user */}
-          {(task.status !== "locked" || isLockedForMe) && (
-            <div className="flex justify-end gap-2 mt-2">
-              <button
-                onClick={() => {
-                  setDeliverableText(myAttempt?.deliverables?.text || "");
-                  setDeliverableFiles(myAttempt?.deliverables?.files || []);
-                  setEditing(true);
-                  setError("");
-                }}
-                className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer"
-              >
-                Edit
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
-              >
-                <ButtonSpinner loading={deleting}>Delete</ButtonSpinner>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Edit form for existing submission */}
-      {hasSubmittedAttempt && editing && (
-        <div className="px-4 py-3 bg-discord-bg-dark/50 border-t border-discord-border/50 space-y-3">
-          <FileUpload
-            files={deliverableFiles}
-            onFilesChange={setDeliverableFiles}
-            context="attempt-deliverable"
-            maxFiles={10}
-            maxSizeMb={100}
-            label="Upload files"
-            compact
-          />
-          <textarea
-            value={deliverableText}
-            onChange={(e) => setDeliverableText(e.target.value)}
-            placeholder="Notes for reviewer (optional if files uploaded)..."
-            className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
-            rows={3}
-          />
-          {error && (
-            <p className="text-xs text-discord-red mt-1">{error}</p>
-          )}
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => {
-                setEditing(false);
-                setError("");
-              }}
-              className="text-xs px-3 py-1 text-discord-text-muted hover:text-discord-text transition cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleEdit}
-              disabled={submitting}
-              className="text-xs px-4 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
-            >
-              <ButtonSpinner loading={submitting}>Save Changes</ButtonSpinner>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Expanded: new submit form */}
-      {expanded && canSubmit && !hasSubmittedAttempt && (
-        <div className="px-4 py-3 bg-discord-bg-dark/50 border-t border-discord-border/50 space-y-3">
-          {/* Task attachments (reference files from task creator) */}
-          {task.attachments && task.attachments.length > 0 && (
-            <div className="p-2 bg-discord-bg-dark rounded border border-discord-border">
-              <FilePreviewList files={task.attachments} label="Reference Files" />
-            </div>
-          )}
-
-          {/* Checklist guidance */}
+          {/* ── Requirements / Checklist ── */}
           {task.checklist && task.checklist.length > 0 && (
-            <div className="p-2 bg-discord-bg-dark rounded border border-discord-border">
-              <p className="text-[10px] font-semibold text-discord-text-muted uppercase mb-1">Requirements Checklist</p>
-              <ul className="space-y-0.5">
+            <div className="px-4 py-2.5 border-b border-discord-border/30">
+              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1.5">📋 Requirements</h4>
+              <div className="space-y-0.5">
                 {task.checklist.map((item, i) => (
-                  <li key={i} className="text-xs text-discord-text-secondary flex items-center gap-1.5">
+                  <div key={i} className="flex items-center gap-1.5 text-xs text-discord-text-secondary">
                     <span className="text-green-400 text-[10px]">✓</span> {item.label}
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
 
-          <FileUpload
-            files={deliverableFiles}
-            onFilesChange={setDeliverableFiles}
-            context="attempt-deliverable"
-            maxFiles={10}
-            maxSizeMb={100}
-            label="Upload your deliverables"
-            compact
-          />
-          <textarea
-            value={deliverableText}
-            onChange={(e) => setDeliverableText(e.target.value)}
-            placeholder="Notes for reviewer (optional if files uploaded)..."
-            className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
-            rows={3}
-          />
-          {error && (
-            <p className="text-xs text-discord-red mt-1">{error}</p>
+          {/* ── Attachments (pill-style) ── */}
+          {task.attachments && task.attachments.length > 0 && (
+            <div className="px-4 py-2.5 border-b border-discord-border/30">
+              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1.5">📎 Attachments</h4>
+              <div className="flex flex-wrap gap-1.5">
+                {task.attachments.map((f, i) => {
+                  const ext = f.name.split(".").pop()?.toLowerCase() || "";
+                  const iconMap: Record<string, string> = { md: "📄", txt: "📄", mp3: "🎵", wav: "🎵", mp4: "🎬", png: "🖼️", jpg: "🖼️", jpeg: "🖼️", pdf: "📕" };
+                  return (
+                    <a key={i} href={f.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-discord-bg-dark rounded-lg border border-discord-border hover:border-discord-accent/50 transition text-xs text-discord-text-secondary">
+                      <span>{iconMap[ext] || "📁"}</span><span>{f.name}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
           )}
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => {
-                setExpanded(false);
-                setDeliverableFiles([]);
-                setError("");
-              }}
-              className="text-xs px-3 py-1 text-discord-text-muted hover:text-discord-text transition cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="text-xs px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
-            >
-              <ButtonSpinner loading={submitting}>{isLockedForMe ? "Submit Revision" : "Submit"}</ButtonSpinner>
-            </button>
+
+          {/* ── Others Currently Attempting ── */}
+          <div className="px-4 py-2.5 border-b border-discord-border/30">
+            <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1">
+              👥 Others Currently Attempting
+              <span className="ml-1.5 px-1.5 py-0.5 bg-discord-bg-hover rounded text-[9px]">{task.submittedCount || 0}</span>
+            </h4>
+            <p className="text-[10px] text-discord-text-muted mb-1">ℹ You can only see the count of pending submissions. Details are private.</p>
+            {(task.submittedCount || 0) === 0 ? (
+              <p className="text-xs text-discord-text-muted italic">No other creators are currently attempting this task.</p>
+            ) : (
+              <p className="text-xs text-discord-text-secondary">{task.submittedCount} submission{(task.submittedCount || 0) !== 1 ? "s" : ""} pending review.</p>
+            )}
           </div>
+
+          {/* ── Your Previous Attempts ── */}
+          <div className="px-4 py-2.5 border-b border-discord-border/30">
+            <h4 className="text-[10px] font-bold text-discord-text-muted uppercase mb-1.5">
+              📜 Your Previous Attempts
+              <span className="ml-1.5 px-1.5 py-0.5 bg-discord-bg-hover rounded text-[9px]">{task.myAllAttempts?.length || 0}</span>
+            </h4>
+            {(!task.myAllAttempts || task.myAllAttempts.length === 0) ? (
+              <p className="text-xs text-discord-text-muted italic">No previous attempts. This will be your first submission.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {task.myAllAttempts.map((attempt, i) => {
+                  const sc: Record<string, string> = { submitted: "bg-amber-500/20 text-amber-400", approved: "bg-green-500/20 text-green-400", rejected: "bg-red-500/20 text-red-400", blocked: "bg-gray-500/20 text-gray-400", paid: "bg-blue-500/20 text-blue-400" };
+                  const sl: Record<string, string> = { submitted: "Pending Review", approved: "Approved", rejected: "Rejected", blocked: "Blocked", paid: "Paid" };
+                  return (
+                    <div key={attempt.id} className={`p-2 rounded-lg border ${attempt.status === "rejected" ? "border-red-500/20 bg-red-500/5" : "border-discord-border bg-discord-bg-dark"}`}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-discord-text-muted">#{i + 1}</span>
+                          <span className="text-[10px] text-discord-text-muted">{formatRelativeDate(attempt.createdAt)}</span>
+                        </div>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sc[attempt.status] || "bg-gray-500/20 text-gray-400"}`}>{sl[attempt.status] || attempt.status}</span>
+                      </div>
+                      {attempt.status === "rejected" && attempt.rejectionReason && (
+                        <div className="text-[11px] text-red-400 mt-0.5"><span className="font-semibold">Reason:</span> {attempt.rejectionReason}</div>
+                      )}
+                      {attempt.reviewNote && (
+                        <div className="text-[11px] text-discord-text-muted mt-0.5"><span className="font-semibold">Mod note:</span> {attempt.reviewNote}</div>
+                      )}
+                      {attempt.status === "submitted" && (
+                        <div className="text-[10px] text-amber-400/70 mt-0.5">⏳ Under review</div>
+                      )}
+                    </div>
+                  );
+                })}
+                <p className="text-[10px] text-discord-text-muted">🔒 Only you and moderators can see your rejection details.</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Current Submission (edit/delete) ── */}
+          {hasSubmittedAttempt && !editing && (
+            <div className="px-4 py-2.5 border-b border-discord-border/30 space-y-2">
+              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase">Current Submission</h4>
+              {myAttempt?.deliverables?.text && (
+                <div className="text-xs text-discord-text-secondary bg-discord-bg-dark p-2 rounded border border-discord-border whitespace-pre-wrap">{myAttempt.deliverables.text}</div>
+              )}
+              {myAttempt?.deliverables?.files && myAttempt.deliverables.files.length > 0 && (
+                <FilePreviewList files={myAttempt.deliverables.files} label="Uploaded Files" />
+              )}
+              {(task.status !== "locked" || isLockedForMe) && (
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => { setDeliverableText(myAttempt?.deliverables?.text || ""); setDeliverableFiles(myAttempt?.deliverables?.files || []); setEditing(true); setError(""); }}
+                    className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer">Edit</button>
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1">
+                    <ButtonSpinner loading={deleting}>Delete</ButtonSpinner>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Edit form ── */}
+          {hasSubmittedAttempt && editing && (
+            <div className="px-4 py-3 border-b border-discord-border/30 space-y-3">
+              <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label="Upload files" compact />
+              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder="Notes for reviewer..." className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none" rows={3} />
+              {error && <p className="text-xs text-discord-red mt-1">{error}</p>}
+              <div className="flex justify-end gap-2">
+                <button onClick={() => { setEditing(false); setError(""); }} className="text-xs px-3 py-1 text-discord-text-muted hover:text-discord-text transition cursor-pointer">Cancel</button>
+                <button onClick={handleEdit} disabled={submitting} className="text-xs px-4 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1">
+                  <ButtonSpinner loading={submitting}>Save Changes</ButtonSpinner>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Submit New Attempt ── */}
+          {canSubmit && !hasSubmittedAttempt && (
+            <div className="px-4 py-3 space-y-3">
+              <h4 className="text-[10px] font-bold text-discord-text-muted uppercase">⬆ Submit New Attempt</h4>
+              {/* Attempts gauge */}
+              {(() => {
+                const used = task.myAttemptCount || 0;
+                const max = task.maxAttempts;
+                const remaining = max - used;
+                const pct = Math.min((used / max) * 100, 100);
+                return (
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="text-discord-text-muted shrink-0">Attempts: {used}/{max}</span>
+                    <div className="flex-1 h-1.5 bg-discord-border rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${remaining <= 1 ? "bg-red-500" : remaining <= 2 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    {remaining <= 1 && remaining > 0 && <span className="text-red-400 font-bold">Last attempt!</span>}
+                  </div>
+                );
+              })()}
+
+              {hasSlots ? (
+                <div className="space-y-2">
+                  {task.deliverableSlots!.map((slot, idx) => (
+                    <SlotSubmissionField key={slot.id} slot={slot} index={idx}
+                      files={slotFiles[slot.id] || []} onFilesChange={(f) => setSlotFiles((prev) => ({ ...prev, [slot.id]: f }))}
+                      text={slotTexts[slot.id] || ""} onTextChange={(t) => setSlotTexts((prev) => ({ ...prev, [slot.id]: t }))}
+                      selections={slotSelections[slot.id] || []} onSelectionsChange={(s) => setSlotSelections((prev) => ({ ...prev, [slot.id]: s }))}
+                      rating={slotRatings[slot.id]} onRatingChange={(r) => setSlotRatings((prev) => ({ ...prev, [slot.id]: r }))} />
+                  ))}
+                </div>
+              ) : (
+                <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label="Upload your deliverables" compact />
+              )}
+              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder="Notes for reviewer (optional)..."
+                className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none" rows={2} />
+              {error && <p className="text-xs text-discord-red mt-1">{error}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => { setExpanded(false); setDeliverableFiles([]); setSlotTexts({}); setSlotFiles({}); setSlotSelections({}); setSlotRatings({}); setError(""); }}
+                  className="flex-1 py-2 text-xs bg-discord-bg-hover text-discord-text-muted rounded-lg font-semibold hover:bg-discord-border transition cursor-pointer">Cancel</button>
+                <button onClick={handleSubmit} disabled={submitting || (task.maxAttempts - (task.myAttemptCount || 0)) <= 0}
+                  className="flex-1 py-2 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1">
+                  <ButtonSpinner loading={submitting}>{isLockedForMe ? "Submit Revision" : "Submit Attempt"}</ButtonSpinner>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -675,6 +783,184 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
               </div>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Slot-based submission field ─────────────────────────────────────────── */
+
+function SlotSubmissionField({
+  slot,
+  index,
+  files,
+  onFilesChange,
+  text,
+  onTextChange,
+  selections,
+  onSelectionsChange,
+  rating,
+  onRatingChange,
+}: {
+  slot: DeliverableSlot;
+  index: number;
+  files: UploadedFile[];
+  onFilesChange: (f: UploadedFile[]) => void;
+  text: string;
+  onTextChange: (t: string) => void;
+  selections: string[];
+  onSelectionsChange: (s: string[]) => void;
+  rating?: number;
+  onRatingChange: (r: number) => void;
+}) {
+  const acceptMap: Record<string, string> = {
+    "upload-audio": "audio/*",
+    "upload-video": "video/*",
+    "upload-image": "image/*",
+    "upload-text": ".txt,.md,.markdown",
+    "upload-tsv": ".tsv,.csv,.txt",
+    "upload-srt": ".srt,.vtt",
+  };
+
+  const options = slot.selectionOptions
+    ? slot.selectionOptions.split("\n").filter((o) => o.trim())
+    : [];
+
+  return (
+    <div className="p-2.5 bg-discord-bg-dark rounded-lg border border-discord-border">
+      {/* Slot header */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-base">{slotTypeIcon(slot.type)}</span>
+        <span className="text-[10px] font-bold text-discord-text-muted">
+          SLOT {index + 1}
+        </span>
+        <span
+          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+            SLOT_TYPE_BADGE[slot.type] || "bg-gray-500/20 text-gray-300"
+          }`}
+        >
+          {slotTypeLabel(slot.type)}
+        </span>
+        <span className="text-xs font-medium text-discord-text ml-1">
+          {slot.title || "(untitled)"}
+        </span>
+      </div>
+
+      {/* Slot description */}
+      {slot.description && (
+        <p className="text-[11px] text-discord-text-muted mb-2 whitespace-pre-wrap">
+          {slot.description}
+        </p>
+      )}
+
+      {/* Checks info */}
+      {slot.checks.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {slot.checks.map((c, ci) => (
+            <span
+              key={ci}
+              className="text-[9px] px-1.5 py-0.5 rounded bg-discord-bg-hover text-discord-text-muted border border-discord-border"
+            >
+              {c.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Upload types: file upload */}
+      {isUploadType(slot.type) && (
+        <FileUpload
+          files={files}
+          onFilesChange={onFilesChange}
+          context="attempt-deliverable"
+          maxFiles={slot.type === "upload-video" ? 1 : 5}
+          maxSizeMb={slot.maxFileSize ? Number(slot.maxFileSize) * (slot.maxFileSizeUnit === "GB" ? 1024 : slot.maxFileSizeUnit === "KB" ? 0.001 : 1) : 100}
+          accept={slot.type === "upload-other" ? slot.fileExtensions?.split(",").map((e) => e.trim()).join(",") : acceptMap[slot.type]}
+          label={`Upload ${slotTypeLabel(slot.type).toLowerCase()}`}
+          compact
+        />
+      )}
+
+      {/* upload-text also allows inline text */}
+      {slot.type === "upload-text" && (
+        <textarea
+          value={text}
+          onChange={(e) => onTextChange(e.target.value)}
+          placeholder="Or paste your text here..."
+          className="w-full mt-1.5 p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
+          rows={3}
+        />
+      )}
+
+      {/* Textbox: free text input */}
+      {slot.type === "textbox" && (
+        <textarea
+          value={text}
+          onChange={(e) => onTextChange(e.target.value)}
+          placeholder="Enter your response..."
+          className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
+          rows={4}
+        />
+      )}
+
+      {/* Multiple selection */}
+      {slot.type === "multiple-selection" && options.length > 0 && (
+        <div className="space-y-1">
+          {options.map((opt) => (
+            <label
+              key={opt}
+              className="flex items-center gap-2 text-xs text-discord-text-secondary cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={selections.includes(opt)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    if (!slot.maxSelections || selections.length < slot.maxSelections) {
+                      onSelectionsChange([...selections, opt]);
+                    }
+                  } else {
+                    onSelectionsChange(selections.filter((s) => s !== opt));
+                  }
+                }}
+                className="rounded border-discord-border accent-discord-accent"
+              />
+              <span>{opt}</span>
+            </label>
+          ))}
+          {(slot.minSelections || slot.maxSelections) && (
+            <p className="text-[10px] text-discord-text-muted mt-1">
+              {slot.minSelections ? `Min: ${slot.minSelections}` : ""}
+              {slot.minSelections && slot.maxSelections ? " · " : ""}
+              {slot.maxSelections ? `Max: ${slot.maxSelections}` : ""}
+              {" · "}Selected: {selections.length}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Rating */}
+      {slot.type === "rating" && (
+        <div>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={slot.ratingMin ?? 1}
+              max={slot.ratingMax ?? 5}
+              step={slot.ratingStep ?? 1}
+              value={rating ?? slot.ratingMin ?? 1}
+              onChange={(e) => onRatingChange(parseFloat(e.target.value))}
+              className="flex-1 accent-discord-accent"
+            />
+            <span className="text-sm font-bold text-discord-text min-w-8 text-center">
+              {rating ?? "—"}
+            </span>
+          </div>
+          <p className="text-[10px] text-discord-text-muted mt-0.5">
+            {slot.ratingMin ?? 1} – {slot.ratingMax ?? 5}
+            {slot.ratingStep && slot.ratingStep !== 1 ? ` (step: ${slot.ratingStep})` : ""}
+          </p>
         </div>
       )}
     </div>

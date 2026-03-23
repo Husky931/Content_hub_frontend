@@ -340,6 +340,10 @@ export const tasks = pgTable(
     attachments: jsonb("attachments").$type<
       { name: string; url: string; type: string; size: number }[]
     >(),
+    /** Deliverable slots — structured deliverable definitions for creators */
+    deliverableSlots: jsonb("deliverable_slots").$type<
+      import("@/types/deliverable-slot").DeliverableSlot[]
+    >(),
     /** 'hub' = created in hub, 'backend' = synced from Edtech backend */
     source: varchar("source", { length: 20 }).notNull().default("hub"),
     /** Correlation ID from the Edtech backend (for synced tasks) */
