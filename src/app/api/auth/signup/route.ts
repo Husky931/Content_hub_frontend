@@ -143,17 +143,20 @@ export async function POST(req: NextRequest) {
 
     if (!emailResult.success) {
       console.error("[signup] Failed to send verification email:", emailResult.error);
-      // Still return success — user was created, they can request resend later
     }
 
-    return NextResponse.json(
-      {
-        message: "Account created. Please check your email to verify your account.",
-        // TODO: remove after Resend email is wired up — keeps demo working
-        devVerifyUrl: `${req.nextUrl.origin}/api/auth/verify?token=${token}`,
-      },
-      { status: 201 }
-    );
+    const response: Record<string, string> = {
+      message: emailResult.success
+        ? "Account created! Check your email to verify your account."
+        : "Account created, but we couldn't send the verification email. Please try again later.",
+    };
+
+    // Only expose verify URL in development
+    if (process.env.NODE_ENV === "development") {
+      response.devVerifyUrl = `${req.nextUrl.origin}/api/auth/verify?token=${token}`;
+    }
+
+    return NextResponse.json(response, { status: 201 });
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json(

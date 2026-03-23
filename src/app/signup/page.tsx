@@ -150,7 +150,7 @@ export default function SignupPage() {
                 {success}
               </div>
             )}
-            {devVerifyUrl && (
+            {devVerifyUrl && process.env.NODE_ENV === "development" && (
               <div className="p-3 bg-discord-accent/10 border border-discord-accent/30 rounded-lg text-sm">
                 <p className="text-discord-text-secondary mb-1 font-semibold">DEV: Click to verify</p>
                 <a href={devVerifyUrl} className="text-discord-accent hover:underline break-all text-xs">
