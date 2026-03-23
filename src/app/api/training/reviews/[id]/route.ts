@@ -123,8 +123,30 @@ export async function POST(
             })
             .where(eq(userProgress.id, submission.userProgressId));
         } else {
-          // All approved — check score
-          const score = progress.score || 0;
+          // All approved — recalculate score from test answers
+          // (upload questions were pre-scored as correct; all approved so that holds)
+          const [test] = await db
+            .select()
+            .from(tests)
+            .where(eq(tests.lessonId, progress.lessonId));
+          let score = progress.score || 0;
+          if (test) {
+            const allQuestions = await db
+              .select()
+              .from(testQuestions)
+              .where(eq(testQuestions.testId, test.id));
+            // Exclude upload questions from score — they are pass/fail by review, not points
+            const scoredQuestions = allQuestions.filter((q) => q.type !== "upload");
+            const totalPoints = scoredQuestions.reduce((sum, q) => sum + q.points, 0);
+            const answers = (progress.testAnswers || []) as { points: number }[];
+            const earnedPoints = answers.reduce((sum, a) => sum + (a.points || 0), 0);
+            score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 100;
+            // Update the stored score
+            await db
+              .update(userProgress)
+              .set({ score, updatedAt: new Date() })
+              .where(eq(userProgress.id, submission.userProgressId));
+          }
           const passingScore = lesson?.passingScore || 100;
 
           if (score >= passingScore) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Spinner } from "@/components/ui/Spinner";
+import { SignedMedia } from "@/components/ui/SignedMedia";
 
 interface Submission {
   id: string;
@@ -192,25 +193,10 @@ export function AdminUploadReviewSection() {
                     <div className="text-[10px] text-discord-text-muted uppercase mb-2">
                       Uploaded File
                     </div>
-                    <div className="bg-discord-bg rounded-lg border border-discord-bg-darker/60 overflow-hidden">
-                      <div className="bg-discord-bg-darker h-32 flex items-center justify-center relative">
-                        {sub.fileType.startsWith("video") ? (
-                          <span className="text-3xl">🎥</span>
-                        ) : sub.fileType.startsWith("image") ? (
-                          <span className="text-3xl">🖼️</span>
-                        ) : sub.fileType.startsWith("audio") ? (
-                          <span className="text-3xl">🎵</span>
-                        ) : (
-                          <span className="text-3xl">📄</span>
-                        )}
-                        <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded text-[10px] text-white">
-                          {sub.fileName}
-                        </div>
-                      </div>
-                      <div className="px-3 py-2 flex items-center justify-between text-xs">
-                        <span className="text-discord-text-muted">
-                          {sub.fileType} · {formatSize(sub.fileSize)}
-                        </span>
+                    <div className="bg-discord-bg rounded-lg border border-discord-bg-darker/60 overflow-hidden p-3">
+                      <SignedMedia url={sub.fileUrl} type={sub.fileType} name={sub.fileName} />
+                      <div className="px-1 pt-2 text-xs text-discord-text-muted">
+                        {sub.fileType} · {formatSize(sub.fileSize)}
                       </div>
                     </div>
                   </div>

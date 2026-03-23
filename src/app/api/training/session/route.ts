@@ -730,29 +730,31 @@ async function handleTestAnswer(
     .where(eq(testQuestions.testId, test.id))
     .orderBy(asc(testQuestions.sortOrder));
 
-  const totalPoints = allQuestions.reduce((sum, q) => sum + q.points, 0);
-  const earnedPoints = updatedAnswers.reduce((sum, a) => sum + a.points, 0);
+  // Exclude upload questions from score — they are pass/fail by human review, not points
+  const hasUploads = allQuestions.some((q) => q.type === "upload");
+  const scoredQuestions = allQuestions.filter((q) => q.type !== "upload");
+  const totalPoints = scoredQuestions.reduce((sum, q) => sum + q.points, 0);
+  const nonUploadAnswers = updatedAnswers.filter((a) => {
+    const q = allQuestions.find((q) => q.id === a.questionId);
+    return q?.type !== "upload";
+  });
+  const earnedPoints = nonUploadAnswers.reduce((sum, a) => sum + a.points, 0);
   const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 100;
 
-  const isComplete = updatedAnswers.length >= allQuestions.length;
-
-  // Check if there are pending upload questions
-  const hasUploads = allQuestions.some((q) => q.type === "upload");
+  // Upload questions are answered via test-upload, not test-answer,
+  // so check completion against non-upload questions only
+  const nonUploadQuestions = allQuestions.filter((q) => q.type !== "upload");
+  const answeredNonUpload = updatedAnswers.filter((a) => {
+    const q = allQuestions.find((q) => q.id === a.questionId);
+    return q?.type !== "upload";
+  });
+  const isComplete = answeredNonUpload.length >= nonUploadQuestions.length;
 
   let newStatus: string = progress.status;
   if (isComplete) {
     if (hasUploads) {
-      // Check if any upload submissions are still pending
-      const [pendingUploads] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(uploadSubmissions)
-        .where(
-          and(
-            eq(uploadSubmissions.userProgressId, userProgressId),
-            eq(uploadSubmissions.status, "pending")
-          )
-        );
-      newStatus = pendingUploads.count > 0 ? "pending_review" : "pending_review";
+      // Has upload questions — go to pending_review regardless
+      newStatus = "pending_review";
     } else {
       newStatus = score >= (await getLessonPassingScore(progress.lessonId))
         ? "passed"
