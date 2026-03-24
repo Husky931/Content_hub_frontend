@@ -6,6 +6,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
 
+interface MyAttemptInfo {
+  id: string;
+  status: string;
+  deliverables: any;
+  appealStatus?: string | null;
+}
+
+interface MyAttemptHistoryItem {
+  id: string;
+  status: string;
+  deliverables: any;
+  rejectionReason: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
 interface Task {
   id: string;
   title: string;
@@ -19,6 +35,9 @@ interface Task {
   maxAttempts: number;
   deadline: string | null;
   attemptCount: number;
+  myAttemptCount?: number;
+  myAttempt?: MyAttemptInfo | null;
+  myAllAttempts?: MyAttemptHistoryItem[];
   channelName: string;
   channelSlug: string;
   createdByUsername: string;
@@ -27,6 +46,8 @@ interface Task {
   reviewClaimedBy?: string | null;
 }
 
+type ViewMode = "available" | "all" | "my-submissions";
+
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   draft: { bg: "bg-gray-500/20", text: "text-gray-400", label: "Draft" },
   active: { bg: "bg-green-500/20", text: "text-green-400", label: "Active" },
@@ -34,6 +55,14 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
   approved: { bg: "bg-blue-500/20", text: "text-blue-400", label: "Approved" },
   paid: { bg: "bg-discord-text-muted/20", text: "text-discord-text-muted", label: "Paid" },
   archived: { bg: "bg-gray-500/20", text: "text-gray-500", label: "Archived" },
+};
+
+const ATTEMPT_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  submitted: { bg: "bg-yellow-500/20", text: "text-yellow-400", label: "Pending Review" },
+  approved: { bg: "bg-green-500/20", text: "text-green-400", label: "Accepted" },
+  rejected: { bg: "bg-red-500/20", text: "text-red-400", label: "Rejected" },
+  blocked: { bg: "bg-red-500/20", text: "text-red-400", label: "Blocked" },
+  paid: { bg: "bg-discord-text-muted/20", text: "text-discord-text-muted", label: "Paid" },
 };
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -69,9 +98,10 @@ function TaskListContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState(searchParams.get("channel") || "");
   const [sortBy, setSortBy] = useState("newest");
-  const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>("available");
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   const handlePublish = async (taskId: string) => {
     setPublishingId(taskId);
@@ -111,8 +141,10 @@ function TaskListContent() {
 
   // Filter and sort
   let filtered = tasks;
-  if (showOnlyAvailable) {
+  if (viewMode === "available") {
     filtered = filtered.filter((t) => t.status === "active");
+  } else if (viewMode === "my-submissions") {
+    filtered = filtered.filter((t) => t.myAttempt != null);
   }
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
@@ -145,6 +177,8 @@ function TaskListContent() {
     archived: tasks.filter((t) => t.status === "archived").length,
   };
 
+  const mySubmissionCount = tasks.filter((t) => t.myAttempt != null).length;
+
   // Get unique channels for filter
   const channelSlugs = [...new Set(tasks.map((t) => t.channelSlug))];
 
@@ -157,6 +191,11 @@ function TaskListContent() {
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     if (days === 0) return "Due today";
     return `${days} day${days !== 1 ? "s" : ""} left`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
   };
 
   return (
@@ -209,31 +248,26 @@ function TaskListContent() {
             <option value="deadline">Sort: Deadline</option>
           </select>
           <div className="flex bg-discord-bg-dark border border-discord-border rounded-md overflow-hidden">
-            <button
-              onClick={() => setShowOnlyAvailable(true)}
-              className={`px-3 py-2 text-xs font-semibold transition ${
-                showOnlyAvailable
-                  ? "bg-discord-accent text-white"
-                  : "text-discord-text-muted hover:text-discord-text"
-              }`}
-            >
-              Available
-            </button>
-            <button
-              onClick={() => setShowOnlyAvailable(false)}
-              className={`px-3 py-2 text-xs font-semibold transition ${
-                !showOnlyAvailable
-                  ? "bg-discord-accent text-white"
-                  : "text-discord-text-muted hover:text-discord-text"
-              }`}
-            >
-              All
-            </button>
+            {(["available", "my-submissions", "all"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-2 text-xs font-semibold transition ${
+                  viewMode === mode
+                    ? "bg-discord-accent text-white"
+                    : "text-discord-text-muted hover:text-discord-text"
+                }`}
+              >
+                {mode === "available" ? "Available" : mode === "my-submissions" ? (
+                  <>My Submissions{mySubmissionCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-discord-accent/30 text-[10px]">{mySubmissionCount}</span>}</>
+                ) : "All"}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Stats */}
-        <div className="flex gap-4 mb-3 px-3 py-2 bg-discord-bg-dark rounded-md text-xs">
+        <div className="flex gap-4 mb-3 px-3 py-2 bg-discord-bg-dark rounded-md text-xs flex-wrap">
           <span className="flex items-center gap-1 text-gray-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-gray-400" />
             {stats.draft} draft
@@ -274,143 +308,278 @@ function TaskListContent() {
             <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
-            <span className="text-sm">No tasks match your filters</span>
+            <span className="text-sm">
+              {viewMode === "my-submissions"
+                ? "You haven\u2019t submitted any tasks yet"
+                : "No tasks match your filters"}
+            </span>
           </div>
         ) : (
           <div className="space-y-0.5">
             {filtered.map((task) => {
               const statusStyle = STATUS_STYLES[task.status] || STATUS_STYLES.draft;
               const deadline = formatDeadline(task.deadline);
+              const myAttempt = task.myAttempt;
+              const attemptStyle = myAttempt ? (ATTEMPT_STATUS_STYLES[myAttempt.status] || ATTEMPT_STATUS_STYLES.submitted) : null;
+              const attemptsUsed = task.myAttemptCount ?? 0;
+              const attemptsLeft = task.maxAttempts - attemptsUsed;
+              const latestRejected = myAttempt?.status === "rejected";
+              const canRetry = latestRejected && attemptsLeft > 0 && (task.status === "active" || task.status === "locked");
+              const isExpanded = expandedTaskId === task.id;
+              const hasAppeal = myAttempt?.appealStatus != null;
+
               return (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between px-3 py-2.5 bg-discord-sidebar rounded-md hover:bg-discord-bg-hover/50 transition cursor-pointer"
-                  onClick={() => router.push(`/channels/${task.channelSlug}`)}
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span
-                      className={`w-3 h-3 rounded-full shrink-0 ${
-                        task.status === "active"
-                          ? "bg-green-400"
-                          : task.status === "locked"
-                          ? "bg-amber-400"
-                          : task.status === "approved"
-                          ? "bg-blue-400"
-                          : "bg-discord-text-muted"
-                      }`}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-discord-text truncate">
-                          {task.title}
-                        </span>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${getChannelColor(
-                            task.channelSlug
-                          )}`}
-                        >
-                          {task.channelName}
-                        </span>
-                        {task.bonusBountyUsd &&
-                          parseFloat(task.bonusBountyUsd) > 0 && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 shrink-0">
-                              TIERED
+                <div key={task.id} className="rounded-md overflow-hidden">
+                  <div
+                    className="flex items-center justify-between px-3 py-2.5 bg-discord-sidebar hover:bg-discord-bg-hover/50 transition cursor-pointer"
+                    onClick={() => {
+                      if (viewMode === "my-submissions" && myAttempt) {
+                        setExpandedTaskId(isExpanded ? null : task.id);
+                      } else {
+                        router.push(`/channels/${task.channelSlug}`);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span
+                        className={`w-3 h-3 rounded-full shrink-0 ${
+                          task.status === "active"
+                            ? "bg-green-400"
+                            : task.status === "locked"
+                            ? "bg-amber-400"
+                            : task.status === "approved"
+                            ? "bg-blue-400"
+                            : "bg-discord-text-muted"
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-discord-text truncate">
+                            {task.title}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${getChannelColor(
+                              task.channelSlug
+                            )}`}
+                          >
+                            {task.channelName}
+                          </span>
+                          {task.bonusBountyUsd &&
+                            parseFloat(task.bonusBountyUsd) > 0 && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 shrink-0">
+                                TIERED
+                              </span>
+                            )}
+                          {/* Show attempt status badge if user has submitted */}
+                          {myAttempt && attemptStyle && (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${attemptStyle.bg} ${attemptStyle.text}`}>
+                              {attemptStyle.label}
                             </span>
                           )}
-                      </div>
-                      <div className="text-xs text-discord-text-muted truncate">
-                        <span className="text-discord-text-muted/70">by {task.createdByUsername}</span>
-                        <span className="mx-1.5">·</span>
-                        <span className="text-discord-text-muted/60">created: {(() => { const d = new Date(task.createdAt); return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; })()}</span>
-                        <span className="mx-1.5">·</span>
-                        {task.description}
+                        </div>
+                        <div className="text-xs text-discord-text-muted truncate">
+                          <span className="text-discord-text-muted/70">by {task.createdByUsername}</span>
+                          <span className="mx-1.5">&middot;</span>
+                          <span className="text-discord-text-muted/60">created: {formatDate(task.createdAt)}</span>
+                          <span className="mx-1.5">&middot;</span>
+                          {task.description}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-3">
-                    {deadline && (
-                      <span className="text-xs text-discord-text-muted">
-                        {deadline}
-                      </span>
-                    )}
-                    {(task.submittedCount ?? 0) > 0 && (
-                      <span className="text-xs text-discord-text-muted">
-                        {task.submittedCount} submitted
-                      </span>
-                    )}
-                    {task.reviewClaimedBy && (
-                      <span className="flex items-center gap-1 text-xs text-amber-400">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        Being reviewed by {task.reviewClaimedBy}
-                      </span>
-                    )}
-                    {isMod && task.status === "draft" && (
-                      <>
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                      {/* Attempt count for user's submissions */}
+                      {myAttempt && (
+                        <span className="text-xs text-discord-text-muted">
+                          {attemptsUsed}/{task.maxAttempts} attempts
+                        </span>
+                      )}
+                      {deadline && (
+                        <span className="text-xs text-discord-text-muted">
+                          {deadline}
+                        </span>
+                      )}
+                      {(task.submittedCount ?? 0) > 0 && (
+                        <span className="text-xs text-discord-text-muted">
+                          {task.submittedCount} submitted
+                        </span>
+                      )}
+                      {task.reviewClaimedBy && (
+                        <span className="flex items-center gap-1 text-xs text-amber-400">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          Being reviewed by {task.reviewClaimedBy}
+                        </span>
+                      )}
+                      {/* Try another attempt button for rejected submissions */}
+                      {canRetry && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            sessionStorage.setItem("editDraftTask", task.id);
-                            openSettings("admin-tasks");
+                            router.push(`/channels/${task.channelSlug}`);
                           }}
                           className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer flex items-center gap-1"
                         >
-                          Edit
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-5.36M20 15a9 9 0 01-15.36 5.36" />
+                          </svg>
+                          Try Again ({attemptsLeft} left)
                         </button>
+                      )}
+                      {/* Appeal badge */}
+                      {hasAppeal && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                          myAttempt.appealStatus === "pending"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : myAttempt.appealStatus === "accepted"
+                            ? "bg-green-500/20 text-green-400"
+                            : "bg-red-500/20 text-red-400"
+                        }`}>
+                          Appeal: {myAttempt.appealStatus}
+                        </span>
+                      )}
+                      {isMod && task.status === "draft" && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sessionStorage.setItem("editDraftTask", task.id);
+                              openSettings("admin-tasks");
+                            }}
+                            className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer flex items-center gap-1"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePublish(task.id);
+                            }}
+                            disabled={publishingId === task.id}
+                            className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <ButtonSpinner loading={publishingId === task.id}>Publish</ButtonSpinner>
+                          </button>
+                        </>
+                      )}
+                      {isMod && (task.submittedCount ?? 0) > 0 && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePublish(task.id);
+                            router.push(`/review?task=${task.id}`);
                           }}
-                          disabled={publishingId === task.id}
-                          className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                          disabled={!!task.reviewClaimedBy}
+                          className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                         >
-                          <ButtonSpinner loading={publishingId === task.id}>Publish</ButtonSpinner>
+                          Review
                         </button>
-                      </>
-                    )}
-                    {isMod && (task.submittedCount ?? 0) > 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/review?task=${task.id}`);
-                        }}
-                        disabled={!!task.reviewClaimedBy}
-                        className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      )}
+                      {(user?.username === task.createdByUsername || user?.role === "admin") && task.status === "active" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchive(task.id);
+                          }}
+                          disabled={archivingId === task.id}
+                          className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <ButtonSpinner loading={archivingId === task.id}>Archive</ButtonSpinner>
+                        </button>
+                      )}
+                      <div className="text-right">
+                        <span className="text-sm font-bold text-green-400">
+                          ${task.bountyUsd || "0"}
+                        </span>
+                        {task.bountyRmb && (
+                          <div className="text-[10px] text-discord-text-muted">
+                            &yen;{task.bountyRmb}
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}
                       >
-                        Review
-                      </button>
-                    )}
-                    {(user?.username === task.createdByUsername || user?.role === "admin") && task.status === "active" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleArchive(task.id);
-                        }}
-                        disabled={archivingId === task.id}
-                        className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                      >
-                        <ButtonSpinner loading={archivingId === task.id}>Archive</ButtonSpinner>
-                      </button>
-                    )}
-                    <div className="text-right">
-                      <span className="text-sm font-bold text-green-400">
-                        ${task.bountyUsd || "0"}
+                        {statusStyle.label}
                       </span>
-                      {task.bountyRmb && (
-                        <div className="text-[10px] text-discord-text-muted">
-                          ¥{task.bountyRmb}
-                        </div>
+                      {/* Expand chevron in my-submissions view */}
+                      {viewMode === "my-submissions" && myAttempt && (
+                        <svg className={`w-4 h-4 text-discord-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                       )}
                     </div>
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}
-                    >
-                      {statusStyle.label}
-                    </span>
                   </div>
+
+                  {/* Expanded attempt history panel */}
+                  {isExpanded && viewMode === "my-submissions" && task.myAllAttempts && task.myAllAttempts.length > 0 && (
+                    <div className="bg-discord-bg-dark border-t border-discord-border px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-discord-text-muted uppercase tracking-wide">
+                          Your Attempt History
+                        </span>
+                        <span className="text-xs text-discord-text-muted">
+                          {attemptsUsed} of {task.maxAttempts} attempts used
+                          {attemptsLeft > 0 && latestRejected && (
+                            <span className="text-discord-accent ml-1">({attemptsLeft} remaining)</span>
+                          )}
+                        </span>
+                      </div>
+                      {task.myAllAttempts.map((attempt, idx) => {
+                        const aStyle = ATTEMPT_STATUS_STYLES[attempt.status] || ATTEMPT_STATUS_STYLES.submitted;
+                        return (
+                          <div key={attempt.id} className="flex items-start gap-3 px-3 py-2 bg-discord-sidebar rounded-md">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-xs font-semibold text-discord-text">
+                                  Attempt #{task.myAllAttempts!.length - idx}
+                                </span>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${aStyle.bg} ${aStyle.text}`}>
+                                  {aStyle.label}
+                                </span>
+                                <span className="text-[10px] text-discord-text-muted">
+                                  {formatDate(attempt.createdAt)}
+                                </span>
+                              </div>
+                              {attempt.status === "rejected" && attempt.rejectionReason && (
+                                <div className="mt-1 text-xs text-red-400/80 bg-red-500/10 rounded px-2 py-1">
+                                  <span className="font-semibold">Rejection reason:</span> {attempt.rejectionReason}
+                                </div>
+                              )}
+                              {attempt.reviewNote && (
+                                <div className="mt-1 text-xs text-discord-text-muted bg-discord-bg-dark rounded px-2 py-1">
+                                  <span className="font-semibold">Reviewer note:</span> {attempt.reviewNote}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {/* Action buttons at bottom of expanded panel */}
+                      <div className="flex items-center gap-2 pt-1">
+                        {canRetry && (
+                          <button
+                            onClick={() => router.push(`/channels/${task.channelSlug}`)}
+                            className="text-xs px-4 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-5.36M20 15a9 9 0 01-15.36 5.36" />
+                            </svg>
+                            Try Another Attempt ({attemptsLeft} left)
+                          </button>
+                        )}
+                        {latestRejected && attemptsLeft <= 0 && !hasAppeal && (
+                          <span className="text-xs text-red-400/70">No attempts remaining</span>
+                        )}
+                        <button
+                          onClick={() => router.push(`/channels/${task.channelSlug}`)}
+                          className="text-xs px-3 py-1.5 bg-discord-sidebar hover:bg-discord-bg-hover text-discord-text-muted hover:text-discord-text border border-discord-border rounded font-semibold transition cursor-pointer flex items-center gap-1"
+                        >
+                          View in Channel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
