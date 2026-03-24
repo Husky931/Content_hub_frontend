@@ -7,9 +7,20 @@ import { ButtonSpinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { getSocket, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 import { FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
+import { SignedMedia } from "@/components/ui/SignedMedia";
+import type { DeliverableSlot } from "@/types/deliverable-slot";
+import { slotTypeLabel, slotTypeIcon, SLOT_TYPE_BADGE } from "@/types/deliverable-slot";
 
 interface ChecklistItem {
   label: string;
+}
+
+interface SlotDeliverable {
+  slotId: string;
+  text?: string;
+  files?: UploadedFile[];
+  selections?: string[];
+  rating?: number;
 }
 
 interface TaskWithAttempts {
@@ -23,6 +34,7 @@ interface TaskWithAttempts {
   reviewClaimedBy: string | null;
   checklist?: ChecklistItem[] | null;
   attachments?: { name: string; url: string; type: string; size: number }[] | null;
+  deliverableSlots?: DeliverableSlot[] | null;
   status: string;
   lockedById?: string | null;
   lockExpiresAt?: string | null;
@@ -99,6 +111,7 @@ function ReviewContent() {
           reviewClaimedBy: task.reviewClaimedBy,
           checklist: task.checklist || null,
           attachments: task.attachments || null,
+          deliverableSlots: task.deliverableSlots || null,
           status: task.status,
           lockedById: task.lockedById || null,
           lockExpiresAt: task.lockExpiresAt || null,
@@ -649,24 +662,7 @@ function ReviewContent() {
                         )}
 
                         {/* Deliverables */}
-                        <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
-                          <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">
-                            Deliverables
-                          </h4>
-                          {selectedAttempt.deliverables?.text && (
-                            <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-sidebar p-3 rounded mb-3">
-                              {selectedAttempt.deliverables.text}
-                            </div>
-                          )}
-                          {selectedAttempt.deliverables?.files && selectedAttempt.deliverables.files.length > 0 && (
-                            <FilePreviewList files={selectedAttempt.deliverables.files} label="Submitted Files" />
-                          )}
-                          {!selectedAttempt.deliverables?.text && (!selectedAttempt.deliverables?.files || selectedAttempt.deliverables.files.length === 0) && (
-                            <p className="text-sm text-discord-text-muted italic">
-                              {JSON.stringify(selectedAttempt.deliverables)}
-                            </p>
-                          )}
-                        </div>
+                        <DeliverableDisplay deliverables={selectedAttempt.deliverables} slots={selectedTask.deliverableSlots} />
 
                         {/* Review controls — ONLY for locked user's revision */}
                         {isViewingLocked && (
@@ -846,24 +842,7 @@ function ReviewContent() {
                       )}
 
                       {/* Deliverables */}
-                      <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
-                        <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">
-                          Deliverables
-                        </h4>
-                        {selectedAttempt.deliverables?.text && (
-                          <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-sidebar p-3 rounded mb-3">
-                            {selectedAttempt.deliverables.text}
-                          </div>
-                        )}
-                        {selectedAttempt.deliverables?.files && selectedAttempt.deliverables.files.length > 0 && (
-                          <FilePreviewList files={selectedAttempt.deliverables.files} label="Submitted Files" />
-                        )}
-                        {!selectedAttempt.deliverables?.text && (!selectedAttempt.deliverables?.files || selectedAttempt.deliverables.files.length === 0) && (
-                          <p className="text-sm text-discord-text-muted italic">
-                            {JSON.stringify(selectedAttempt.deliverables)}
-                          </p>
-                        )}
-                      </div>
+                      <DeliverableDisplay deliverables={selectedAttempt.deliverables} slots={selectedTask.deliverableSlots} />
 
                       {/* Review Checklist */}
                       {selectedTask.checklist && selectedTask.checklist.length > 0 && isClaimedByMe && (
@@ -1031,6 +1010,122 @@ function ReviewContent() {
       >
         Unlock this task and reopen it for all creators? The exclusive revision period will end early.
       </ConfirmDialog>
+    </div>
+  );
+}
+
+/* ── Deliverable display for review (supports both legacy and slot-based) ── */
+
+function DeliverableDisplay({
+  deliverables,
+  slots,
+}: {
+  deliverables: any;
+  slots?: DeliverableSlot[] | null;
+}) {
+  if (!deliverables) {
+    return (
+      <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
+        <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">Deliverables</h4>
+        <p className="text-sm text-discord-text-muted italic">No deliverables submitted.</p>
+      </div>
+    );
+  }
+
+  // Slot-based deliverables
+  if (deliverables.slots && Array.isArray(deliverables.slots)) {
+    const slotMap = new Map(slots?.map((s) => [s.id, s]) || []);
+    return (
+      <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border space-y-3">
+        <h4 className="text-xs font-semibold text-discord-text-muted mb-1 uppercase">
+          Deliverables ({deliverables.slots.length} slot{deliverables.slots.length !== 1 ? "s" : ""})
+        </h4>
+        {deliverables.slots.map((sd: SlotDeliverable, i: number) => {
+          const slotDef = slotMap.get(sd.slotId);
+          return (
+            <div key={sd.slotId} className="p-3 bg-discord-sidebar rounded-lg border border-discord-border">
+              {/* Slot header */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-base">{slotDef ? slotTypeIcon(slotDef.type) : "📦"}</span>
+                <span className="text-xs font-bold text-discord-text-muted">SLOT {i + 1}</span>
+                {slotDef && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${SLOT_TYPE_BADGE[slotDef.type] || "bg-gray-500/20 text-gray-300"}`}>
+                    {slotTypeLabel(slotDef.type)}
+                  </span>
+                )}
+                <span className="text-sm font-medium text-discord-text">
+                  {slotDef?.title || "Untitled"}
+                </span>
+              </div>
+
+              {/* Files */}
+              {sd.files && sd.files.length > 0 && (
+                <div className="space-y-2">
+                  {sd.files.map((f, fi) => (
+                    <div key={fi}>
+                      <SignedMedia url={f.url} type={f.type} name={f.name} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Text */}
+              {sd.text && (
+                <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-bg-dark p-3 rounded mt-2">
+                  {sd.text}
+                </div>
+              )}
+
+              {/* Selections */}
+              {sd.selections && sd.selections.length > 0 && (
+                <div className="mt-2">
+                  <span className="text-xs text-discord-text-muted font-semibold">Selected:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {sd.selections.map((s, si) => (
+                      <span key={si} className="text-xs px-2 py-0.5 rounded bg-discord-accent/20 text-discord-accent">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rating */}
+              {sd.rating !== undefined && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-discord-text-muted font-semibold">Rating:</span>
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: slotDef?.ratingMax ?? 5 }, (_, si) => (
+                      <span key={si} className={`text-sm ${si < (sd.rating ?? 0) ? "text-yellow-400" : "text-discord-border"}`}>★</span>
+                    ))}
+                  </div>
+                  <span className="text-sm font-bold text-discord-text">{sd.rating}/{slotDef?.ratingMax ?? 5}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Legacy format: { text?, files? }
+  return (
+    <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
+      <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">Deliverables</h4>
+      {deliverables.text && (
+        <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-sidebar p-3 rounded mb-3">
+          {deliverables.text}
+        </div>
+      )}
+      {deliverables.files && deliverables.files.length > 0 && (
+        <div className="space-y-2">
+          {deliverables.files.map((f: UploadedFile, i: number) => (
+            <SignedMedia key={i} url={f.url} type={f.type} name={f.name} />
+          ))}
+        </div>
+      )}
+      {!deliverables.text && (!deliverables.files || deliverables.files.length === 0) && (
+        <p className="text-sm text-discord-text-muted italic">No recognizable deliverables.</p>
+      )}
     </div>
   );
 }

@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
         createdAt: tasks.createdAt,
         checklist: tasks.checklist,
         attachments: tasks.attachments,
+        deliverableSlots: tasks.deliverableSlots,
         channelName: channels.name,
         channelSlug: channels.slug,
         createdByUsername: users.username,

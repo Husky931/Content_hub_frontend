@@ -640,53 +640,102 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
                 <span className="text-xs">No previous attempts. This will be your first submission.</span>
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 {task.myAllAttempts.map((attempt, i) => {
-                  const statusConfig: Record<string, { bg: string; border: string; label: string; icon: string }> = {
-                    submitted: { bg: "bg-amber-500/10", border: "border-amber-500/30", label: "Pending Review", icon: "⏳" },
-                    approved: { bg: "bg-green-500/10", border: "border-green-500/30", label: "Approved", icon: "✅" },
-                    rejected: { bg: "bg-red-500/10", border: "border-red-500/30", label: "Rejected", icon: "❌" },
-                    blocked: { bg: "bg-gray-500/10", border: "border-gray-500/30", label: "Blocked", icon: "🚫" },
-                    paid: { bg: "bg-blue-500/10", border: "border-blue-500/30", label: "Paid", icon: "💰" },
+                  const statusConfig: Record<string, { cardBg: string; border: string; leftBorder: string; label: string; icon: string; tagClass: string }> = {
+                    submitted: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-amber-500", label: "Pending Review", icon: "⏳", tagClass: "border-amber-500/30 bg-amber-500/10 text-amber-400" },
+                    approved: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-green-500", label: "Approved", icon: "✅", tagClass: "border-green-500/30 bg-green-500/10 text-green-400" },
+                    rejected: { cardBg: "bg-red-500/5", border: "border-red-500/20", leftBorder: "border-l-red-500", label: "Rejected", icon: "❌", tagClass: "border-red-500/30 bg-red-500/10 text-red-400" },
+                    blocked: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-gray-500", label: "Blocked", icon: "🚫", tagClass: "border-gray-500/30 bg-gray-500/10 text-gray-400" },
+                    paid: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-blue-500", label: "Paid", icon: "💰", tagClass: "border-blue-500/30 bg-blue-500/10 text-blue-400" },
                   };
-                  const sc = statusConfig[attempt.status] || { bg: "bg-gray-500/10", border: "border-gray-500/30", label: attempt.status, icon: "❓" };
-                  const tagColors: Record<string, string> = {
-                    submitted: "border-amber-500/30 bg-amber-500/10 text-amber-400",
-                    approved: "border-green-500/30 bg-green-500/10 text-green-400",
-                    rejected: "border-red-500/30 bg-red-500/10 text-red-400",
-                    blocked: "border-gray-500/30 bg-gray-500/10 text-gray-400",
-                    paid: "border-blue-500/30 bg-blue-500/10 text-blue-400",
-                  };
+                  const sc = statusConfig[attempt.status] || { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-gray-500", label: attempt.status, icon: "❓", tagClass: "border-gray-500/30 bg-gray-500/10 text-gray-400" };
+
+                  // Extract file names from deliverables
+                  const files: { name: string; url: string; type: string }[] = [];
+                  if (attempt.deliverables?.files) {
+                    files.push(...attempt.deliverables.files);
+                  }
+                  if (attempt.deliverables?.slots) {
+                    for (const slot of attempt.deliverables.slots) {
+                      if (slot.files) files.push(...slot.files);
+                    }
+                  }
+                  const creatorNote = attempt.deliverables?.text || "";
+
+                  // Full date format
+                  const d = new Date(attempt.createdAt);
+                  const fullDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " at " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
                   return (
-                    <div key={attempt.id} className={`p-3 rounded-lg border ${sc.border} ${sc.bg}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
+                    <div key={attempt.id} className={`rounded-lg border ${sc.border} ${sc.cardBg} border-l-3 ${sc.leftBorder} overflow-hidden`}>
+                      {/* Header row */}
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <div className="flex items-center gap-2.5">
                           <span className="text-sm font-bold text-discord-text">#{i + 1}</span>
-                          <span className="text-xs text-discord-text-muted">{formatRelativeDate(attempt.createdAt)}</span>
+                          <span className="text-xs text-discord-text-muted">{fullDate}</span>
                         </div>
-                        <span className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded border ${tagColors[attempt.status] || "border-gray-500/30 bg-gray-500/10 text-gray-400"}`}>
+                        <span className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded border ${sc.tagClass}`}>
                           {sc.icon} {sc.label}
                         </span>
                       </div>
-                      {attempt.status === "rejected" && attempt.rejectionReason && (
-                        <div className="mt-1.5 pl-1 border-l-2 border-red-500/40 ml-1">
-                          <div className="text-xs text-red-300 pl-2">
-                            <span className="font-semibold text-red-400">Reason:</span> {attempt.rejectionReason}
+
+                      {/* File names (clickable) */}
+                      {files.length > 0 && (
+                        <div className="px-4 pb-2 flex flex-wrap gap-1.5">
+                          {files.map((f, fi) => {
+                            const ext = f.name.split(".").pop()?.toLowerCase() || "";
+                            const icons: Record<string, string> = { mp3: "🎵", wav: "🎵", m4a: "🎵", mp4: "🎬", mov: "🎬", png: "🖼️", jpg: "🖼️", jpeg: "🖼️", md: "📄", txt: "📄", srt: "🔤", tsv: "📊" };
+                            return (
+                              <AttachmentPill key={fi} file={{ name: f.name, url: f.url, type: f.type, size: 0 }} />
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Creator note */}
+                      {creatorNote && (
+                        <div className="mx-4 mb-2.5 px-3 py-2 rounded-lg bg-discord-sidebar/60 border border-discord-border/50">
+                          <div className="text-xs text-discord-text-secondary">
+                            <span className="font-semibold text-discord-text-muted">📝 Your note:</span>{" "}
+                            {creatorNote}
                           </div>
                         </div>
                       )}
-                      {attempt.reviewNote && (
-                        <div className="mt-1 text-xs text-discord-text-muted pl-2">
-                          <span className="font-semibold">🛡 Mod note:</span> {attempt.reviewNote}
+
+                      {/* Rejection reason */}
+                      {attempt.status === "rejected" && attempt.rejectionReason && (
+                        <div className="mx-4 mb-2.5 px-3 py-2.5 rounded-lg bg-red-500/8 border border-red-500/20">
+                          <div className="text-[10px] font-bold text-red-400 uppercase mb-1">❌ Reason for rejection:</div>
+                          <div className="text-sm text-discord-text">{attempt.rejectionReason}</div>
+                          {/* Mod note inside rejection block */}
+                          {attempt.reviewNote && (
+                            <div className="mt-2 text-xs text-discord-text-muted">
+                              <span className="font-semibold">🛡 Mod note:</span> {attempt.reviewNote}
+                            </div>
+                          )}
                         </div>
                       )}
+
+                      {/* Mod note (non-rejection) */}
+                      {attempt.status !== "rejected" && attempt.reviewNote && (
+                        <div className="mx-4 mb-2.5 px-3 py-2 rounded-lg bg-discord-sidebar/60 border border-discord-border/50">
+                          <div className="text-xs text-discord-text-muted">
+                            <span className="font-semibold">🛡 Mod note:</span> {attempt.reviewNote}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Pending notice */}
                       {attempt.status === "submitted" && (
-                        <div className="mt-1 text-xs text-amber-400/70 pl-2">⏳ Under review — you&apos;ll be notified when a mod reviews it.</div>
+                        <div className="mx-4 mb-2.5 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/15">
+                          <div className="text-xs text-amber-400/80">⏳ This attempt is currently under review. You&apos;ll be notified when a mod reviews it.</div>
+                        </div>
                       )}
                     </div>
                   );
                 })}
-                <p className="text-xs text-discord-text-muted mt-1.5 pl-1">🔒 Only you and moderators can see your rejection details.</p>
+                <p className="text-xs text-discord-text-muted mt-1 pl-1">🔒 Only you and moderators can see your rejection details. Other creators cannot see your submissions.</p>
               </div>
             )}
           </div>
@@ -887,14 +936,20 @@ function AttachmentPill({ file }: { file: { name: string; url: string; type: str
       window.open(file.url, "_blank");
       return;
     }
+    // Open window immediately (synchronous with click) so Safari doesn't block it
+    const win = window.open("about:blank", "_blank");
     setLoading(true);
     try {
       const res = await fetch(`/api/upload/signed-url?url=${encodeURIComponent(file.url)}`);
       const data = await res.json();
-      if (data.signedUrl) {
-        window.open(data.signedUrl, "_blank");
+      if (data.signedUrl && win) {
+        win.location.href = data.signedUrl;
+      } else {
+        win?.close();
       }
-    } catch { /* ignore */ }
+    } catch {
+      win?.close();
+    }
     setLoading(false);
   };
 
