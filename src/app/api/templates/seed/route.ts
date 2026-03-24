@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { taskTemplates } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { sql } from "drizzle-orm";
+import type { SlotType } from "@/types/deliverable-slot";
 
 const DEFAULT_TEMPLATES = [
   {
@@ -34,7 +35,7 @@ const DEFAULT_TEMPLATES = [
     ],
     deliverableSlots: [
       {
-        id: "seed-audio-1", type: "upload-audio", title: "Audio File", description: "Upload your voice recording in MP3 or WAV format",
+        id: "seed-audio-1", type: "upload-audio" as SlotType, title: "Audio File", description: "Upload your voice recording in MP3 or WAV format",
         checks: [{ label: "Min size: 1 KB" }], required: true,
         minFileSize: 1, minFileSizeUnit: "KB", audioDurationMin: 1, audioDurationOp: "gte",
       },
@@ -70,12 +71,12 @@ const DEFAULT_TEMPLATES = [
     ],
     deliverableSlots: [
       {
-        id: "seed-video-1", type: "upload-video", title: "Final Video", description: "Upload your edited video in MP4 format",
+        id: "seed-video-1", type: "upload-video" as SlotType, title: "Final Video", description: "Upload your edited video in MP4 format",
         checks: [{ label: "Min size: 1 KB" }, { label: "Resolution ≥ 1920x1080" }], required: true,
         minFileSize: 1, minFileSizeUnit: "KB", videoResolution: "1920x1080", videoDurationMin: 1, videoDurationOp: "gte",
       },
       {
-        id: "seed-video-2", type: "upload-image", title: "Thumbnail", description: "Upload a thumbnail image (PNG/JPG)",
+        id: "seed-video-2", type: "upload-image" as SlotType, title: "Thumbnail", description: "Upload a thumbnail image (PNG/JPG)",
         checks: [], required: false,
         minFileSize: 1, minFileSizeUnit: "KB",
       },
@@ -109,7 +110,7 @@ const DEFAULT_TEMPLATES = [
     ],
     deliverableSlots: [
       {
-        id: "seed-image-1", type: "upload-image", title: "Image File", description: "Upload your image in PNG or JPG format",
+        id: "seed-image-1", type: "upload-image" as SlotType, title: "Image File", description: "Upload your image in PNG or JPG format",
         checks: [{ label: "Min size: 1 KB" }, { label: "Resolution ≥ 1920x1080" }], required: true,
         minFileSize: 1, minFileSizeUnit: "KB", imageResolution: "1920x1080",
       },
