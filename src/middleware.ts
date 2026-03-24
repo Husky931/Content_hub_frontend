@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth-edge";
 
 // Routes that don't require authentication
-const publicRoutes = ["/login", "/signup", "/", "/api/auth/signup", "/api/auth/login", "/api/auth/verify"];
+const publicRoutes = ["/login", "/signup", "/", "/api/auth/signup", "/api/auth/login", "/api/auth/verify", "/api/auth/send-otp", "/api/auth/signup-phone", "/api/auth/send-login-otp", "/api/auth/login-phone"];
 
 // Routes that accept X-API-Key header instead of JWT (backend-to-backend)
 const apiKeyRoutes = ["/api/tasks/sync", "/api/automod/review"];

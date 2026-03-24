@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { inviteCodes } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-
-// TODO: Integrate Aliyun SMS (阿里云短信服务) to send real OTPs.
-// Required env vars: ALIYUN_ACCESS_KEY_ID, ALIYUN_ACCESS_KEY_SECRET, ALIYUN_SMS_SIGN_NAME, ALIYUN_SMS_TEMPLATE_CODE
+import { generateOtp, storeOtp } from "@/lib/otp-store";
+import { sendSmsCode } from "@/lib/sms";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,8 +17,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate Chinese mobile number format
-    const phoneRegex = /^\+?86?1[3-9]\d{9}$/;
-    if (!phoneRegex.test(phone.replace(/\s/g, ""))) {
+    const cleaned = phone.replace(/\s/g, "").replace(/^\+?86/, "");
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(cleaned)) {
       return NextResponse.json(
         { error: "Invalid Chinese phone number" },
         { status: 400 }
@@ -59,16 +59,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Generate a 6-digit OTP, store it in a short-lived cache/table, and send via Aliyun SMS.
-    // Example:
-    //   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    //   await storeOtp(phone, otp, ttl: 300s);
-    //   await aliyunSms.send({ phone, templateCode, templateParam: { code: otp } });
+    // Generate and store OTP
+    const otp = generateOtp();
+    const rateLimitError = storeOtp(cleaned, otp);
+    if (rateLimitError) {
+      return NextResponse.json({ error: rateLimitError }, { status: 429 });
+    }
 
-    return NextResponse.json(
-      { error: "SMS service not configured. Phone signup coming soon." },
-      { status: 501 }
-    );
+    // Send SMS via Aliyun
+    const result = await sendSmsCode(cleaned, otp);
+    if (!result.success) {
+      console.error("[send-otp] SMS failed:", result.message);
+      return NextResponse.json(
+        { error: "Failed to send verification code. Please try again." },
+        { status: 502 }
+      );
+    }
+
+    // In development, include the OTP for testing
+    const response: Record<string, string> = {
+      message: "Verification code sent",
+    };
+    if (process.env.NODE_ENV === "development") {
+      response.devOtp = otp;
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("[send-otp] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

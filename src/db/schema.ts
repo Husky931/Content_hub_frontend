@@ -123,6 +123,7 @@ export const users = pgTable(
     status: userStatusEnum("status").notNull().default("pending_verification"),
     currency: currencyEnum("currency"),
     displayName: varchar("display_name", { length: 100 }),
+    phone: varchar("phone", { length: 20 }),
     avatarUrl: text("avatar_url"),
     bio: text("bio"),
     onboardingCompleted: boolean("onboarding_completed")
@@ -135,6 +136,7 @@ export const users = pgTable(
   (table) => [
     uniqueIndex("users_email_idx").on(table.email),
     uniqueIndex("users_username_idx").on(table.username),
+    index("users_phone_idx").on(table.phone),
   ]
 );
 
