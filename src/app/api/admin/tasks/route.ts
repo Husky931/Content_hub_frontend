@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
         deadline: tasks.deadline,
         createdAt: tasks.createdAt,
         checklist: tasks.checklist,
+        selfChecklist: tasks.selfChecklist,
         attachments: tasks.attachments,
         deliverableSlots: tasks.deliverableSlots,
         channelName: channels.name,

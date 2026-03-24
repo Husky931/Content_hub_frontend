@@ -50,6 +50,7 @@ interface TaskCardProps {
     lockExpiresAt?: string | null;
     source?: string | null;
     checklist?: { label: string }[] | null;
+    selfChecklist?: { label: string }[] | null;
     attachments?: { name: string; url: string; type: string; size: number }[] | null;
     deliverableSlots?: DeliverableSlot[] | null;
     othersAttempting?: {
@@ -233,6 +234,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
       const deliverables: { text?: string; files?: UploadedFile[]; slots?: SlotDeliverable[] } = {};
       if (hasSlots) {
         deliverables.slots = buildSlotDeliverables()!;
+        if (deliverableText.trim()) deliverables.text = deliverableText.trim();
       } else {
         if (deliverableText.trim()) deliverables.text = deliverableText.trim();
         if (deliverableFiles.length > 0) deliverables.files = deliverableFiles.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size }));
@@ -274,6 +276,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
       const deliverables: { text?: string; files?: UploadedFile[]; slots?: SlotDeliverable[] } = {};
       if (hasSlots) {
         deliverables.slots = buildSlotDeliverables()!;
+        if (deliverableText.trim()) deliverables.text = deliverableText.trim();
       } else {
         if (deliverableText.trim()) deliverables.text = deliverableText.trim();
         if (deliverableFiles.length > 0) deliverables.files = deliverableFiles.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size }));
@@ -559,6 +562,25 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
                 {task.checklist.map((item, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-sm text-discord-text-secondary">
                     <span className="text-green-400 text-xs">✓</span> {item.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Self-Checklist (creator guidance) ── */}
+          {task.selfChecklist && task.selfChecklist.length > 0 && (
+            <div className="px-4 py-3 border-b border-discord-border/30">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">📝</span>
+                <h4 className="text-base font-semibold text-discord-text">Self-Checklist</h4>
+                <span className="text-xs text-discord-text-muted">(guidance)</span>
+              </div>
+              <p className="text-xs text-discord-text-muted mb-2 pl-7">Verify these before submitting — this is guidance only, no need to click.</p>
+              <div className="space-y-1 pl-7">
+                {task.selfChecklist.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm text-discord-text-secondary">
+                    <span className="text-sky-400">•</span> {item.label}
                   </div>
                 ))}
               </div>

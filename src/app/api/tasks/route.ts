@@ -140,6 +140,7 @@ export async function GET(req: NextRequest) {
         createdAt: tasks.createdAt,
         source: tasks.source,
         checklist: tasks.checklist,
+        selfChecklist: tasks.selfChecklist,
         attachments: tasks.attachments,
         deliverableSlots: tasks.deliverableSlots,
         channelName: channels.name,
@@ -371,6 +372,7 @@ export async function POST(req: NextRequest) {
       deadline,
       status: taskStatus,
       checklist,
+      selfChecklist,
       attachments,
       deliverableSlots,
     } = body;
@@ -417,6 +419,7 @@ export async function POST(req: NextRequest) {
         deadline: deadline ? new Date(deadline) : null,
         status: taskStatus === "active" ? "active" : "draft",
         checklist: Array.isArray(checklist) ? checklist : null,
+        selfChecklist: Array.isArray(selfChecklist) ? selfChecklist : null,
         attachments: Array.isArray(attachments) ? attachments : null,
         deliverableSlots: Array.isArray(deliverableSlots) ? deliverableSlots : null,
       })

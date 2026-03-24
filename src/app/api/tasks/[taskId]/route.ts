@@ -34,6 +34,7 @@ export async function GET(
         maxAttempts: tasks.maxAttempts,
         deadline: tasks.deadline,
         checklist: tasks.checklist,
+        selfChecklist: tasks.selfChecklist,
         attachments: tasks.attachments,
         deliverableSlots: tasks.deliverableSlots,
         createdAt: tasks.createdAt,
@@ -226,6 +227,7 @@ export async function PATCH(
       "deadline",
       "status",
       "checklist",
+      "selfChecklist",
       "attachments",
       "deliverableSlots",
     ];

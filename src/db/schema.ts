@@ -334,8 +334,10 @@ export const tasks = pgTable(
     reviewClaimedById: uuid("review_claimed_by_id").references(() => users.id),
     reviewClaimedAt: timestamp("review_claimed_at"),
     templateData: jsonb("template_data"),
-    /** Review checklist items — array of { label: string } */
+    /** Review checklist items — array of { label: string } (mod-facing, unchecked = rejection reason) */
     checklist: jsonb("checklist").$type<{ label: string }[]>(),
+    /** Self-checklist — non-interactive guidance shown to creators before submitting */
+    selfChecklist: jsonb("self_checklist").$type<{ label: string }[]>(),
     /** Reference files attached to the task — array of { name, url, type, size } */
     attachments: jsonb("attachments").$type<
       { name: string; url: string; type: string; size: number }[]

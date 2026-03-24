@@ -971,9 +971,12 @@ function AdminTasksSection() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState<string | null>(null);
-  // Checklist state
+  // Checklist state (review — mod-facing)
   const [checklistItems, setChecklistItems] = useState<string[]>([]);
   const [newChecklistItem, setNewChecklistItem] = useState("");
+  // Self-checklist state (creator guidance)
+  const [selfChecklistItems, setSelfChecklistItems] = useState<string[]>([]);
+  const [newSelfChecklistItem, setNewSelfChecklistItem] = useState("");
   // Attachments state
   const [taskAttachments, setTaskAttachments] = useState<import("@/components/ui/FileUpload").UploadedFile[]>([]);
   // Deliverable slots state
@@ -1023,6 +1026,7 @@ function AdminTasksSection() {
       setDeadline(task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : "");
       setPublishNow(false);
       setChecklistItems((task.checklist || []).map((c: { label: string }) => c.label));
+      setSelfChecklistItems((task.selfChecklist || []).map((c: { label: string }) => c.label));
       setTaskAttachments(task.attachments || []);
       setDeliverableSlots(task.deliverableSlots || []);
       setShowForm(true);
@@ -1073,6 +1077,7 @@ function AdminTasksSection() {
           setBonusBountyRmb(t.bonusBountyRmb || "");
           setMaxAttempts(String(t.maxAttempts || 5));
           setChecklistItems((t.checklist || []).map((c: { label: string }) => c.label));
+          setSelfChecklistItems((t.selfChecklist || []).map((c: { label: string }) => c.label));
           setDeliverableSlots(t.deliverableSlots || []);
           setShowForm(true);
         });
@@ -1107,6 +1112,7 @@ function AdminTasksSection() {
         deadline: deadline || undefined,
         status: shouldPublish ? "active" : "draft",
         checklist: checklistItems.length > 0 ? checklistItems.map((label) => ({ label })) : undefined,
+        selfChecklist: selfChecklistItems.length > 0 ? selfChecklistItems.map((label) => ({ label })) : undefined,
         attachments: taskAttachments.length > 0 ? taskAttachments.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size })) : undefined,
         deliverableSlots: deliverableSlots.length > 0 ? deliverableSlots : undefined,
       }),
@@ -1116,7 +1122,7 @@ function AdminTasksSection() {
       setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn("");
       setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb("");
       setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setShowForm(false);
-      setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]);
+      setChecklistItems([]); setNewChecklistItem(""); setSelfChecklistItems([]); setNewSelfChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]);
       fetchData();
     } else {
       const data = await res.json();
@@ -1158,6 +1164,7 @@ function AdminTasksSection() {
       maxAttempts: parseInt(maxAttempts) || 5,
       deadline: deadline || undefined,
       checklist: checklistItems.length > 0 ? checklistItems.map((label) => ({ label })) : undefined,
+      selfChecklist: selfChecklistItems.length > 0 ? selfChecklistItems.map((label) => ({ label })) : undefined,
       attachments: taskAttachments.length > 0 ? taskAttachments.map((f) => ({ name: f.name, url: f.url, type: f.type, size: f.size })) : undefined,
       deliverableSlots: deliverableSlots.length > 0 ? deliverableSlots : undefined,
     };
@@ -1173,7 +1180,7 @@ function AdminTasksSection() {
       setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn("");
       setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb("");
       setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setShowForm(false);
-      setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]);
+      setChecklistItems([]); setNewChecklistItem(""); setSelfChecklistItems([]); setNewSelfChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]);
       setEditingTaskId(null);
       fetchData();
     } else {
@@ -1190,7 +1197,7 @@ function AdminTasksSection() {
       <div className="flex items-center justify-between mb-6">
         <SectionTitle>Task Management</SectionTitle>
         <button
-          onClick={() => { setShowForm(!showForm); if (showForm) { setEditingTaskId(null); setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn(""); setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb(""); setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setChecklistItems([]); setNewChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]); } }}
+          onClick={() => { setShowForm(!showForm); if (showForm) { setEditingTaskId(null); setTitle(""); setTitleCn(""); setDescription(""); setDescriptionCn(""); setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb(""); setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setChecklistItems([]); setNewChecklistItem(""); setSelfChecklistItems([]); setNewSelfChecklistItem(""); setTaskAttachments([]); setDeliverableSlots([]); } }}
           className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
         >
           {showForm ? "Cancel" : "+ Create Task"}
@@ -1281,6 +1288,50 @@ function AdminTasksSection() {
                 slots={deliverableSlots}
                 onChange={setDeliverableSlots}
               />
+            </div>
+
+            {/* Self-Checklist Builder (creator guidance) */}
+            <div className="col-span-2">
+              <label className="block text-xs text-discord-text-muted mb-1">Self-Checklist (creator guidance)</label>
+              <p className="text-[10px] text-discord-text-muted mb-1.5">Non-interactive guidance shown to creators before they submit. They don&apos;t need to click anything.</p>
+              {selfChecklistItems.length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {selfChecklistItems.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-sky-400">•</span>
+                      <span className="flex-1 text-sm text-discord-text">{item}</span>
+                      <button type="button" onClick={() => setSelfChecklistItems(selfChecklistItems.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 text-xs">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={newSelfChecklistItem}
+                  onChange={(e) => setNewSelfChecklistItem(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newSelfChecklistItem.trim()) {
+                      e.preventDefault();
+                      setSelfChecklistItems([...selfChecklistItems, newSelfChecklistItem.trim()]);
+                      setNewSelfChecklistItem("");
+                    }
+                  }}
+                  placeholder="e.g. No background noise, clear pronunciation"
+                  className="flex-1 p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newSelfChecklistItem.trim()) {
+                      setSelfChecklistItems([...selfChecklistItems, newSelfChecklistItem.trim()]);
+                      setNewSelfChecklistItem("");
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs bg-sky-500/20 text-sky-400 rounded hover:bg-sky-500/30 transition"
+                >
+                  + Add
+                </button>
+              </div>
             </div>
 
             {/* Review Checklist Builder */}
