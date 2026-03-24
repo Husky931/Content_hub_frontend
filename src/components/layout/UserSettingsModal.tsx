@@ -1594,11 +1594,21 @@ function AdminTemplatesSection() {
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
 
   const emptyForm = {
-    name: "", nameCn: "", category: "audio", description: "", descriptionCn: "",
+    name: "", nameCn: "", description: "", descriptionCn: "",
     bountyUsd: "", bountyRmb: "", bonusBountyUsd: "", bonusBountyRmb: "",
     maxAttempts: "5", checklistItems: [] as string[], newChecklistItem: "",
     selfChecklistItems: [] as string[], newSelfChecklistItem: "",
     deliverableSlots: [] as DeliverableSlot[],
+  };
+
+  // Auto-detect category from deliverable slot types
+  const detectCategoryFromSlots = (slots: DeliverableSlot[]): string => {
+    const types = slots.map((s) => s.type);
+    if (types.some((t) => t === "upload-audio")) return "audio";
+    if (types.some((t) => t === "upload-video")) return "video";
+    if (types.some((t) => t === "upload-image")) return "image";
+    if (types.some((t) => t === "upload-text" || t === "upload-tsv" || t === "upload-srt" || t === "textbox")) return "text";
+    return "other";
   };
   const [templateForm, setTemplateForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -1656,7 +1666,7 @@ function AdminTemplatesSection() {
     setEditingTemplateId(t.id);
     setShowCreateForm(false);
     setTemplateForm({
-      name: t.name, nameCn: t.nameCn || "", category: t.category,
+      name: t.name, nameCn: t.nameCn || "",
       description: t.description || "", descriptionCn: t.descriptionCn || "",
       bountyUsd: t.bountyUsd || "", bountyRmb: t.bountyRmb || "",
       bonusBountyUsd: t.bonusBountyUsd || "", bonusBountyRmb: t.bonusBountyRmb || "",
@@ -1678,8 +1688,8 @@ function AdminTemplatesSection() {
 
   const saveTemplate = async () => {
     const isCreate = showCreateForm;
-    if (isCreate && (!templateForm.name || !templateForm.category)) {
-      setFormError("Name and category are required");
+    if (isCreate && !templateForm.name) {
+      setFormError("Name is required");
       return;
     }
     setSaving(true);
@@ -1687,7 +1697,7 @@ function AdminTemplatesSection() {
 
     const payload = {
       name: templateForm.name, nameCn: templateForm.nameCn || null,
-      category: templateForm.category,
+      category: detectCategoryFromSlots(templateForm.deliverableSlots),
       description: templateForm.description || null,
       descriptionCn: templateForm.descriptionCn || null,
       bountyUsd: templateForm.bountyUsd || null,
@@ -1729,6 +1739,27 @@ function AdminTemplatesSection() {
     setDeletingTemplateId(null);
   };
 
+  const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null);
+  const cloneTemplate = async (t: TaskTemplate) => {
+    setCloningTemplateId(t.id);
+    const res = await fetch("/api/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `${t.name} (copy)`,
+        nameCn: t.nameCn ? `${t.nameCn} (copy)` : null,
+        category: detectCategoryFromSlots(t.deliverableSlots || []),
+        description: t.description, descriptionCn: t.descriptionCn,
+        bountyUsd: t.bountyUsd, bountyRmb: t.bountyRmb,
+        bonusBountyUsd: t.bonusBountyUsd, bonusBountyRmb: t.bonusBountyRmb,
+        maxAttempts: t.maxAttempts, checklist: t.checklist,
+        selfChecklist: t.selfChecklist, deliverableSlots: t.deliverableSlots,
+      }),
+    });
+    if (res.ok) fetchTemplates();
+    setCloningTemplateId(null);
+  };
+
   const applyTemplate = (t: TaskTemplate) => {
     pendingApplyTemplate = {
       name: t.name, nameCn: t.nameCn,
@@ -1757,15 +1788,20 @@ function AdminTemplatesSection() {
           <input value={templateForm.nameCn} onChange={(e) => setTemplateForm({ ...templateForm, nameCn: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" placeholder="中文模板名称" />
         </div>
         <div>
-          <label className="block text-xs text-discord-text-muted mb-1">Category *</label>
-          <select value={templateForm.category} onChange={(e) => setTemplateForm({ ...templateForm, category: e.target.value })} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none">
-            <option value="audio">Audio</option>
-            <option value="video">Video</option>
-            <option value="image">Image</option>
-            <option value="translation">Translation</option>
-            <option value="text">Text / Document</option>
-            <option value="other">Other</option>
-          </select>
+          {(() => {
+            const cat = detectCategoryFromSlots(templateForm.deliverableSlots);
+            const style = TEMPLATE_ICONS[cat] || TEMPLATE_ICONS.other;
+            return (
+              <>
+                <label className="block text-xs text-discord-text-muted mb-1">Category (auto-detected)</label>
+                <div className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text flex items-center gap-2">
+                  <span>{style.icon}</span>
+                  <span className="capitalize">{cat}</span>
+                  <span className="text-[10px] text-discord-text-muted ml-auto">based on deliverables</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
         <div>
           <label className="block text-xs text-discord-text-muted mb-1">Max Attempts</label>
@@ -1965,6 +2001,13 @@ function AdminTemplatesSection() {
                         className="px-3 py-1.5 bg-discord-accent/20 text-discord-accent text-xs rounded hover:bg-discord-accent/30 font-semibold transition"
                       >
                         {isEditing ? "Cancel Edit" : "Edit"}
+                      </button>
+                      <button
+                        onClick={() => cloneTemplate(t)}
+                        disabled={cloningTemplateId === t.id}
+                        className="px-2 py-1.5 bg-sky-500/20 text-sky-400 text-xs rounded hover:bg-sky-500/30 transition disabled:opacity-50 flex items-center gap-1 font-semibold"
+                      >
+                        <ButtonSpinner loading={cloningTemplateId === t.id}>Clone</ButtonSpinner>
                       </button>
                       <button
                         onClick={() => deleteTemplate(t.id)}

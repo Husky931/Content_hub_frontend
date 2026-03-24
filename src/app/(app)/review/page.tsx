@@ -460,11 +460,30 @@ function ReviewContent() {
                         </span>
                       </div>
                     </div>
+                    {/* Submission count */}
                     <div className="text-xs text-discord-text-muted">
                       {task.status === "locked" && task.attempts.length === 0
                         ? "Locked for revision"
                         : `${task.attempts.length} submission${task.attempts.length !== 1 ? "s" : ""} pending`}
                     </div>
+                    {/* Submitters + time */}
+                    {task.attempts.length > 0 && (
+                      <div className="mt-1.5 space-y-0.5 border-t border-discord-border/30 pt-1.5">
+                        {task.attempts.slice(0, 3).map((a) => (
+                          <div key={a.id} className="flex items-center justify-between text-[11px]">
+                            <span className="text-discord-text-secondary truncate">
+                              👤 {a.displayName || a.username}
+                            </span>
+                            <span className="text-discord-text-muted shrink-0 ml-2">
+                              {formatTime(a.createdAt)}
+                            </span>
+                          </div>
+                        ))}
+                        {task.attempts.length > 3 && (
+                          <span className="text-[10px] text-discord-text-muted">+{task.attempts.length - 3} more</span>
+                        )}
+                      </div>
+                    )}
                     {isClaimed && (
                       <div className="mt-1.5 flex items-center gap-1">
                         <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -654,10 +673,33 @@ function ReviewContent() {
                           </p>
                         </div>
 
-                        {/* Task reference attachments */}
+                        {/* Task attachments (by task creator) */}
                         {selectedTask.attachments && selectedTask.attachments.length > 0 && (
                           <div className="mb-4 p-3 bg-discord-bg-dark rounded-lg border border-discord-border">
-                            <FilePreviewList files={selectedTask.attachments} label="Task Reference Files" />
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-base">📎</span>
+                              <h4 className="text-sm font-semibold text-discord-text">Attachments</h4>
+                              <span className="text-[10px] text-discord-text-muted">(added by task creator)</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedTask.attachments.map((f, fi) => {
+                                const ext = f.name.split(".").pop()?.toLowerCase() || "";
+                                const icons: Record<string, string> = { md: "📄", txt: "📄", mp3: "🎵", wav: "🎵", m4a: "🎵", mp4: "🎬", mov: "🎬", png: "🖼️", jpg: "🖼️", jpeg: "🖼️", pdf: "📕", srt: "🔤", tsv: "📊" };
+                                return (
+                                  <button key={fi} onClick={async () => {
+                                    if (f.url.startsWith("/")) { window.open(f.url, "_blank"); return; }
+                                    const win = window.open("about:blank", "_blank");
+                                    try {
+                                      const res = await fetch(`/api/upload/signed-url?url=${encodeURIComponent(f.url)}`);
+                                      const data = await res.json();
+                                      if (data.signedUrl && win) win.location.href = data.signedUrl; else win?.close();
+                                    } catch { win?.close(); }
+                                  }} className="flex items-center gap-1.5 px-3 py-2 bg-discord-sidebar rounded-lg border border-discord-border hover:border-discord-accent/50 transition text-sm text-discord-text-secondary cursor-pointer">
+                                    <span>{icons[ext] || "📁"}</span><span>{f.name}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
 
@@ -1098,6 +1140,20 @@ function DeliverableDisplay({
                     ))}
                   </div>
                   <span className="text-sm font-bold text-discord-text">{sd.rating}/{slotDef?.ratingMax ?? 5}</span>
+                </div>
+              )}
+
+              {/* Automated checks */}
+              {slotDef?.checks && slotDef.checks.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-discord-border/30">
+                  <span className="text-[10px] font-bold text-discord-text-muted uppercase">Automated Checks</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {slotDef.checks.map((c, ci) => (
+                      <span key={ci} className="text-[10px] px-2 py-0.5 rounded bg-green-500/10 text-green-300 border border-green-500/20">
+                        ✓ {c.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
