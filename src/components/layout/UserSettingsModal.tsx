@@ -1208,16 +1208,12 @@ function AdminTasksSection() {
         <div className="mb-6 p-4 bg-discord-bg-dark rounded-xl border border-discord-bg-darker/60">
           <h3 className="text-sm font-semibold text-discord-text mb-3 uppercase">{editingTaskId ? "Edit Task" : "New Task"}</h3>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs text-discord-text-muted mb-1">Channel *</label>
               <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none focus:ring-2 focus:ring-discord-accent">
                 <option value="">Select channel...</option>
                 {channels.map((ch) => (<option key={ch.id} value={ch.id}>#{ch.name}</option>))}
               </select>
-            </div>
-            <div>
-              <label className="block text-xs text-discord-text-muted mb-1">Max Attempts</label>
-              <input value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} type="number" min="1" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-discord-text-muted mb-1">Title (EN) *</label>
@@ -1377,6 +1373,10 @@ function AdminTasksSection() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-xs text-discord-text-muted mb-1">Max Attempts</label>
+              <input value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} type="number" min="1" className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />
+            </div>
             <div>
               <label className="block text-xs text-discord-text-muted mb-1">Deadline</label>
               <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none" />

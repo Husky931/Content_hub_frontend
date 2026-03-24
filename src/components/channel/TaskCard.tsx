@@ -416,12 +416,14 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
         )}
       </div>
 
-      {/* Description */}
-      <div className="px-4 pb-2">
-        <p className="text-xs text-discord-text-secondary line-clamp-2">
-          {task.description}
-        </p>
-      </div>
+      {/* Description (collapsed only — hidden when expanded) */}
+      {!expanded && (
+        <div className="px-4 pb-2">
+          <p className="text-xs text-discord-text-secondary line-clamp-2">
+            {task.description}
+          </p>
+        </div>
+      )}
 
       {/* Compact attachments indicator */}
       {task.attachments && task.attachments.length > 0 && (
