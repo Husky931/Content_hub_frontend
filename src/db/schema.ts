@@ -495,6 +495,12 @@ export const taskTemplates = pgTable("task_templates", {
   bonusBountyRmb: decimal("bonus_bounty_rmb", { precision: 10, scale: 2 }),
   maxAttempts: integer("max_attempts").notNull().default(5),
   checklist: jsonb("checklist").$type<{ label: string }[]>(),
+  /** Self-checklist — non-interactive guidance shown to creators */
+  selfChecklist: jsonb("self_checklist").$type<{ label: string }[]>(),
+  /** Deliverable slots — structured deliverable definitions */
+  deliverableSlots: jsonb("deliverable_slots").$type<
+    import("@/types/deliverable-slot").DeliverableSlot[]
+  >(),
   createdById: uuid("created_by_id")
     .notNull()
     .references(() => users.id),

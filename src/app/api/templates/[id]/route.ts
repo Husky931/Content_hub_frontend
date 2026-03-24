@@ -17,7 +17,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, nameCn, category, description, descriptionCn, bountyUsd, bountyRmb, bonusBountyUsd, bonusBountyRmb, maxAttempts, checklist } = body;
+    const { name, nameCn, category, description, descriptionCn, bountyUsd, bountyRmb, bonusBountyUsd, bonusBountyRmb, maxAttempts, checklist, selfChecklist, deliverableSlots } = body;
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (name !== undefined) updates.name = name;
@@ -31,6 +31,8 @@ export async function PATCH(
     if (bonusBountyRmb !== undefined) updates.bonusBountyRmb = bonusBountyRmb || null;
     if (maxAttempts !== undefined) updates.maxAttempts = maxAttempts;
     if (checklist !== undefined) updates.checklist = checklist;
+    if (selfChecklist !== undefined) updates.selfChecklist = selfChecklist;
+    if (deliverableSlots !== undefined) updates.deliverableSlots = deliverableSlots;
 
     const [updated] = await db
       .update(taskTemplates)

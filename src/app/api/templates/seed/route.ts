@@ -26,6 +26,19 @@ const DEFAULT_TEMPLATES = [
       { label: "Correct file format (MP3/WAV)" },
       { label: "File size within limits" },
     ],
+    selfChecklist: [
+      { label: "Record in a quiet environment (closet or treated room)" },
+      { label: "Check input levels — peaks below -6dB" },
+      { label: "Read the script exactly as provided" },
+      { label: "Listen back for background noise before submitting" },
+    ],
+    deliverableSlots: [
+      {
+        id: "seed-audio-1", type: "upload-audio", title: "Audio File", description: "Upload your voice recording in MP3 or WAV format",
+        checks: [{ label: "Min size: 1 KB" }], required: true,
+        minFileSize: 1, minFileSizeUnit: "KB", audioDurationMin: 1, audioDurationOp: "gte",
+      },
+    ],
   },
   {
     name: "Video Recording",
@@ -49,6 +62,24 @@ const DEFAULT_TEMPLATES = [
       { label: "File format is MP4" },
       { label: "Duration matches task requirements" },
     ],
+    selfChecklist: [
+      { label: "Use a tripod or stabilizer for steady footage" },
+      { label: "Ensure good, even lighting" },
+      { label: "Check framing and composition before recording" },
+      { label: "Review footage for audio sync issues" },
+    ],
+    deliverableSlots: [
+      {
+        id: "seed-video-1", type: "upload-video", title: "Final Video", description: "Upload your edited video in MP4 format",
+        checks: [{ label: "Min size: 1 KB" }, { label: "Resolution ≥ 1920x1080" }], required: true,
+        minFileSize: 1, minFileSizeUnit: "KB", videoResolution: "1920x1080", videoDurationMin: 1, videoDurationOp: "gte",
+      },
+      {
+        id: "seed-video-2", type: "upload-image", title: "Thumbnail", description: "Upload a thumbnail image (PNG/JPG)",
+        checks: [], required: false,
+        minFileSize: 1, minFileSizeUnit: "KB",
+      },
+    ],
   },
   {
     name: "Image Capture",
@@ -71,8 +102,46 @@ const DEFAULT_TEMPLATES = [
       { label: "Correct file format (PNG/JPG)" },
       { label: "Colors are accurate and natural" },
     ],
+    selfChecklist: [
+      { label: "Check image resolution before submitting" },
+      { label: "Ensure no watermarks or logos are visible" },
+      { label: "Verify colors look natural on your screen" },
+    ],
+    deliverableSlots: [
+      {
+        id: "seed-image-1", type: "upload-image", title: "Image File", description: "Upload your image in PNG or JPG format",
+        checks: [{ label: "Min size: 1 KB" }, { label: "Resolution ≥ 1920x1080" }], required: true,
+        minFileSize: 1, minFileSizeUnit: "KB", imageResolution: "1920x1080",
+      },
+    ],
   },
 ];
+
+// DELETE /api/templates/seed — wipe all templates and re-seed (admin only)
+export async function DELETE() {
+  try {
+    const auth = await getAuthFromCookies();
+    if (!auth || auth.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await db.delete(taskTemplates);
+
+    const created = await db
+      .insert(taskTemplates)
+      .values(
+        DEFAULT_TEMPLATES.map((t) => ({
+          ...t,
+          createdById: auth.userId,
+        }))
+      )
+      .returning();
+
+    return NextResponse.json({ templates: created, reseeded: true });
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 // POST /api/templates/seed — seed default templates (admin only)
 export async function POST() {

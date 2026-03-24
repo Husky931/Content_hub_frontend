@@ -928,14 +928,28 @@ interface TaskTemplate {
   bonusBountyRmb: string | null;
   maxAttempts: number;
   checklist: { label: string }[] | null;
+  selfChecklist: { label: string }[] | null;
+  deliverableSlots: DeliverableSlot[] | null;
   createdByUsername: string;
   createdAt: string;
 }
+
+// Module-level variable to pass template data between sibling sections without sessionStorage timing issues
+let pendingApplyTemplate: {
+  description: string | null; descriptionCn: string | null;
+  bountyUsd: string | null; bountyRmb: string | null;
+  bonusBountyUsd: string | null; bonusBountyRmb: string | null;
+  maxAttempts: number; checklist: { label: string }[] | null;
+  selfChecklist: { label: string }[] | null; deliverableSlots: DeliverableSlot[] | null;
+} | null = null;
 
 const TEMPLATE_ICONS: Record<string, { icon: string; color: string; bg: string }> = {
   audio: { icon: "🎙️", color: "text-blue-400", bg: "from-blue-500/10 to-blue-500/20" },
   video: { icon: "🎬", color: "text-purple-400", bg: "from-purple-500/10 to-purple-500/20" },
   image: { icon: "📷", color: "text-green-400", bg: "from-green-500/10 to-green-500/20" },
+  translation: { icon: "🌐", color: "text-amber-400", bg: "from-amber-500/10 to-amber-500/20" },
+  text: { icon: "📄", color: "text-sky-400", bg: "from-sky-500/10 to-sky-500/20" },
+  other: { icon: "📦", color: "text-gray-400", bg: "from-gray-500/10 to-gray-500/20" },
 };
 
 const TASK_STATUS_COLORS: Record<string, string> = {
@@ -984,6 +998,12 @@ function AdminTasksSection() {
   // Markdown preview toggle
   const [previewDescEn, setPreviewDescEn] = useState(false);
   const [previewDescCn, setPreviewDescCn] = useState(false);
+  // Save-as-template state
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateNameCn, setTemplateNameCn] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaveMsg, setTemplateSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const fetchData = () => {
     Promise.all([
@@ -1062,26 +1082,20 @@ function AdminTasksSection() {
       Promise.resolve().then(() => { if (active) handleEdit(editId); });
     }
     // Check if a template was selected from Task Templates section
-    const stored = sessionStorage.getItem("applyTemplate");
-    if (stored) {
-      sessionStorage.removeItem("applyTemplate");
-      try {
-        const t = JSON.parse(stored);
-        Promise.resolve().then(() => {
-          if (!active) return;
-          setDescription(t.description || "");
-          setDescriptionCn(t.descriptionCn || "");
-          setBountyUsd(t.bountyUsd || "");
-          setBountyRmb(t.bountyRmb || "");
-          setBonusBountyUsd(t.bonusBountyUsd || "");
-          setBonusBountyRmb(t.bonusBountyRmb || "");
-          setMaxAttempts(String(t.maxAttempts || 5));
-          setChecklistItems((t.checklist || []).map((c: { label: string }) => c.label));
-          setSelfChecklistItems((t.selfChecklist || []).map((c: { label: string }) => c.label));
-          setDeliverableSlots(t.deliverableSlots || []);
-          setShowForm(true);
-        });
-      } catch { /* ignore */ }
+    if (pendingApplyTemplate) {
+      const t = pendingApplyTemplate;
+      pendingApplyTemplate = null;
+      setDescription(t.description || "");
+      setDescriptionCn(t.descriptionCn || "");
+      setBountyUsd(t.bountyUsd || "");
+      setBountyRmb(t.bountyRmb || "");
+      setBonusBountyUsd(t.bonusBountyUsd || "");
+      setBonusBountyRmb(t.bonusBountyRmb || "");
+      setMaxAttempts(String(t.maxAttempts || 5));
+      setChecklistItems((t.checklist || []).map((c: { label: string }) => c.label));
+      setSelfChecklistItems((t.selfChecklist || []).map((c: { label: string }) => c.label));
+      setDeliverableSlots(t.deliverableSlots || []);
+      setShowForm(true);
     }
     return () => { active = false; };
   }, []);
@@ -1188,6 +1202,57 @@ function AdminTasksSection() {
       setFormError(data.error || "Failed to update task");
     }
     setCreating(false);
+  };
+
+  // Detect template category from deliverable slot types
+  const detectCategory = (slots: DeliverableSlot[]): string => {
+    const types = slots.map((s) => s.type);
+    if (types.some((t) => t === "upload-audio")) return "audio";
+    if (types.some((t) => t === "upload-video")) return "video";
+    if (types.some((t) => t === "upload-image")) return "image";
+    if (types.some((t) => t === "upload-text" || t === "upload-tsv" || t === "upload-srt" || t === "textbox")) return "text";
+    if (types.some((t) => t === "multiple-selection" || t === "rating")) return "other";
+    return "other";
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!templateName.trim()) return;
+    setSavingTemplate(true);
+    setTemplateSaveMsg(null);
+    try {
+      const res = await fetch("/api/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: templateName.trim(),
+          nameCn: templateNameCn.trim() || null,
+          category: detectCategory(deliverableSlots),
+          description: description || null,
+          descriptionCn: descriptionCn || null,
+          bountyUsd: bountyUsd || null,
+          bountyRmb: bountyRmb || null,
+          bonusBountyUsd: bonusBountyUsd || null,
+          bonusBountyRmb: bonusBountyRmb || null,
+          maxAttempts: parseInt(maxAttempts) || 5,
+          checklist: checklistItems.length > 0 ? checklistItems.map((label) => ({ label })) : null,
+          selfChecklist: selfChecklistItems.length > 0 ? selfChecklistItems.map((label) => ({ label })) : null,
+          deliverableSlots: deliverableSlots.length > 0 ? deliverableSlots : null,
+        }),
+      });
+      if (res.ok) {
+        setTemplateSaveMsg({ type: "ok", text: "Template saved!" });
+        setShowSaveTemplate(false);
+        setTemplateName("");
+        setTemplateNameCn("");
+        setTimeout(() => setTemplateSaveMsg(null), 3000);
+      } else {
+        const data = await res.json();
+        setTemplateSaveMsg({ type: "err", text: data.error || "Failed to save template" });
+      }
+    } catch {
+      setTemplateSaveMsg({ type: "err", text: "Network error" });
+    }
+    setSavingTemplate(false);
   };
 
   if (loading) return <div className="text-discord-text-muted text-sm">Loading tasks...</div>;
@@ -1403,7 +1468,58 @@ function AdminTasksSection() {
             >
               <ButtonSpinner loading={creating && publishNow}>✈ Publish</ButtonSpinner>
             </button>
+            <button
+              type="button"
+              onClick={() => { setShowSaveTemplate(!showSaveTemplate); setTemplateSaveMsg(null); }}
+              className="py-2.5 px-4 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-1.5"
+            >
+              📋 Save as Template
+            </button>
           </div>
+          {templateSaveMsg && (
+            <p className={`text-xs mt-2 ${templateSaveMsg.type === "ok" ? "text-green-400" : "text-discord-red"}`}>{templateSaveMsg.text}</p>
+          )}
+          {showSaveTemplate && (
+            <div className="mt-3 p-3 bg-discord-bg rounded-lg border border-amber-500/30">
+              <p className="text-xs text-discord-text-muted mb-2">Save current task configuration as a reusable template. Category icon will be auto-detected from your deliverable slots ({(TEMPLATE_ICONS[detectCategory(deliverableSlots)] || TEMPLATE_ICONS.other).icon} {detectCategory(deliverableSlots)}).</p>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="block text-xs text-discord-text-muted mb-1">Template Name *</label>
+                  <input
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="e.g. Voiceover Recording"
+                    className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text focus:outline-none"
+                    onKeyDown={(e) => { if (e.key === "Enter" && templateName.trim()) handleSaveAsTemplate(); }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-discord-text-muted mb-1">Name (CN)</label>
+                  <input
+                    value={templateNameCn}
+                    onChange={(e) => setTemplateNameCn(e.target.value)}
+                    placeholder="中文模板名称"
+                    className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveAsTemplate}
+                  disabled={savingTemplate || !templateName.trim()}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1"
+                >
+                  <ButtonSpinner loading={savingTemplate}>Save Template</ButtonSpinner>
+                </button>
+                <button
+                  onClick={() => { setShowSaveTemplate(false); setTemplateName(""); setTemplateNameCn(""); }}
+                  className="px-4 py-2 bg-discord-bg-hover text-discord-text-muted rounded text-sm transition hover:text-discord-text"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1476,6 +1592,8 @@ function AdminTemplatesSection() {
     name: "", nameCn: "", category: "audio", description: "", descriptionCn: "",
     bountyUsd: "", bountyRmb: "", bonusBountyUsd: "", bonusBountyRmb: "",
     maxAttempts: "5", checklistItems: [] as string[], newChecklistItem: "",
+    selfChecklistItems: [] as string[], newSelfChecklistItem: "",
+    deliverableSlots: [] as DeliverableSlot[],
   };
   const [templateForm, setTemplateForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -1539,6 +1657,9 @@ function AdminTemplatesSection() {
       bonusBountyUsd: t.bonusBountyUsd || "", bonusBountyRmb: t.bonusBountyRmb || "",
       maxAttempts: String(t.maxAttempts), checklistItems: (t.checklist || []).map(c => c.label),
       newChecklistItem: "",
+      selfChecklistItems: (t.selfChecklist || []).map((c: { label: string }) => c.label),
+      newSelfChecklistItem: "",
+      deliverableSlots: t.deliverableSlots || [],
     });
     setFormError("");
   };
@@ -1570,6 +1691,8 @@ function AdminTemplatesSection() {
       bonusBountyRmb: templateForm.bonusBountyRmb || null,
       maxAttempts: parseInt(templateForm.maxAttempts) || 5,
       checklist: templateForm.checklistItems.length > 0 ? templateForm.checklistItems.map(l => ({ label: l })) : null,
+      selfChecklist: templateForm.selfChecklistItems.length > 0 ? templateForm.selfChecklistItems.map(l => ({ label: l })) : null,
+      deliverableSlots: templateForm.deliverableSlots.length > 0 ? templateForm.deliverableSlots : null,
     };
 
     const url = isCreate ? "/api/templates" : `/api/templates/${editingTemplateId}`;
@@ -1602,12 +1725,13 @@ function AdminTemplatesSection() {
   };
 
   const applyTemplate = (t: TaskTemplate) => {
-    sessionStorage.setItem("applyTemplate", JSON.stringify({
+    pendingApplyTemplate = {
       description: t.description, descriptionCn: t.descriptionCn,
       bountyUsd: t.bountyUsd, bountyRmb: t.bountyRmb,
       bonusBountyUsd: t.bonusBountyUsd, bonusBountyRmb: t.bonusBountyRmb,
       maxAttempts: t.maxAttempts, checklist: t.checklist,
-    }));
+      selfChecklist: t.selfChecklist, deliverableSlots: t.deliverableSlots,
+    };
     navigateTo("admin-tasks");
   };
 
@@ -1632,6 +1756,9 @@ function AdminTemplatesSection() {
             <option value="audio">Audio</option>
             <option value="video">Video</option>
             <option value="image">Image</option>
+            <option value="translation">Translation</option>
+            <option value="text">Text / Document</option>
+            <option value="other">Other</option>
           </select>
         </div>
         <div>
@@ -1702,6 +1829,56 @@ function AdminTemplatesSection() {
             </button>
           </div>
         </div>
+        {/* Deliverable Slots */}
+        <div className="col-span-2">
+          <DeliverableSlotEditor
+            slots={templateForm.deliverableSlots}
+            onChange={(slots) => setTemplateForm({ ...templateForm, deliverableSlots: slots })}
+            allowEmpty
+          />
+        </div>
+
+        {/* Self-Checklist (creator guidance) */}
+        <div className="col-span-2">
+          <label className="block text-xs text-discord-text-muted mb-1">Self-Checklist (creator guidance)</label>
+          <p className="text-[10px] text-discord-text-muted mb-1.5">Non-interactive guidance shown to creators before they submit.</p>
+          {templateForm.selfChecklistItems.length > 0 && (
+            <div className="space-y-1 mb-2">
+              {templateForm.selfChecklistItems.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-xs text-sky-400">•</span>
+                  <span className="flex-1 text-sm text-discord-text">{item}</span>
+                  <button type="button" onClick={() => setTemplateForm({ ...templateForm, selfChecklistItems: templateForm.selfChecklistItems.filter((_, idx) => idx !== i) })} className="text-red-400 hover:text-red-300 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={templateForm.newSelfChecklistItem}
+              onChange={(e) => setTemplateForm({ ...templateForm, newSelfChecklistItem: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && templateForm.newSelfChecklistItem.trim()) {
+                  e.preventDefault();
+                  setTemplateForm({ ...templateForm, selfChecklistItems: [...templateForm.selfChecklistItems, templateForm.newSelfChecklistItem.trim()], newSelfChecklistItem: "" });
+                }
+              }}
+              placeholder="e.g. No background noise, clear pronunciation"
+              className="flex-1 p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (templateForm.newSelfChecklistItem.trim()) {
+                  setTemplateForm({ ...templateForm, selfChecklistItems: [...templateForm.selfChecklistItems, templateForm.newSelfChecklistItem.trim()], newSelfChecklistItem: "" });
+                }
+              }}
+              className="px-3 py-1.5 text-xs bg-sky-500/20 text-sky-400 rounded hover:bg-sky-500/30 transition"
+            >
+              + Add
+            </button>
+          </div>
+        </div>
       </div>
       {formError && <p className="text-xs text-discord-red mt-2">{formError}</p>}
       <div className="flex gap-2 mt-3">
@@ -1721,12 +1898,25 @@ function AdminTemplatesSection() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <SectionTitle>Task Templates</SectionTitle>
-        <button
-          onClick={() => showCreateForm ? setShowCreateForm(false) : startCreate()}
-          className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
-        >
-          {showCreateForm ? "Cancel" : "+ Create Template"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              if (!confirm("Delete ALL templates and re-seed defaults?")) return;
+              setLoading(true);
+              await fetch("/api/templates/seed", { method: "DELETE" });
+              fetchTemplates();
+            }}
+            className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-xs font-semibold transition"
+          >
+            Reset to Defaults
+          </button>
+          <button
+            onClick={() => showCreateForm ? setShowCreateForm(false) : startCreate()}
+            className="px-4 py-2 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition"
+          >
+            {showCreateForm ? "Cancel" : "+ Create Template"}
+          </button>
+        </div>
       </div>
 
       {/* Create / Edit form */}
@@ -2580,7 +2770,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
           {section === "admin-users" && <AdminUsersSection />}
           {section === "admin-invites" && <AdminInvitesSection />}
           {section === "admin-tags" && <AdminTagsSection />}
-          {section === "admin-tasks" && <AdminTasksSection />}
+          {section === "admin-tasks" && <AdminTasksSection key={navTick} />}
           {section === "admin-templates" && <AdminTemplatesSection />}
           {section === "admin-channels" && <AdminChannelsSection />}
           {section === "admin-audit" && <AdminAuditSection />}
