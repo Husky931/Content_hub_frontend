@@ -936,6 +936,7 @@ interface TaskTemplate {
 
 // Module-level variable to pass template data between sibling sections without sessionStorage timing issues
 let pendingApplyTemplate: {
+  name: string; nameCn: string | null;
   description: string | null; descriptionCn: string | null;
   bountyUsd: string | null; bountyRmb: string | null;
   bonusBountyUsd: string | null; bonusBountyRmb: string | null;
@@ -1085,6 +1086,8 @@ function AdminTasksSection() {
     if (pendingApplyTemplate) {
       const t = pendingApplyTemplate;
       pendingApplyTemplate = null;
+      setTitle(t.name || "");
+      setTitleCn(t.nameCn || "");
       setDescription(t.description || "");
       setDescriptionCn(t.descriptionCn || "");
       setBountyUsd(t.bountyUsd || "");
@@ -1468,10 +1471,12 @@ function AdminTasksSection() {
             >
               <ButtonSpinner loading={creating && publishNow}>✈ Publish</ButtonSpinner>
             </button>
+          </div>
+          <div className="mt-2 flex justify-end">
             <button
               type="button"
               onClick={() => { setShowSaveTemplate(!showSaveTemplate); setTemplateSaveMsg(null); }}
-              className="py-2.5 px-4 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-1.5"
+              className="py-1.5 px-3 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
             >
               📋 Save as Template
             </button>
@@ -1726,6 +1731,7 @@ function AdminTemplatesSection() {
 
   const applyTemplate = (t: TaskTemplate) => {
     pendingApplyTemplate = {
+      name: t.name, nameCn: t.nameCn,
       description: t.description, descriptionCn: t.descriptionCn,
       bountyUsd: t.bountyUsd, bountyRmb: t.bountyRmb,
       bonusBountyUsd: t.bonusBountyUsd, bonusBountyRmb: t.bonusBountyRmb,
