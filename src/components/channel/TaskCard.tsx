@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
 import { FileUpload, FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
@@ -69,6 +69,7 @@ interface TaskCardProps {
     }[];
   };
   onAttemptSubmitted?: () => void;
+  defaultExpanded?: boolean;
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -94,10 +95,18 @@ function formatRelativeDate(dateStr: string) {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
+export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCardProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
+
+  // Auto-scroll into view when opened via deep link
+  useEffect(() => {
+    if (defaultExpanded && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [defaultExpanded]);
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -361,7 +370,7 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
   };
 
   return (
-    <div className="mx-2 my-2 rounded-lg border border-discord-accent/30 bg-discord-accent/5 overflow-hidden">
+    <div ref={cardRef} className="mx-2 my-2 rounded-lg border border-discord-accent/30 bg-discord-accent/5 overflow-hidden">
       {/* Task header row 1: badges + title */}
       <div className="px-4 pt-3 pb-1 flex items-center gap-2">
         <span className="text-xs font-bold px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded uppercase">

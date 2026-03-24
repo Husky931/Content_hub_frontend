@@ -417,7 +417,7 @@ function TaskListContent() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/channels/${task.channelSlug}`);
+                            router.push(`/channels/${task.channelSlug}?task=${task.id}`);
                           }}
                           className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer flex items-center gap-1"
                         >
@@ -559,7 +559,7 @@ function TaskListContent() {
                       <div className="flex items-center gap-2 pt-1">
                         {canRetry && (
                           <button
-                            onClick={() => router.push(`/channels/${task.channelSlug}`)}
+                            onClick={() => router.push(`/channels/${task.channelSlug}?task=${task.id}`)}
                             className="text-xs px-4 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -572,7 +572,7 @@ function TaskListContent() {
                           <span className="text-xs text-red-400/70">No attempts remaining</span>
                         )}
                         <button
-                          onClick={() => router.push(`/channels/${task.channelSlug}`)}
+                          onClick={() => router.push(`/channels/${task.channelSlug}?task=${task.id}`)}
                           className="text-xs px-3 py-1.5 bg-discord-sidebar hover:bg-discord-bg-hover text-discord-text-muted hover:text-discord-text border border-discord-border rounded font-semibold transition cursor-pointer flex items-center gap-1"
                         >
                           View in Channel

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { TaskSummaryBar } from "@/components/channel/TaskSummaryBar";
 import { TaskCard } from "@/components/channel/TaskCard";
@@ -142,7 +142,17 @@ function RoleTag({ role, small = false }: { role: string; small?: boolean }) {
 }
 
 export default function ChannelPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-discord-bg text-discord-text-muted"><Spinner /></div>}>
+      <ChannelPageContent />
+    </Suspense>
+  );
+}
+
+function ChannelPageContent() {
   const { slug } = useParams<{ slug: string }>();
+  const searchParams = useSearchParams();
+  const expandTaskId = searchParams.get("task");
   const { user } = useAuth();
   const { openSettings } = useSettingsModal();
   const [channel, setChannel] = useState<ChannelInfo | null>(null);
@@ -755,6 +765,7 @@ export default function ChannelPage() {
               <TaskCard
                 key={task.id}
                 task={task}
+                defaultExpanded={task.id === expandTaskId}
                 onAttemptSubmitted={() => {
                   fetchTasks();
                   fetchData();
