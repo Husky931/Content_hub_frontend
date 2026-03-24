@@ -777,7 +777,29 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
               )}
               {(task.status !== "locked" || isLockedForMe) && (
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => { setDeliverableText(myAttempt?.deliverables?.text || ""); setDeliverableFiles(myAttempt?.deliverables?.files || []); setEditing(true); setError(""); }}
+                  <button onClick={() => {
+                    setDeliverableText(myAttempt?.deliverables?.text || "");
+                    setDeliverableFiles(myAttempt?.deliverables?.files || []);
+                    // Restore slot-based state
+                    if (myAttempt?.deliverables?.slots) {
+                      const texts: Record<string, string> = {};
+                      const files: Record<string, UploadedFile[]> = {};
+                      const sels: Record<string, string[]> = {};
+                      const rats: Record<string, number> = {};
+                      for (const sd of myAttempt.deliverables.slots) {
+                        if (sd.text) texts[sd.slotId] = sd.text;
+                        if (sd.files) files[sd.slotId] = sd.files;
+                        if (sd.selections) sels[sd.slotId] = sd.selections;
+                        if (sd.rating !== undefined) rats[sd.slotId] = sd.rating;
+                      }
+                      setSlotTexts(texts);
+                      setSlotFiles(files);
+                      setSlotSelections(sels);
+                      setSlotRatings(rats);
+                    }
+                    setEditing(true);
+                    setError("");
+                  }}
                     className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer">Edit</button>
                   <button onClick={handleDelete} disabled={deleting}
                     className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1">
@@ -791,12 +813,28 @@ export function TaskCard({ task, onAttemptSubmitted }: TaskCardProps) {
           {/* ── Edit form ── */}
           {hasSubmittedAttempt && editing && (
             <div className="px-4 py-3 border-b border-discord-border/30 space-y-3">
-              <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label="Upload files" compact />
-              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder="Notes for reviewer..." className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none" rows={3} />
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">✏️</span>
+                <h4 className="text-base font-semibold text-discord-text">Edit Submission</h4>
+              </div>
+              {hasSlots ? (
+                <div className="space-y-2">
+                  {task.deliverableSlots!.map((slot, idx) => (
+                    <SlotSubmissionField key={slot.id} slot={slot} index={idx}
+                      files={slotFiles[slot.id] || []} onFilesChange={(f) => setSlotFiles((prev) => ({ ...prev, [slot.id]: f }))}
+                      text={slotTexts[slot.id] || ""} onTextChange={(t) => setSlotTexts((prev) => ({ ...prev, [slot.id]: t }))}
+                      selections={slotSelections[slot.id] || []} onSelectionsChange={(s) => setSlotSelections((prev) => ({ ...prev, [slot.id]: s }))}
+                      rating={slotRatings[slot.id]} onRatingChange={(r) => setSlotRatings((prev) => ({ ...prev, [slot.id]: r }))} />
+                  ))}
+                </div>
+              ) : (
+                <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label="Upload files" compact />
+              )}
+              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder="Notes for reviewer (optional)..." className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none" rows={2} />
               {error && <p className="text-xs text-discord-red mt-1">{error}</p>}
-              <div className="flex justify-end gap-2">
-                <button onClick={() => { setEditing(false); setError(""); }} className="text-xs px-3 py-1 text-discord-text-muted hover:text-discord-text transition cursor-pointer">Cancel</button>
-                <button onClick={handleEdit} disabled={submitting} className="text-xs px-4 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1">
+              <div className="flex gap-2">
+                <button onClick={() => { setEditing(false); setError(""); }} className="flex-1 py-2 text-xs bg-discord-bg-hover text-discord-text-muted rounded-lg font-semibold hover:bg-discord-border transition cursor-pointer">Cancel</button>
+                <button onClick={handleEdit} disabled={submitting} className="flex-1 py-2 text-xs bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg font-semibold transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1">
                   <ButtonSpinner loading={submitting}>Save Changes</ButtonSpinner>
                 </button>
               </div>
