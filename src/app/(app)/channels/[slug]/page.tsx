@@ -191,6 +191,7 @@ function ChannelPageContent() {
   const [mentionIndex, setMentionIndex] = useState(0);
   const mentionSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const tasksFetchRef = useRef<AbortController | null>(null);
   const fetchTasksRef = useRef<() => void>(() => { });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -878,23 +879,36 @@ function ChannelPageContent() {
       {/* Task summary bar (task channels only) */}
       {isTaskChannel && <TaskSummaryBar channelSlug={slug} />}
 
-      {/* Create task button for mods in task channels */}
-      {isTaskChannel && isMod && (
+      {/* Task channel header bar: Create (mod-only) + View Tasks (all users) */}
+      {isTaskChannel && (isMod || activeTasks.length > 0) && (
         <div className="px-4 py-2 bg-discord-bg border-b border-discord-border/50 flex items-center">
-          <button
-            onClick={() => openSettings("admin-tasks")}
-            className="text-xs px-3 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition flex items-center gap-1.5"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Create Task
-          </button>
+          {isMod && (
+            <button
+              onClick={() => openSettings("admin-tasks")}
+              className="text-xs px-3 py-1.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create Task
+            </button>
+          )}
+          {activeTasks.length > 0 && (
+            <button
+              onClick={() => messagesContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+              className="ml-auto text-xs px-3 py-1.5 bg-discord-bg-dark hover:bg-discord-bg-dark/80 text-discord-text-secondary hover:text-discord-text rounded font-semibold transition flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              View Channel Tasks
+            </button>
+          )}
         </div>
       )}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 bg-discord-bg">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-4 bg-discord-bg">
         {messages.length === 0 && tasks.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-discord-text-muted">
             <div className="text-4xl mb-4">#</div>
