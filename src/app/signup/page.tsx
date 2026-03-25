@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
@@ -8,7 +9,8 @@ import { Spinner } from "@/components/ui/Spinner";
 type SignupMethod = "email" | "phone";
 
 export default function SignupPage() {
-  const { signup } = useAuth();
+  const router = useRouter();
+  const { signup, refreshUser } = useAuth();
   const [method, setMethod] = useState<SignupMethod>("email");
 
   // Shared
@@ -93,7 +95,9 @@ export default function SignupPage() {
         if (!res.ok) {
           setError(data.error || "Signup failed");
         } else {
-          setSuccess("Account created! You can now sign in.");
+          setSuccess("Account created! Redirecting…");
+          await refreshUser();
+          setTimeout(() => router.push("/"), 1500);
         }
       } catch {
         setLoading(false);
