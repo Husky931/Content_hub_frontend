@@ -32,6 +32,25 @@ function canDelete(
   return false;
 }
 
+/** Broadcast a WS event to the correct rooms (channel or private user rooms) */
+async function broadcastEvent(
+  slug: string,
+  event: string,
+  data: unknown,
+  privateToUserId: string | null,
+  msgUserId: string
+) {
+  if (privateToUserId) {
+    const payload = { ...data as Record<string, unknown>, channelSlug: slug };
+    await Promise.all([
+      wsPublish({ room: `user:${msgUserId}`, event, data: payload }),
+      wsPublish({ room: `user:${privateToUserId}`, event, data: payload }),
+    ]);
+  } else {
+    await wsPublish({ room: `channel:${slug}`, event, data });
+  }
+}
+
 /** PATCH — edit a message (own messages only) */
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
@@ -73,6 +92,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         userId: messages.userId,
         channelId: messages.channelId,
         deletedAt: messages.deletedAt,
+        privateToUserId: messages.privateToUserId,
       })
       .from(messages)
       .where(and(eq(messages.id, messageId), eq(messages.channelId, channel.id)))
@@ -98,11 +118,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       .returning();
 
     // Broadcast edit via WS
-    await wsPublish({
-      room: `channel:${slug}`,
-      event: "message:edit",
-      data: { id: updated.id, content: updated.content, updatedAt: updated.updatedAt },
-    });
+    await broadcastEvent(
+      slug,
+      "message:edit",
+      { id: updated.id, content: updated.content, updatedAt: updated.updatedAt },
+      msg.privateToUserId,
+      msg.userId
+    );
 
     return NextResponse.json({
       message: { id: updated.id, content: updated.content, updatedAt: updated.updatedAt },
@@ -140,6 +162,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         userId: messages.userId,
         channelId: messages.channelId,
         deletedAt: messages.deletedAt,
+        privateToUserId: messages.privateToUserId,
         userRole: users.role,
       })
       .from(messages)
@@ -149,6 +172,18 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
     if (!msg || msg.deletedAt) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    // For private messages, verify the user is a participant (or admin)
+    if (msg.privateToUserId) {
+      const isParticipant =
+        auth.userId === msg.userId || auth.userId === msg.privateToUserId;
+      if (!isParticipant && auth.role !== "admin") {
+        return NextResponse.json(
+          { error: "You do not have permission to delete this message" },
+          { status: 403 }
+        );
+      }
     }
 
     if (!canDelete(auth.role, auth.userId, msg.userId, msg.userRole)) {
@@ -165,11 +200,13 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       .where(eq(messages.id, messageId));
 
     // Broadcast deletion via WS
-    await wsPublish({
-      room: `channel:${slug}`,
-      event: "message:delete",
-      data: { id: messageId },
-    });
+    await broadcastEvent(
+      slug,
+      "message:delete",
+      { id: messageId },
+      msg.privateToUserId,
+      msg.userId
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

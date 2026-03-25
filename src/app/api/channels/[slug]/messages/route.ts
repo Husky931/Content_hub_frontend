@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { channels, messages, users, userTags } from "@/db/schema";
+import { channels, messages, users, userTags, notifications } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
-import { publishMessage } from "@/lib/ws-publish";
-import { eq, and } from "drizzle-orm";
+import { publishMessage, publishNotification } from "@/lib/ws-publish";
+import { wsPublish } from "@/lib/ws-publish";
+import { eq, and, inArray, ne } from "drizzle-orm";
 
 export async function POST(
   req: NextRequest,
@@ -16,7 +17,7 @@ export async function POST(
     }
 
     const { slug } = await params;
-    const { content, replyToId } = await req.json();
+    const { content, replyToId, privateToUserId } = await req.json();
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
@@ -79,10 +80,18 @@ export async function POST(
       }
     }
 
+    // Resolve private message target
+    let resolvedPrivateToUserId: string | null = null;
+
     // Validate replyToId if provided
     if (replyToId) {
       const [parentMsg] = await db
-        .select({ id: messages.id, channelId: messages.channelId })
+        .select({
+          id: messages.id,
+          channelId: messages.channelId,
+          userId: messages.userId,
+          privateToUserId: messages.privateToUserId,
+        })
         .from(messages)
         .where(eq(messages.id, replyToId))
         .limit(1);
@@ -93,6 +102,53 @@ export async function POST(
           { status: 400 }
         );
       }
+
+      // If parent is private, reply must inherit privacy
+      if (parentMsg.privateToUserId) {
+        const isParticipant =
+          auth.userId === parentMsg.userId ||
+          auth.userId === parentMsg.privateToUserId;
+
+        if (!isParticipant) {
+          return NextResponse.json(
+            { error: "You cannot reply to this private message" },
+            { status: 403 }
+          );
+        }
+
+        // Set privateToUserId to the "other" participant
+        resolvedPrivateToUserId =
+          auth.userId === parentMsg.userId
+            ? parentMsg.privateToUserId
+            : parentMsg.userId;
+      }
+    }
+
+    // Handle explicit privateToUserId (initiating a new private message)
+    if (privateToUserId && !resolvedPrivateToUserId) {
+      // Cannot send private message to self
+      if (privateToUserId === auth.userId) {
+        return NextResponse.json(
+          { error: "Cannot send a private message to yourself" },
+          { status: 400 }
+        );
+      }
+
+      // Validate target user exists
+      const [targetUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, privateToUserId))
+        .limit(1);
+
+      if (!targetUser) {
+        return NextResponse.json(
+          { error: "Target user not found" },
+          { status: 404 }
+        );
+      }
+
+      resolvedPrivateToUserId = privateToUserId;
     }
 
     // Determine message type
@@ -100,15 +156,19 @@ export async function POST(
       channel.slug === "announcements" ? "mod" : "text";
 
     // Insert message
+    const insertValues: Record<string, unknown> = {
+      channelId: channel.id,
+      userId: auth.userId,
+      type: messageType,
+      content: content.trim(),
+      replyToId: replyToId || null,
+    };
+    if (resolvedPrivateToUserId) {
+      insertValues.privateToUserId = resolvedPrivateToUserId;
+    }
     const [newMessage] = await db
       .insert(messages)
-      .values({
-        channelId: channel.id,
-        userId: auth.userId,
-        type: messageType,
-        content: content.trim(),
-        replyToId: replyToId || null,
-      })
+      .values(insertValues as typeof messages.$inferInsert)
       .returning();
 
     // Get user info for response
@@ -129,13 +189,68 @@ export async function POST(
       content: newMessage.content,
       type: newMessage.type,
       replyToId: newMessage.replyToId || null,
+      privateToUserId: resolvedPrivateToUserId,
       replyCount: 0,
       createdAt: newMessage.createdAt,
       user: msgUser,
     };
 
-    // Broadcast to channel via WebSocket (must await on serverless)
-    await publishMessage(slug, messagePayload);
+    // Broadcast via WebSocket
+    if (resolvedPrivateToUserId) {
+      // Private message: send only to sender and recipient via user rooms
+      const privatePayload = { ...messagePayload, channelSlug: slug };
+      await Promise.all([
+        wsPublish({ room: `user:${auth.userId}`, event: "message:new", data: privatePayload }),
+        wsPublish({ room: `user:${resolvedPrivateToUserId}`, event: "message:new", data: privatePayload }),
+      ]);
+    } else {
+      // Public message: broadcast to channel
+      await publishMessage(slug, messagePayload);
+    }
+
+    // Parse @mentions and create notifications (non-blocking)
+    const mentionMatches = newMessage.content.match(/@(\w+)/g);
+    if (mentionMatches) {
+      const mentionedUsernames = [...new Set(mentionMatches.map((m: string) => m.slice(1)))];
+      try {
+        const mentionedUsers = await db
+          .select({ id: users.id, username: users.username })
+          .from(users)
+          .where(
+            and(
+              inArray(users.username, mentionedUsernames),
+              ne(users.id, auth.userId) // Don't notify self
+            )
+          );
+
+        // For private messages, only notify the recipient (they can already see it)
+        const usersToNotify = resolvedPrivateToUserId
+          ? mentionedUsers.filter((u) => u.id === resolvedPrivateToUserId)
+          : mentionedUsers;
+
+        for (const mentionedUser of usersToNotify) {
+          const [notif] = await db
+            .insert(notifications)
+            .values({
+              userId: mentionedUser.id,
+              type: "mention",
+              title: `${msgUser.displayName || msgUser.username} mentioned you`,
+              body: newMessage.content.length > 100
+                ? newMessage.content.slice(0, 100) + "…"
+                : newMessage.content,
+              data: { channelSlug: slug, messageId: newMessage.id },
+            })
+            .returning();
+          await publishNotification(mentionedUser.id, {
+            ...notif,
+            type: "mention",
+            title: notif.title,
+          });
+        }
+      } catch (err) {
+        console.warn("Mention notification error:", err);
+      }
+    }
 
     return NextResponse.json({ message: messagePayload });
   } catch (error) {

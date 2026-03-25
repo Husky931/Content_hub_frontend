@@ -17,10 +17,12 @@ interface Message {
   content: string;
   type: "text" | "mod" | "system";
   replyToId?: string | null;
+  privateToUserId?: string | null;
   replyCount?: number;
   createdAt: string;
   updatedAt?: string | null;
   deletedAt?: string | null;
+  channelSlug?: string;
   user: {
     id: string;
     username: string;
@@ -141,6 +143,21 @@ function RoleTag({ role, small = false }: { role: string; small?: boolean }) {
   );
 }
 
+function renderContentWithMentions(content: string) {
+  const parts = content.split(/(@\w+)/g);
+  if (parts.length === 1) return content;
+  return parts.map((part, i) => {
+    if (part.match(/^@\w+$/)) {
+      return (
+        <span key={i} className="bg-discord-accent/20 text-discord-accent rounded px-0.5 font-medium">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
 export default function ChannelPage() {
   return (
     <Suspense fallback={<div className="flex items-center justify-center h-screen bg-discord-bg text-discord-text-muted"><Spinner /></div>}>
@@ -166,6 +183,13 @@ function ChannelPageContent() {
   const [editContent, setEditContent] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [privateTo, setPrivateTo] = useState<{ id: string; username: string; displayName: string | null } | null>(null);
+  const [userMenuMsg, setUserMenuMsg] = useState<string | null>(null);
+  // @ mention autocomplete
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionResults, setMentionResults] = useState<{ id: string; username: string; displayName: string | null; avatarUrl: string | null; role: string }[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const tasksFetchRef = useRef<AbortController | null>(null);
   const fetchTasksRef = useRef<() => void>(() => { });
@@ -174,6 +198,79 @@ function ChannelPageContent() {
   const [appeals, setAppeals] = useState<any[]>([]);
 
   const isAppealsChannel = slug === "appeals";
+
+  // Close user menu on click outside
+  useEffect(() => {
+    if (!userMenuMsg) return;
+    const close = () => setUserMenuMsg(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [userMenuMsg]);
+
+  // @ mention search with debounce
+  useEffect(() => {
+    if (mentionQuery === null || mentionQuery.length === 0) {
+      setMentionResults([]);
+      return;
+    }
+    if (mentionSearchTimer.current) clearTimeout(mentionSearchTimer.current);
+    mentionSearchTimer.current = setTimeout(() => {
+      fetch(`/api/users/search?q=${encodeURIComponent(mentionQuery)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setMentionResults(data.users || []);
+          setMentionIndex(0);
+        })
+        .catch(() => { });
+    }, 200);
+    return () => {
+      if (mentionSearchTimer.current) clearTimeout(mentionSearchTimer.current);
+    };
+  }, [mentionQuery]);
+
+  // Detect @ in input and extract query
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.slice(0, 2000);
+    setNewMessage(value);
+
+    const cursorPos = e.target.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+    if (atMatch) {
+      setMentionQuery(atMatch[1]);
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  // Insert @mention into the message text
+  const insertMention = (username: string) => {
+    const cursorPos = inputRef.current?.selectionStart ?? newMessage.length;
+    const textBeforeCursor = newMessage.slice(0, cursorPos);
+    const textAfterCursor = newMessage.slice(cursorPos);
+    const atIndex = textBeforeCursor.lastIndexOf("@");
+    const before = newMessage.slice(0, atIndex);
+    const after = textAfterCursor;
+    setNewMessage(`${before}@${username} ${after}`);
+    setMentionQuery(null);
+    setMentionResults([]);
+    inputRef.current?.focus();
+  };
+
+  // Set privateTo from mention dropdown
+  const startPrivateFromMention = (u: { id: string; username: string; displayName: string | null }) => {
+    // Remove the @query from the input text
+    const cursorPos = inputRef.current?.selectionStart ?? newMessage.length;
+    const textBeforeCursor = newMessage.slice(0, cursorPos);
+    const textAfterCursor = newMessage.slice(cursorPos);
+    const atIndex = textBeforeCursor.lastIndexOf("@");
+    const before = newMessage.slice(0, atIndex);
+    setNewMessage(`${before}${textAfterCursor}`.trim());
+    setPrivateTo(u);
+    setMentionQuery(null);
+    setMentionResults([]);
+    inputRef.current?.focus();
+  };
 
   const fetchAppeals = useCallback(() => {
     if (!isAppealsChannel) return;
@@ -221,11 +318,15 @@ function ChannelPageContent() {
     let activeSocket: ReturnType<typeof getSocket> = null;
 
     const handleNewMessage = (msg: Message) => {
+      // Private messages arrive via user room with channelSlug — ignore if not this channel
+      if (msg.channelSlug && msg.channelSlug !== slug) return;
+
       const normalized: Message = {
         ...msg,
         id: msg.id || `ws-${Date.now()}`,
         createdAt: msg.createdAt || new Date().toISOString(),
         replyToId: msg.replyToId || null,
+        privateToUserId: msg.privateToUserId || null,
         replyCount: msg.replyCount || 0,
         user: msg.user || {
           id: "system",
@@ -257,7 +358,8 @@ function ChannelPageContent() {
       fetchTasksRef.current();
     };
 
-    const handleMessageEdit = (data: { id: string; content: string; updatedAt: string }) => {
+    const handleMessageEdit = (data: { id: string; content: string; updatedAt: string; channelSlug?: string }) => {
+      if (data.channelSlug && data.channelSlug !== slug) return;
       setMessages((prev) =>
         prev.map((m) =>
           m.id === data.id ? { ...m, content: data.content, updatedAt: data.updatedAt } : m
@@ -265,7 +367,8 @@ function ChannelPageContent() {
       );
     };
 
-    const handleMessageDelete = (data: { id: string }) => {
+    const handleMessageDelete = (data: { id: string; channelSlug?: string }) => {
+      if (data.channelSlug && data.channelSlug !== slug) return;
       setMessages((prev) =>
         prev.map((m) =>
           m.id === data.id ? { ...m, deletedAt: new Date().toISOString(), content: "" } : m
@@ -314,6 +417,7 @@ function ChannelPageContent() {
         body: JSON.stringify({
           content: newMessage.trim(),
           replyToId: replyingTo?.id || null,
+          privateToUserId: privateTo?.id || null,
         }),
       });
       if (res.ok) {
@@ -335,6 +439,7 @@ function ChannelPageContent() {
         });
         setNewMessage("");
         setReplyingTo(null);
+        setPrivateTo(null);
       }
     } catch {
       // silent fail
@@ -345,8 +450,15 @@ function ChannelPageContent() {
 
   const handleReply = useCallback((msg: Message) => {
     setReplyingTo(msg);
+    // Auto-set privateTo when replying to a private message
+    if (msg.privateToUserId) {
+      const otherUser = msg.user.id === user?.id
+        ? { id: msg.privateToUserId, username: "", displayName: null } // Will show from context
+        : { id: msg.user.id, username: msg.user.username, displayName: msg.user.displayName };
+      setPrivateTo(otherUser);
+    }
     inputRef.current?.focus();
-  }, []);
+  }, [user]);
 
   const toggleThread = useCallback((msgId: string) => {
     setCollapsedThreads((prev) => {
@@ -515,12 +627,16 @@ function ChannelPageContent() {
       );
     }
 
+    const isPrivate = !!msg.privateToUserId;
+
     return (
       <div
         key={msg.id}
-        className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${msg.type === "mod"
-          ? "border-l-2 border-discord-accent pl-4"
-          : ""
+        className={`flex gap-3 py-1 px-2 hover:bg-discord-bg-hover/30 rounded group ${isPrivate
+          ? "border-l-2 border-purple-400 pl-4 bg-purple-500/5"
+          : msg.type === "mod"
+            ? "border-l-2 border-discord-accent pl-4"
+            : ""
           } ${isReply ? "ml-6" : ""}`}
       >
         {/* Avatar with role icon */}
@@ -552,16 +668,49 @@ function ChannelPageContent() {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span
-              className={`font-medium ${isReply ? "text-xs" : "text-sm"} ${ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
-                }`}
-            >
-              {msg.user?.displayName || msg.user?.username || "System"}
+            <span className="relative">
+              <span
+                onClick={() => {
+                  if (msg.user?.id !== user?.id) {
+                    setUserMenuMsg(userMenuMsg === msg.id ? null : msg.id);
+                  }
+                }}
+                className={`font-medium ${isReply ? "text-xs" : "text-sm"} ${ROLE_NAME_COLOR[msg.user?.role] ?? "text-discord-text"
+                  } ${msg.user?.id !== user?.id ? "cursor-pointer hover:underline" : ""}`}
+              >
+                {msg.user?.displayName || msg.user?.username || "System"}
+              </span>
+              {/* Private message dropdown */}
+              {userMenuMsg === msg.id && (
+                <div className="absolute left-0 top-full mt-1 z-50 bg-discord-bg-dark border border-discord-border rounded-lg shadow-xl py-1 min-w-[180px]">
+                  <button
+                    onClick={() => {
+                      setPrivateTo({ id: msg.user.id, username: msg.user.username, displayName: msg.user.displayName });
+                      setUserMenuMsg(null);
+                      inputRef.current?.focus();
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-purple-400 hover:bg-purple-500/10 flex items-center gap-2"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Private Message
+                  </button>
+                </div>
+              )}
             </span>
             {msg.user && (
               <RoleTag role={msg.user.role} small={isReply} />
             )}
-            {msg.type === "mod" && (
+            {isPrivate && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded inline-flex items-center gap-1 font-semibold tracking-wide">
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                PRIVATE
+              </span>
+            )}
+            {msg.type === "mod" && !isPrivate && (
               <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
                 MOD
               </span>
@@ -658,7 +807,7 @@ function ChannelPageContent() {
             </div>
           ) : (
             <p className={`text-discord-text-secondary wrap-break-word ${isReply ? "text-xs" : "text-sm"}`}>
-              {msg.content}
+              {renderContentWithMentions(msg.content)}
             </p>
           )}
         </div>
@@ -813,10 +962,33 @@ function ChannelPageContent() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Private message banner */}
+      {privateTo && canPost && (
+        <div className={`px-4 ${replyingTo ? "" : "pt-2"} bg-discord-bg shrink-0`}>
+          <div className={`flex items-center gap-2 px-3 py-2 bg-discord-bg-dark border-l-2 border-purple-400 text-xs text-discord-text-muted ${replyingTo ? "" : "rounded-t-lg"}`}>
+            <svg className="w-3 h-3 shrink-0 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>
+              Private message to{" "}
+              <span className="font-medium text-purple-400">
+                {privateTo.displayName || privateTo.username}
+              </span>
+            </span>
+            <button
+              onClick={() => setPrivateTo(null)}
+              className="ml-auto text-discord-text-muted hover:text-discord-text shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Reply preview bar */}
       {replyingTo && canPost && (
-        <div className="px-4 pt-2 bg-discord-bg shrink-0">
-          <div className="flex items-center gap-2 px-3 py-2 bg-discord-bg-dark rounded-t-lg border-l-2 border-discord-accent text-xs text-discord-text-muted">
+        <div className={`px-4 ${privateTo ? "" : "pt-2"} bg-discord-bg shrink-0`}>
+          <div className={`flex items-center gap-2 px-3 py-2 bg-discord-bg-dark border-l-2 border-discord-accent text-xs text-discord-text-muted ${privateTo ? "" : "rounded-t-lg"}`}>
             <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
             </svg>
@@ -842,7 +1014,7 @@ function ChannelPageContent() {
       )}
 
       {/* Message input */}
-      <div className={`px-4 pb-4 ${replyingTo && canPost ? "pt-0" : "pt-2"} bg-discord-bg shrink-0`}>
+      <div className={`px-4 pb-4 ${(replyingTo || privateTo) && canPost ? "pt-0" : "pt-2"} bg-discord-bg shrink-0`}>
         {!canPost ? (
           <div className="p-3 bg-discord-bg-dark rounded-lg text-center text-sm text-discord-text-muted border border-discord-border">
             <span className="mr-1.5">🔒</span>
@@ -851,26 +1023,105 @@ function ChannelPageContent() {
               : "You do not have permission to send messages in this channel"}
           </div>
         ) : (
-          <form onSubmit={handleSend} className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value.slice(0, 2000))}
-              maxLength={2000}
-              placeholder={
-                replyingTo
-                  ? `Reply to ${replyingTo.user?.displayName || replyingTo.user?.username}…`
-                  : `Message #${channel?.name || slug}`
-              }
-              className={`w-full p-3 bg-discord-bg-hover text-sm text-discord-text placeholder-discord-text-muted focus:outline-none pr-16 ${replyingTo ? "rounded-b-lg rounded-t-none" : "rounded-lg"
+          <form onSubmit={handleSend} className="flex gap-2">
+            <div className="relative flex-1">
+              {/* @ Mention autocomplete dropdown */}
+              {mentionQuery !== null && mentionResults.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 bg-discord-bg-dark border border-discord-border rounded-lg shadow-xl overflow-hidden z-50 max-h-64 overflow-y-auto">
+                  {mentionResults.map((u, i) => (
+                    <div
+                      key={u.id}
+                      className={`flex items-center gap-2 px-3 py-2 ${i === mentionIndex ? "bg-discord-bg-hover" : ""}`}
+                    >
+                      {/* User info */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {u.avatarUrl ? (
+                          <img src={u.avatarUrl} alt="" className="w-6 h-6 rounded-full shrink-0" />
+                        ) : (
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${ROLE_AVATAR_COLOR[u.role] ?? "bg-discord-accent"}`}>
+                            {(u.displayName || u.username).slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-sm text-discord-text truncate">
+                          {u.displayName || u.username}
+                        </span>
+                        <span className="text-xs text-discord-text-muted truncate">@{u.username}</span>
+                        <RoleTag role={u.role} small />
+                      </div>
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => insertMention(u.username)}
+                          className="text-xs px-2 py-1 rounded bg-discord-accent/20 text-discord-accent hover:bg-discord-accent/30 font-medium"
+                        >
+                          @Mention
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startPrivateFromMention(u)}
+                          className="text-xs px-2 py-1 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 font-medium flex items-center gap-1"
+                        >
+                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          Private
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input
+                ref={inputRef}
+                type="text"
+                value={newMessage}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  // Keyboard navigation for mention dropdown
+                  if (mentionQuery !== null && mentionResults.length > 0) {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setMentionIndex((prev) => Math.min(prev + 1, mentionResults.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setMentionIndex((prev) => Math.max(prev - 1, 0));
+                    } else if (e.key === "Tab" || (e.key === "Enter" && mentionResults.length > 0)) {
+                      e.preventDefault();
+                      insertMention(mentionResults[mentionIndex].username);
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setMentionQuery(null);
+                      setMentionResults([]);
+                    }
+                  }
+                }}
+                maxLength={2000}
+                placeholder={
+                  privateTo
+                    ? `Private message to ${privateTo.displayName || privateTo.username}…`
+                    : replyingTo
+                      ? `Reply to ${replyingTo.user?.displayName || replyingTo.user?.username}…`
+                      : `Message #${channel?.name || slug}`
+                }
+                className={`w-full p-3 bg-discord-bg-hover text-sm text-discord-text placeholder-discord-text-muted focus:outline-none pr-16 ${replyingTo || privateTo ? "rounded-b-lg rounded-t-none" : "rounded-lg"
+                  }`}
+              />
+              {newMessage.length > 1800 && (
+                <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-mono ${newMessage.length >= 2000 ? "text-discord-red" : "text-discord-text-muted"}`}>
+                  {newMessage.length}/2000
+                </span>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={sending || !newMessage.trim()}
+              className={`px-4 py-3 bg-discord-accent text-white text-sm font-medium hover:bg-discord-accent/80 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shrink-0 ${replyingTo || privateTo ? "rounded-b-lg rounded-t-none" : "rounded-lg"
                 }`}
-            />
-            {newMessage.length > 1800 && (
-              <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono ${newMessage.length >= 2000 ? "text-discord-red" : "text-discord-text-muted"}`}>
-                {newMessage.length}/2000
-              </span>
-            )}
+            >
+              {sending && <Spinner />}
+              Send
+            </button>
           </form>
         )}
       </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { channels, messages, users } from "@/db/schema";
 import { eq, asc, sql, isNull } from "drizzle-orm";
+import { getAuthFromCookies } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
@@ -9,6 +10,7 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
+    const auth = await getAuthFromCookies();
 
     // Find channel
     const [channel] = await db
@@ -21,6 +23,11 @@ export async function GET(
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
+    // Build privacy filter: only show private messages to participants
+    const privacyFilter = auth
+      ? sql`AND (${messages.privateToUserId} IS NULL OR ${messages.userId} = ${auth.userId} OR ${messages.privateToUserId} = ${auth.userId})`
+      : sql`AND ${messages.privateToUserId} IS NULL`;
+
     // Get all non-deleted messages with user info (including replies)
     const channelMessages = await db
       .select({
@@ -28,6 +35,7 @@ export async function GET(
         content: messages.content,
         type: messages.type,
         replyToId: messages.replyToId,
+        privateToUserId: messages.privateToUserId,
         createdAt: messages.createdAt,
         updatedAt: messages.updatedAt,
         userId: messages.userId,
@@ -39,12 +47,12 @@ export async function GET(
       .from(messages)
       .innerJoin(users, eq(messages.userId, users.id))
       .where(
-        sql`${messages.channelId} = ${channel.id} AND ${messages.deletedAt} IS NULL`
+        sql`${messages.channelId} = ${channel.id} AND ${messages.deletedAt} IS NULL ${privacyFilter}`
       )
       .orderBy(asc(messages.createdAt))
       .limit(200);
 
-    // Build reply count map: parentId → count (exclude deleted)
+    // Build reply count map: parentId → count (exclude deleted, respect privacy)
     const replyCounts = await db
       .select({
         parentId: messages.replyToId,
@@ -52,7 +60,7 @@ export async function GET(
       })
       .from(messages)
       .where(
-        sql`${messages.channelId} = ${channel.id} AND ${messages.deletedAt} IS NULL`
+        sql`${messages.channelId} = ${channel.id} AND ${messages.deletedAt} IS NULL ${privacyFilter}`
       )
       .groupBy(messages.replyToId);
 
@@ -74,6 +82,7 @@ export async function GET(
         content: m.content,
         type: m.type,
         replyToId: m.replyToId || null,
+        privateToUserId: m.privateToUserId || null,
         replyCount: replyCountMap[m.id] || 0,
         createdAt: m.createdAt,
         updatedAt: m.updatedAt || null,

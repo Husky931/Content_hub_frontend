@@ -295,6 +295,7 @@ export const messages = pgTable(
     type: messageTypeEnum("type").notNull().default("text"),
     content: text("content").notNull(),
     replyToId: uuid("reply_to_id"),
+    privateToUserId: uuid("private_to_user_id").references(() => users.id),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
     deletedAt: timestamp("deleted_at"),
@@ -303,6 +304,7 @@ export const messages = pgTable(
     index("messages_channel_id_idx").on(table.channelId),
     index("messages_created_at_idx").on(table.createdAt),
     index("messages_reply_to_id_idx").on(table.replyToId),
+    index("messages_private_to_user_id_idx").on(table.privateToUserId),
   ]
 );
 
@@ -689,7 +691,8 @@ export const uploadSubmissions = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   tags: many(userTags),
-  messages: many(messages),
+  messages: many(messages, { relationName: "sentMessages" }),
+  privateMessages: many(messages, { relationName: "privateMessages" }),
   sessions: many(sessions),
   moderatedChannels: many(channelMods),
 }));
@@ -727,7 +730,16 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
     fields: [messages.channelId],
     references: [channels.id],
   }),
-  user: one(users, { fields: [messages.userId], references: [users.id] }),
+  user: one(users, {
+    fields: [messages.userId],
+    references: [users.id],
+    relationName: "sentMessages",
+  }),
+  privateToUser: one(users, {
+    fields: [messages.privateToUserId],
+    references: [users.id],
+    relationName: "privateMessages",
+  }),
   replyTo: one(messages, {
     fields: [messages.replyToId],
     references: [messages.id],
