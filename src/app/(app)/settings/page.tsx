@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
+import { useTranslations } from "next-intl";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [saving, setSaving] = useState(false);
@@ -28,9 +31,9 @@ export default function SettingsPage() {
         return;
       }
       await refreshUser();
-      setMessage({ type: "success", text: "Profile updated successfully" });
+      setMessage({ type: "success", text: t("profileUpdated") });
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      setMessage({ type: "error", text: tc("somethingWentWrong") });
     } finally {
       setSaving(false);
     }
@@ -38,25 +41,25 @@ export default function SettingsPage() {
 
   if (!user) return null;
 
-  const currencyLabel = user.currency === "usd" ? "US Dollar (USD)" : user.currency === "rmb" ? "Chinese Yuan (RMB)" : "Not set";
+  const currencyLabel = user.currency === "usd" ? t("currencyUsd") : user.currency === "rmb" ? t("currencyRmb") : t("currencyNotSet");
 
   return (
     <div className="flex-1 overflow-y-auto bg-discord-bg">
       <div className="max-w-2xl mx-auto p-6">
         {/* Account Info (read-only) */}
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-discord-text mb-4">Account</h3>
+          <h3 className="text-lg font-semibold text-discord-text mb-4">{t("account")}</h3>
           <div className="bg-discord-bg-dark rounded-lg p-4 space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-discord-text-muted">Email</span>
+              <span className="text-sm text-discord-text-muted">{t("email")}</span>
               <span className="text-sm text-discord-text">{user.email}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-discord-text-muted">Username</span>
+              <span className="text-sm text-discord-text-muted">{t("username")}</span>
               <span className="text-sm text-discord-text">{user.username}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-discord-text-muted">Role</span>
+              <span className="text-sm text-discord-text-muted">{t("role")}</span>
               <span className={`text-sm px-2 py-0.5 rounded ${
                 user.role === "admin"
                   ? "bg-red-500/20 text-red-300"
@@ -70,7 +73,7 @@ export default function SettingsPage() {
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-discord-text-muted">Currency</span>
+              <span className="text-sm text-discord-text-muted">{t("currency")}</span>
               <span className="text-sm text-discord-text">{currencyLabel}</span>
             </div>
           </div>
@@ -78,11 +81,11 @@ export default function SettingsPage() {
 
         {/* Profile Form */}
         <div>
-          <h3 className="text-lg font-semibold text-discord-text mb-4">Profile</h3>
+          <h3 className="text-lg font-semibold text-discord-text mb-4">{t("profile")}</h3>
           <form onSubmit={handleSave} className="bg-discord-bg-dark rounded-lg p-4 space-y-4">
             <div>
               <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                Display Name
+                {t("displayName")}
               </label>
               <input
                 type="text"
@@ -96,12 +99,12 @@ export default function SettingsPage() {
 
             <div>
               <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                Bio
+                {t("bio")}
               </label>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="Tell us about yourself..."
+                placeholder={t("bioPlaceholder")}
                 rows={4}
                 maxLength={500}
                 className="w-full p-3 bg-discord-bg rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:ring-2 focus:ring-discord-accent resize-none"
@@ -119,7 +122,7 @@ export default function SettingsPage() {
               disabled={saving}
               className="px-6 py-2 bg-discord-accent hover:bg-discord-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 text-sm flex items-center gap-1"
             >
-              <ButtonSpinner loading={saving}>Save Changes</ButtonSpinner>
+              <ButtonSpinner loading={saving}>{tc("save")}</ButtonSpinner>
             </button>
           </form>
         </div>

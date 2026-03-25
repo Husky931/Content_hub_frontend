@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { UserPanel } from "./UserPanel";
+import { useTranslations } from "next-intl";
 import { getSocket, WS_EVENTS } from "@/lib/realtime";
 
 interface Channel {
@@ -21,6 +22,7 @@ interface Channel {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
@@ -61,6 +63,13 @@ export function Sidebar() {
     return () => window.removeEventListener("focus", onFocus);
   }, [fetchChannels]);
 
+  // Refetch channels when admin creates/edits/deletes a channel from settings
+  useEffect(() => {
+    const handler = () => fetchChannels();
+    window.addEventListener("channels-updated", handler);
+    return () => window.removeEventListener("channels-updated", handler);
+  }, [fetchChannels]);
+
   // Refetch channels on real-time notifications (e.g. new appeal filed → badge updates)
   useEffect(() => {
     const s = getSocket();
@@ -86,17 +95,17 @@ export function Sidebar() {
     return "#";
   };
 
-  const toggleCollapsed = (title: string) => {
-    setCollapsed((prev) => ({ ...prev, [title]: !prev[title] }));
+  const toggleCollapsed = (key: string) => {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const renderChannelGroup = (title: string, items: Channel[]) => {
+  const renderChannelGroup = (key: string, title: string, items: Channel[]) => {
     if (items.length === 0) return null;
-    const isCollapsed = collapsed[title];
+    const isCollapsed = collapsed[key];
     return (
       <div className="mb-4">
         <button
-          onClick={() => toggleCollapsed(title)}
+          onClick={() => toggleCollapsed(key)}
           className="w-full flex items-center gap-1 px-3 mb-1 group"
         >
           <svg
@@ -146,7 +155,7 @@ export function Sidebar() {
 
                 {/* Tag-gated lock indicator */}
                 {ch.type === "task" && ch.requiredTagId && !ch.hasAccess && (
-                  <span className="ml-auto text-discord-text-muted" title="Requires tag to interact">
+                  <span className="ml-auto text-discord-text-muted" title={t("requiresTag")}>
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -155,7 +164,7 @@ export function Sidebar() {
                 {/* Tag indicator for accessible tag-gated channels */}
                 {ch.type === "task" && ch.requiredTagId && ch.hasAccess && (
                   <span className="ml-auto text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
-                    tag
+                    {t("tag")}
                   </span>
                 )}
               </Link>
@@ -170,15 +179,15 @@ export function Sidebar() {
       {/* Server header */}
       <div className="h-12 px-4 flex items-center border-b border-discord-bg-darker shadow-sm">
         <h2 className="font-semibold text-discord-text truncate">
-          Creator Hub
+          {t("creatorHub")}
         </h2>
       </div>
 
       {/* Channel list */}
       <div className="flex-1 overflow-y-auto pt-3">
-        {renderChannelGroup("Special", specialChannels)}
-        {renderChannelGroup("Task Channels", taskChannels)}
-        {renderChannelGroup("Discussion", discussionChannels)}
+        {renderChannelGroup("special", t("special"), specialChannels)}
+        {renderChannelGroup("task", t("taskChannels"), taskChannels)}
+        {renderChannelGroup("discussion", t("discussion"), discussionChannels)}
       </div>
 
       {/* User panel */}

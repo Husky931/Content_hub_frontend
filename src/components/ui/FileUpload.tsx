@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Spinner } from "./Spinner";
+import { useTranslations } from "next-intl";
 
 export interface UploadedFile {
   name: string;
@@ -46,6 +47,7 @@ export function FileUpload({
   label,
   compact = false,
 }: FileUploadProps) {
+  const t = useTranslations("common");
   const [uploading, setUploading] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -85,7 +87,7 @@ export function FileUpload({
     async (file: File): Promise<UploadedFile | null> => {
       const maxBytes = maxSizeMb * 1024 * 1024;
       if (file.size > maxBytes) {
-        setError(`"${file.name}" exceeds ${maxSizeMb} MB limit`);
+        setError(t("fileSizeExceeded", { fileName: file.name, maxSizeMb }));
         return null;
       }
 
@@ -192,7 +194,7 @@ export function FileUpload({
           delete next[tempId];
           return next;
         });
-        setError(err.message || "Upload failed");
+        setError(err.message || t("uploadFailed"));
         return null;
       }
     },
@@ -204,7 +206,7 @@ export function FileUpload({
       setError("");
       const remaining = maxFiles - files.length;
       if (remaining <= 0) {
-        setError(`Maximum ${maxFiles} files allowed`);
+        setError(t("maxFilesAllowed", { maxFiles }));
         return;
       }
 
@@ -273,12 +275,12 @@ export function FileUpload({
         />
         <p className={`text-discord-text-muted ${compact ? "text-xs" : "text-sm"}`}>
           {isUploading
-            ? "Uploading..."
-            : `Drag & drop files here or click to browse`}
+            ? t("uploading")
+            : t("dragDrop")}
         </p>
         {!compact && (
           <p className="text-xs text-discord-text-muted mt-1">
-            Max {maxSizeMb} MB per file · {maxFiles - files.length} slots remaining
+            {t("maxFileSize", { maxSizeMb, remaining: maxFiles - files.length })}
           </p>
         )}
       </div>
@@ -372,6 +374,7 @@ export function FilePreviewList({
   files: UploadedFile[];
   label?: string;
 }) {
+  const t = useTranslations("common");
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const hasOssFiles = files?.some((f) => isOssUrl(f.url)) ?? false;
   const [loading, setLoading] = useState(hasOssFiles);
@@ -430,7 +433,7 @@ export function FilePreviewList({
       )}
       {loading && (
         <div className="flex items-center gap-2 text-xs text-discord-text-muted mb-2">
-          <Spinner /> Loading file previews…
+          <Spinner /> {t("loadingFilePreviews")}
         </div>
       )}
       <div className="space-y-2">
@@ -457,7 +460,7 @@ export function FilePreviewList({
                     rel="noopener noreferrer"
                     className="text-xs px-2 py-1 bg-discord-accent/20 text-discord-accent rounded hover:bg-discord-accent/30 transition"
                   >
-                    Download
+                    {t("download")}
                   </a>
                 )}
               </div>

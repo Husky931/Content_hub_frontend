@@ -4,21 +4,17 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
+import { useTranslations, useLocale } from "next-intl";
 import { getSocket, onSocketReady, WS_EVENTS } from "@/lib/realtime";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/tasks": "Task List",
-  "/financials": "Financials",
-  "/notifications": "Notifications",
-  "/review": "Review Tasks",
-  "/settings": "Settings",
-};
 
 export function ChannelNavbar() {
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { openSettings } = useSettingsModal();
+  const t = useTranslations("nav");
+  const tc = useTranslations("common");
+  const locale = useLocale();
 
   const [walletBalance, setWalletBalance] = useState<{ usd: string; rmb: string } | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -32,6 +28,14 @@ export function ChannelNavbar() {
   const channelMatch = pathname.match(/^\/channels\/([^/]+)/);
   const currentSlug = channelMatch?.[1];
   const isChannelPage = !!currentSlug;
+
+  const PAGE_TITLES: Record<string, string> = {
+    "/tasks": t("taskList"),
+    "/financials": t("financials"),
+    "/notifications": t("notifications"),
+    "/review": t("reviewTasks"),
+    "/settings": t("settings"),
+  };
 
   // Fetch wallet balance once, then listen for real-time updates
   useEffect(() => {
@@ -134,7 +138,25 @@ export function ChannelNavbar() {
   // Title to display
   const displayTitle = isChannelPage
     ? channelName || currentSlug
-    : PAGE_TITLES[pathname] || "Creator Hub";
+    : PAGE_TITLES[pathname] || t("creatorHub");
+
+  const handleToggleLocale = async () => {
+    const newLocale = locale === "en" ? "zh" : "en";
+    // Set cookie immediately for next-intl
+    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=${365 * 24 * 60 * 60};samesite=lax`;
+    // Persist to DB if authenticated
+    try {
+      await fetch("/api/settings/locale", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale: newLocale }),
+      });
+    } catch {
+      // Cookie already set, so UI will still switch
+    }
+    // Reload to apply new locale
+    window.location.reload();
+  };
 
   return (
     <div className="h-12 px-4 flex items-center border-b border-discord-bg-darker shadow-sm bg-discord-bg shrink-0 gap-3">
@@ -154,13 +176,26 @@ export function ChannelNavbar() {
         )}
       </div>
 
-      {/* Right side: wallet, bell, user dropdown */}
+      {/* Right side: locale toggle, wallet, bell, user dropdown */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Language toggle */}
+        <button
+          onClick={handleToggleLocale}
+          className="flex items-center bg-discord-bg-dark border border-discord-border rounded-lg p-0.5"
+        >
+          <span className={`px-2 py-0.5 rounded text-xs font-semibold transition ${locale === "en" ? "bg-discord-accent text-white" : "text-discord-text-muted"}`}>
+            {tc("en")}
+          </span>
+          <span className={`px-2 py-0.5 rounded text-xs font-semibold transition ${locale === "zh" ? "bg-discord-accent text-white" : "text-discord-text-muted"}`}>
+            {tc("zh")}
+          </span>
+        </button>
+
         {/* Wallet balance button — always visible */}
         <button
           onClick={() => router.push("/financials")}
           className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded transition"
-          title="View Financials"
+          title={t("viewFinancials")}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -175,7 +210,7 @@ export function ChannelNavbar() {
             ? "text-discord-red hover:text-red-300"
             : "text-discord-text-muted hover:text-discord-text"
             }`}
-          title="Notifications"
+          title={t("notifications")}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -222,7 +257,7 @@ export function ChannelNavbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Settings
+                {t("settings")}
               </button>
               <button
                 onClick={() => { setDropdownOpen(false); router.push("/tasks"); }}
@@ -231,7 +266,7 @@ export function ChannelNavbar() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
-                Task List
+                {t("taskList")}
               </button>
               <button
                 onClick={() => { setDropdownOpen(false); router.push("/financials"); }}
@@ -240,7 +275,7 @@ export function ChannelNavbar() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Financials
+                {t("financials")}
               </button>
               <button
                 onClick={() => { setDropdownOpen(false); router.push("/notifications"); }}
@@ -249,7 +284,7 @@ export function ChannelNavbar() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                Notifications
+                {t("notifications")}
                 {unreadCount > 0 && (
                   <span className="ml-auto text-xs px-1.5 py-0.5 bg-discord-red text-white rounded-full">
                     {unreadCount}
@@ -265,7 +300,7 @@ export function ChannelNavbar() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Review Tasks
+                  {t("reviewTasks")}
                 </button>
               )}
             </div>

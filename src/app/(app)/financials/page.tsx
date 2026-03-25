@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface LedgerEntry {
@@ -52,15 +53,17 @@ interface PayoutUser {
   tasks: PayoutTask[];
 }
 
-const ENTRY_STYLES: Record<string, { color: string; label: string }> = {
-  task_earning: { color: "text-green-400", label: "Earning" },
-  bonus: { color: "text-amber-400", label: "Bonus" },
-  adjustment: { color: "text-blue-400", label: "Adjustment" },
-  payout: { color: "text-red-400", label: "Payout" },
+const ENTRY_STYLES: Record<string, { color: string; labelKey: string }> = {
+  task_earning: { color: "text-green-400", labelKey: "earning" },
+  bonus: { color: "text-amber-400", labelKey: "bonus" },
+  adjustment: { color: "text-blue-400", labelKey: "adjustment" },
+  payout: { color: "text-red-400", labelKey: "payout" },
 };
 
 export default function FinancialsPage() {
   const { user } = useAuth();
+  const t = useTranslations("financials");
+  const tc = useTranslations("common");
 
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -181,7 +184,7 @@ export default function FinancialsPage() {
                 : "text-discord-text-muted hover:text-discord-text"
             }`}
           >
-            USD
+            {t("usd")}
           </button>
           <button
             onClick={() => setCurrency("rmb")}
@@ -191,14 +194,14 @@ export default function FinancialsPage() {
                 : "text-discord-text-muted hover:text-discord-text"
             }`}
           >
-            RMB
+            {t("rmb")}
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <p className="text-center text-discord-text-muted py-8">Loading...</p>
+          <p className="text-center text-discord-text-muted py-8">{tc("loading")}</p>
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Wallet Summary Cards */}
@@ -206,7 +209,7 @@ export default function FinancialsPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-discord-sidebar rounded-lg p-4 border border-discord-border">
                   <p className="text-xs text-discord-text-muted uppercase mb-1">
-                    Available Balance
+                    {t("availableBalance")}
                   </p>
                   <p className="text-2xl font-bold text-green-400">
                     {currency === "rmb"
@@ -216,7 +219,7 @@ export default function FinancialsPage() {
                 </div>
                 <div className="bg-discord-sidebar rounded-lg p-4 border border-discord-border">
                   <p className="text-xs text-discord-text-muted uppercase mb-1">
-                    Total Earned
+                    {t("totalEarned")}
                   </p>
                   <p className="text-2xl font-bold text-discord-text">
                     {currency === "rmb"
@@ -226,7 +229,7 @@ export default function FinancialsPage() {
                 </div>
                 <div className="bg-discord-sidebar rounded-lg p-4 border border-discord-border">
                   <p className="text-xs text-discord-text-muted uppercase mb-1">
-                    Total Paid Out
+                    {t("totalPaidOut")}
                   </p>
                   <p className="text-2xl font-bold text-discord-text-secondary">
                     {currency === "rmb"
@@ -242,7 +245,7 @@ export default function FinancialsPage() {
               <div className="bg-discord-sidebar rounded-lg p-4 border border-discord-border">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-discord-text uppercase">
-                    Admin: Payouts Owed
+                    {t("adminPayoutsOwed")}
                   </h3>
                   <button
                     onClick={handleExecutePayouts}
@@ -253,15 +256,15 @@ export default function FinancialsPage() {
                         : "bg-green-600/30 text-white/40 cursor-not-allowed"
                     }`}
                   >
-                    Execute Payouts{selectedPayouts.length > 0 ? ` (${selectedPayouts.length})` : ""}
+                    {t("executePayouts")}{selectedPayouts.length > 0 ? ` (${selectedPayouts.length})` : ""}
                   </button>
                 </div>
 
                 {payoutLoading ? (
-                  <p className="text-sm text-discord-text-muted">Loading...</p>
+                  <p className="text-sm text-discord-text-muted">{tc("loading")}</p>
                 ) : payouts.length === 0 ? (
                   <p className="text-sm text-discord-text-muted">
-                    No payouts pending
+                    {t("noPayoutsPending")}
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -300,26 +303,26 @@ export default function FinancialsPage() {
                         </div>
                         {expandedUsers.includes(p.userId) && p.tasks && p.tasks.length > 0 && (
                           <div className="ml-10 mr-3 mb-1 border-l-2 border-discord-border pl-3 space-y-0.5">
-                            {p.tasks.map((t, i) => (
+                            {p.tasks.map((task, i) => (
                               <div
                                 key={i}
                                 className="flex items-center gap-2 py-1 text-xs text-discord-text-muted"
                               >
-                                <span className="text-discord-text-secondary truncate max-w-[200px]" title={t.taskTitle}>
-                                  {t.taskTitle}
+                                <span className="text-discord-text-secondary truncate max-w-[200px]" title={task.taskTitle}>
+                                  {task.taskTitle}
                                 </span>
                                 <span className="text-discord-text-muted">·</span>
-                                <span className="text-discord-text-muted">#{t.channel}</span>
+                                <span className="text-discord-text-muted">#{task.channel}</span>
                                 <span className="text-discord-text-muted">·</span>
                                 <span className="text-discord-text-muted">
-                                  {t.approvedBy ? `approved by ${t.approvedBy}` : `created by ${t.createdBy}`}
+                                  {task.approvedBy ? `approved by ${task.approvedBy}` : `created by ${task.createdBy}`}
                                 </span>
                                 <span className="text-discord-text-muted">·</span>
                                 <span className="text-discord-text-muted">
-                                  {new Date(t.approvedAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+                                  {new Date(task.approvedAt).toLocaleDateString([], { month: "short", day: "numeric" })}
                                 </span>
                                 <span className="ml-auto text-green-400 font-medium">
-                                  ${t.amountUsd}
+                                  ${task.amountUsd}
                                 </span>
                               </div>
                             ))}
@@ -336,13 +339,13 @@ export default function FinancialsPage() {
             {canViewPayments && (
               <div className="bg-discord-sidebar rounded-lg p-4 border border-discord-border">
                 <h3 className="text-sm font-semibold text-discord-text uppercase mb-3">
-                  Paid History
+                  {t("paidHistory")}
                 </h3>
                 {paidHistoryLoading ? (
-                  <p className="text-sm text-discord-text-muted">Loading...</p>
+                  <p className="text-sm text-discord-text-muted">{tc("loading")}</p>
                 ) : paidHistory.length === 0 ? (
                   <p className="text-sm text-discord-text-muted">
-                    No payouts executed yet
+                    {t("noPaidHistory")}
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -379,22 +382,22 @@ export default function FinancialsPage() {
             <div className="bg-discord-sidebar rounded-lg p-4 border border-discord-border">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-discord-text uppercase">
-                  Transaction History
+                  {t("ledgerHistory")}
                 </h3>
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
                   className="text-xs px-2 py-1 bg-discord-bg border border-discord-border rounded text-discord-text"
                 >
-                  <option value="">All Types</option>
-                  <option value="task_earning">Earnings</option>
-                  <option value="bonus">Bonuses</option>
-                  <option value="payout">Payouts</option>
+                  <option value="">{t("allTypes")}</option>
+                  <option value="task_earning">{t("earning")}</option>
+                  <option value="bonus">{t("bonus")}</option>
+                  <option value="payout">{t("payout")}</option>
                 </select>
               </div>
               {filteredEntries.length === 0 ? (
                 <p className="text-sm text-discord-text-muted text-center py-4">
-                  No transactions yet
+                  {t("noLedger")}
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -414,7 +417,7 @@ export default function FinancialsPage() {
                               : "bg-green-500/20"
                           } ${style.color}`}
                         >
-                          {style.label}
+                          {t(style.labelKey)}
                         </span>
                         <span className="text-sm text-discord-text-secondary flex-1 truncate">
                           {entry.description}

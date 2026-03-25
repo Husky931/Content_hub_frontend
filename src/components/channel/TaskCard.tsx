@@ -7,6 +7,7 @@ import { FileUpload, FilePreviewList, type UploadedFile } from "@/components/ui/
 import { useRouter } from "next/navigation";
 import type { DeliverableSlot } from "@/types/deliverable-slot";
 import { slotTypeLabel, slotTypeIcon, isUploadType, SLOT_TYPE_BADGE } from "@/types/deliverable-slot";
+import { useTranslations } from "next-intl";
 
 /** Per-slot deliverable data submitted by creator */
 export interface SlotDeliverable {
@@ -72,32 +73,38 @@ interface TaskCardProps {
   defaultExpanded?: boolean;
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  draft: { bg: "bg-gray-500/20", text: "text-gray-400", label: "Draft" },
-  active: { bg: "bg-green-500/20", text: "text-green-400", label: "Active" },
-  locked: { bg: "bg-amber-500/20", text: "text-amber-300", label: "Locked" },
-  approved: { bg: "bg-blue-500/20", text: "text-blue-400", label: "Approved" },
-  paid: { bg: "bg-discord-text-muted/20", text: "text-discord-text-muted", label: "Paid" },
-  archived: { bg: "bg-gray-500/20", text: "text-gray-500", label: "Archived" },
+const STATUS_STYLE_CLASSES: Record<string, { bg: string; text: string; key: string }> = {
+  draft: { bg: "bg-gray-500/20", text: "text-gray-400", key: "draft" },
+  active: { bg: "bg-green-500/20", text: "text-green-400", key: "active" },
+  locked: { bg: "bg-amber-500/20", text: "text-amber-300", key: "locked" },
+  approved: { bg: "bg-blue-500/20", text: "text-blue-400", key: "approved" },
+  paid: { bg: "bg-discord-text-muted/20", text: "text-discord-text-muted", key: "paid" },
+  archived: { bg: "bg-gray-500/20", text: "text-gray-500", key: "archived" },
 };
 
-function formatRelativeDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+function useFormatRelativeDate() {
+  const t = useTranslations("taskCard");
+  return (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t("justNow");
+    if (mins < 60) return t("minutesAgo", { mins });
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return t("hoursAgo", { hours });
+    const days = Math.floor(hours / 24);
+    if (days < 7) return t("daysAgo", { days });
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
 }
 
 export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCardProps) {
   const { user } = useAuth();
   const router = useRouter();
+  const t = useTranslations("taskCard");
+  const tTasks = useTranslations("tasks");
+  const formatRelativeDate = useFormatRelativeDate();
   const cardRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
 
@@ -143,7 +150,8 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
     }
   }, [task.myAttempt?.appealStatus]);
 
-  const statusStyle = STATUS_STYLES[task.status] || STATUS_STYLES.draft;
+  const statusStyleDef = STATUS_STYLE_CLASSES[task.status] || STATUS_STYLE_CLASSES.draft;
+  const statusStyle = { bg: statusStyleDef.bg, text: statusStyleDef.text, label: tTasks(statusStyleDef.key as any) };
   const isReviewer = ["admin", "supermod", "mod"].includes(user?.role ?? "");
 
   const submittedCount = task.submittedCount || 0;
@@ -169,12 +177,12 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
     const update = () => {
       const diff = new Date(task.lockExpiresAt!).getTime() - Date.now();
       if (diff <= 0) {
-        setLockTimeLeft("Expired");
+        setLockTimeLeft(t("expired"));
         return;
       }
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
-      setLockTimeLeft(`${h}h ${m}m remaining`);
+      setLockTimeLeft(`${h}h ${m}m`);
     };
     update();
     const iv = setInterval(update, 60000);
@@ -188,10 +196,10 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
         const d = new Date(task.deadline);
         const now = new Date();
         const diff = d.getTime() - now.getTime();
-        if (diff < 0) return "Expired";
+        if (diff < 0) return t("expired");
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        if (days === 0) return "Due today";
-        return `${days} day${days !== 1 ? "s" : ""} left`;
+        if (days === 0) return t("dueToday");
+        return t("daysLeft", { days });
       })()
     : null;
 
@@ -220,10 +228,10 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
     for (const slot of task.deliverableSlots!) {
       if (slot.required === false) continue; // skip optional slots
       if (isUploadType(slot.type) && slot.type !== "upload-text") {
-        if (!(slotFiles[slot.id]?.length)) return `Slot "${slot.title || slotTypeLabel(slot.type)}": file required`;
+        if (!(slotFiles[slot.id]?.length)) return t("slotFileRequired", { slotName: slot.title || slotTypeLabel(slot.type) });
       }
       if (slot.type === "textbox") {
-        if (!slotTexts[slot.id]?.trim()) return `Slot "${slot.title || "Textbox"}": text required`;
+        if (!slotTexts[slot.id]?.trim()) return t("slotTextRequired", { slotName: slot.title || "Textbox" });
       }
     }
     return null;
@@ -234,7 +242,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       const slotErr = validateSlotDeliverables();
       if (slotErr) { setError(slotErr); return; }
     } else if (!deliverableText.trim() && deliverableFiles.length === 0) {
-      setError("Please enter text or upload files");
+      setError(t("pleaseEnterTextOrFiles"));
       return;
     }
     setSubmitting(true);
@@ -255,7 +263,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to submit");
+        setError(data.error || t("failedToSubmit"));
         return;
       }
       setDeliverableText("");
@@ -264,7 +272,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       setExpanded(false);
       onAttemptSubmitted?.();
     } catch {
-      setError("Network error");
+      setError(t("networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -276,7 +284,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       const slotErr = validateSlotDeliverables();
       if (slotErr) { setError(slotErr); return; }
     } else if (!deliverableText.trim() && deliverableFiles.length === 0) {
-      setError("Please enter text or upload files");
+      setError(t("pleaseEnterTextOrFiles"));
       return;
     }
     setSubmitting(true);
@@ -300,13 +308,13 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       );
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to update");
+        setError(data.error || t("failedToUpdate"));
         return;
       }
       setEditing(false);
       onAttemptSubmitted?.();
     } catch {
-      setError("Network error");
+      setError(t("networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -323,12 +331,12 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       );
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || "Failed to delete");
+        setError(data.error || t("failedToDelete"));
         return;
       }
       onAttemptSubmitted?.();
     } catch {
-      setError("Network error");
+      setError(t("networkError"));
     } finally {
       setDeleting(false);
     }
@@ -336,7 +344,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
 
   const handleAppeal = async () => {
     if (appealReason.trim().length < 20) {
-      setAppealError("Appeal reason must be at least 20 characters");
+      setAppealError(t("appealMinChars"));
       return;
     }
     setAppealSubmitting(true);
@@ -352,14 +360,14 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       });
       const data = await res.json();
       if (!res.ok) {
-        setAppealError(data.error || "Failed to file appeal");
+        setAppealError(data.error || t("failedToFileAppeal"));
         return;
       }
       setAppealFiled(true);
       setShowAppealForm(false);
       setAppealReason("");
     } catch {
-      setAppealError("Network error");
+      setAppealError(t("networkError"));
     } finally {
       setAppealSubmitting(false);
     }
@@ -374,24 +382,24 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       {/* Task header row 1: badges + title */}
       <div className="px-4 pt-3 pb-1 flex items-center gap-2">
         <span className="text-xs font-bold px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded uppercase">
-          Task
+          {t("task")}
         </span>
         <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}>
           {statusStyle.label}
         </span>
         {task.source === "backend" && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">
-            SYNCED
+            {t("synced")}
           </span>
         )}
         {task.bonusBountyUsd && parseFloat(task.bonusBountyUsd) > 0 && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
-            TIERED
+            {t("tiered")}
           </span>
         )}
         {task.myAttempt?.appealStatus === "granted" && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-semibold">
-            APPEAL UPHELD
+            {t("appealUpheld")}
           </span>
         )}
         <h4 className="font-semibold text-sm text-discord-text flex-1 truncate ml-1">
@@ -405,7 +413,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          Posted by <span className="text-discord-text-secondary font-medium">{creatorName}</span>
+          {t("postedBy")} <span className="text-discord-text-secondary font-medium">{creatorName}</span>
         </span>
         {task.createdAt && (
           <span className="flex items-center gap-1">
@@ -442,7 +450,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
             <span>
-              {task.attachments.length} reference file{task.attachments.length !== 1 ? "s" : ""}
+              {t("referenceFiles", { count: task.attachments.length })}
               <span className="ml-1 text-discord-text-muted/70">
                 ({task.attachments.map((a) => {
                   const ext = a.name.split(".").pop()?.toUpperCase();
@@ -463,11 +471,11 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
             </svg>
             {isLockedForMe ? (
               <span className="text-xs text-amber-300 font-medium">
-                Locked for you — submit your revision. {lockTimeLeft && <span className="text-amber-400/70">({lockTimeLeft})</span>}
+                {t("lockedForYou")} {lockTimeLeft && <span className="text-amber-400/70">({lockTimeLeft})</span>}
               </span>
             ) : (
               <span className="text-xs text-amber-300/70">
-                Locked for exclusive revision. {lockTimeLeft && <span>({lockTimeLeft})</span>}
+                {t("lockedExclusive")} {lockTimeLeft && <span>({lockTimeLeft})</span>}
               </span>
             )}
           </div>
@@ -490,19 +498,19 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
 
         {task.bonusBountyUsd && parseFloat(task.bonusBountyUsd) > 0 && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
-            +${task.bonusBountyUsd} bonus
+            {t("bonus", { amount: task.bonusBountyUsd })}
           </span>
         )}
 
         <span className="text-xs text-discord-text-muted">
-          {task.myAttemptCount ?? task.attemptCount}/{task.maxAttempts} attempts
+          {t("attempts", { used: task.myAttemptCount ?? task.attemptCount, max: task.maxAttempts })}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Pending Review badge when user has submitted */}
           {hasSubmittedAttempt && (
             <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
-              ⏳ Pending Review
+              ⏳ {t("pendingReview")}
             </span>
           )}
           {/* View Task button — always available for active/locked tasks */}
@@ -515,12 +523,12 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                 "bg-green-600 hover:bg-green-700"
               } text-white rounded font-semibold transition cursor-pointer`}
             >
-              {expanded ? "Close" : isLockedForMe ? "Submit Revision" : "View Task"}
+              {expanded ? t("close") : isLockedForMe ? t("submitRevision") : t("viewTask")}
             </button>
           )}
           {submittedCount > 0 && (
             <span className="text-xs text-discord-text-muted">
-              {submittedCount} submitted
+              {t("submitted", { count: submittedCount })}
             </span>
           )}
           {reviewClaimedBy && (
@@ -529,7 +537,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              Being reviewed by {reviewClaimedBy}
+              {t("beingReviewedBy", { name: reviewClaimedBy })}
             </span>
           )}
           {isReviewer && submittedCount > 0 && (
@@ -538,7 +546,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
               disabled={!!reviewClaimedBy}
               className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
             >
-              Review
+              {t("review")}
             </button>
           )}
         </div>
@@ -555,9 +563,9 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
           {/* ── Meta Stats Row ── */}
           <div className="px-4 py-2.5 flex flex-wrap gap-4 text-xs text-discord-text-muted border-b border-discord-border/30">
             {deadlineStr && <span className="flex items-center gap-1">🕐 {deadlineStr}</span>}
-            <span className="flex items-center gap-1">👥 {task.submittedCount || 0} others submitted</span>
+            <span className="flex items-center gap-1">👥 {t("othersSubmitted", { count: task.submittedCount || 0 })}</span>
             <span className={`flex items-center gap-1 font-medium ${(task.maxAttempts - (task.myAttemptCount || 0)) <= 1 ? "text-red-400" : ""}`}>
-              🔄 {task.maxAttempts - (task.myAttemptCount || 0)} attempt{(task.maxAttempts - (task.myAttemptCount || 0)) !== 1 ? "s" : ""} remaining
+              🔄 {t("attemptsRemaining", { count: task.maxAttempts - (task.myAttemptCount || 0) })}
             </span>
             <span className="flex items-center gap-1"># {task.channelSlug}</span>
           </div>
@@ -567,7 +575,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
             <div className="px-4 py-3 border-b border-discord-border/30">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-lg">📋</span>
-                <h4 className="text-base font-semibold text-discord-text">Requirements</h4>
+                <h4 className="text-base font-semibold text-discord-text">{t("requirements")}</h4>
               </div>
               <div className="space-y-0.5">
                 {task.checklist.map((item, i) => (
@@ -584,10 +592,10 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
             <div className="px-4 py-3 border-b border-discord-border/30">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-lg">📝</span>
-                <h4 className="text-base font-semibold text-discord-text">Self-Checklist</h4>
-                <span className="text-xs text-discord-text-muted">(guidance)</span>
+                <h4 className="text-base font-semibold text-discord-text">{t("selfChecklist")}</h4>
+                <span className="text-xs text-discord-text-muted">{t("selfChecklistGuidance")}</span>
               </div>
-              <p className="text-xs text-discord-text-muted mb-2 pl-7">Verify these before submitting — this is guidance only, no need to click.</p>
+              <p className="text-xs text-discord-text-muted mb-2 pl-7">{t("selfChecklistHint")}</p>
               <div className="space-y-1 pl-7">
                 {task.selfChecklist.map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm text-discord-text-secondary">
@@ -603,7 +611,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
             <div className="px-4 py-3 border-b border-discord-border/30">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-lg">📎</span>
-                <h4 className="text-base font-semibold text-discord-text">Attachments</h4>
+                <h4 className="text-base font-semibold text-discord-text">{t("attachments")}</h4>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {task.attachments.map((f, i) => (
@@ -617,16 +625,16 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
           <div className="px-4 py-3 border-b border-discord-border/30">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">👥</span>
-              <h4 className="text-base font-semibold text-discord-text">Others Currently Attempting</h4>
+              <h4 className="text-base font-semibold text-discord-text">{t("othersAttempting")}</h4>
               <span className="px-2 py-0.5 bg-discord-bg-hover rounded-full text-[10px] font-bold text-discord-text-muted">{task.othersAttempting?.length || 0}</span>
             </div>
             <p className="text-xs text-discord-text-muted mb-2.5 pl-7">
-              You can only see attempts that are pending review. Rejected attempts are not shown to other creators.
+              {t("othersAttemptingHint")}
             </p>
             {(!task.othersAttempting || task.othersAttempting.length === 0) ? (
               <div className="flex flex-col items-center py-4 text-discord-text-muted">
                 <span className="text-lg mb-1">📭</span>
-                <span className="text-xs">No other creators are currently attempting this task.</span>
+                <span className="text-xs">{t("noOthersAttempting")}</span>
               </div>
             ) : (
               <div className="space-y-1.5">
@@ -647,11 +655,11 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-discord-text">{name}</div>
                         <div className="text-xs text-discord-text-muted">
-                          Submitted {formatRelativeDate(other.createdAt)}
+                          {t("submittedTime", { time: formatRelativeDate(other.createdAt) })}
                         </div>
                       </div>
                       <span className="shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
-                        ⏳ Pending Review
+                        ⏳ {t("pendingReview")}
                       </span>
                     </div>
                   );
@@ -664,23 +672,23 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
           <div className="px-4 py-3 border-b border-discord-border/30">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">🕘</span>
-              <h4 className="text-base font-semibold text-discord-text">Your Previous Attempts</h4>
+              <h4 className="text-base font-semibold text-discord-text">{t("yourPreviousAttempts")}</h4>
               <span className="px-2 py-0.5 bg-discord-bg-hover rounded-full text-[10px] font-bold text-discord-text-muted">{task.myAllAttempts?.length || 0}</span>
             </div>
             {(!task.myAllAttempts || task.myAllAttempts.length === 0) ? (
               <div className="flex flex-col items-center py-4 text-discord-text-muted">
                 <span className="text-lg mb-1">📭</span>
-                <span className="text-xs">No previous attempts. This will be your first submission.</span>
+                <span className="text-xs">{t("noAttempts")}</span>
               </div>
             ) : (
               <div className="space-y-2.5">
                 {task.myAllAttempts.map((attempt, i) => {
                   const statusConfig: Record<string, { cardBg: string; border: string; leftBorder: string; label: string; icon: string; tagClass: string }> = {
-                    submitted: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-amber-500", label: "Pending Review", icon: "⏳", tagClass: "border-amber-500/30 bg-amber-500/10 text-amber-400" },
-                    approved: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-green-500", label: "Approved", icon: "✅", tagClass: "border-green-500/30 bg-green-500/10 text-green-400" },
-                    rejected: { cardBg: "bg-red-500/5", border: "border-red-500/20", leftBorder: "border-l-red-500", label: "Rejected", icon: "❌", tagClass: "border-red-500/30 bg-red-500/10 text-red-400" },
-                    blocked: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-gray-500", label: "Blocked", icon: "🚫", tagClass: "border-gray-500/30 bg-gray-500/10 text-gray-400" },
-                    paid: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-blue-500", label: "Paid", icon: "💰", tagClass: "border-blue-500/30 bg-blue-500/10 text-blue-400" },
+                    submitted: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-amber-500", label: t("pendingReview"), icon: "⏳", tagClass: "border-amber-500/30 bg-amber-500/10 text-amber-400" },
+                    approved: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-green-500", label: tTasks("approved"), icon: "✅", tagClass: "border-green-500/30 bg-green-500/10 text-green-400" },
+                    rejected: { cardBg: "bg-red-500/5", border: "border-red-500/20", leftBorder: "border-l-red-500", label: tTasks("rejected"), icon: "❌", tagClass: "border-red-500/30 bg-red-500/10 text-red-400" },
+                    blocked: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-gray-500", label: tTasks("blocked"), icon: "🚫", tagClass: "border-gray-500/30 bg-gray-500/10 text-gray-400" },
+                    paid: { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-blue-500", label: tTasks("paid"), icon: "💰", tagClass: "border-blue-500/30 bg-blue-500/10 text-blue-400" },
                   };
                   const sc = statusConfig[attempt.status] || { cardBg: "bg-discord-bg-dark", border: "border-discord-border", leftBorder: "border-l-gray-500", label: attempt.status, icon: "❓", tagClass: "border-gray-500/30 bg-gray-500/10 text-gray-400" };
 
@@ -730,7 +738,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                       {creatorNote && (
                         <div className="mx-4 mb-2.5 px-3 py-2 rounded-lg bg-discord-sidebar/60 border border-discord-border/50">
                           <div className="text-xs text-discord-text-secondary">
-                            <span className="font-semibold text-discord-text-muted">📝 Your note:</span>{" "}
+                            <span className="font-semibold text-discord-text-muted">📝 {t("yourNote")}</span>{" "}
                             {creatorNote}
                           </div>
                         </div>
@@ -739,12 +747,12 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                       {/* Rejection reason */}
                       {attempt.status === "rejected" && attempt.rejectionReason && (
                         <div className="mx-4 mb-2.5 px-3 py-2.5 rounded-lg bg-red-500/8 border border-red-500/20">
-                          <div className="text-[10px] font-bold text-red-400 uppercase mb-1">❌ Reason for rejection:</div>
+                          <div className="text-[10px] font-bold text-red-400 uppercase mb-1">❌ {t("rejectionReasonLabel")}</div>
                           <div className="text-sm text-discord-text">{attempt.rejectionReason}</div>
                           {/* Mod note inside rejection block */}
                           {attempt.reviewNote && (
                             <div className="mt-2 text-xs text-discord-text-muted">
-                              <span className="font-semibold">🛡 Mod note:</span> {attempt.reviewNote}
+                              <span className="font-semibold">🛡 {t("modNote")}</span> {attempt.reviewNote}
                             </div>
                           )}
                         </div>
@@ -754,7 +762,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                       {attempt.status !== "rejected" && attempt.reviewNote && (
                         <div className="mx-4 mb-2.5 px-3 py-2 rounded-lg bg-discord-sidebar/60 border border-discord-border/50">
                           <div className="text-xs text-discord-text-muted">
-                            <span className="font-semibold">🛡 Mod note:</span> {attempt.reviewNote}
+                            <span className="font-semibold">🛡 {t("modNote")}</span> {attempt.reviewNote}
                           </div>
                         </div>
                       )}
@@ -762,13 +770,13 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                       {/* Pending notice */}
                       {attempt.status === "submitted" && (
                         <div className="mx-4 mb-2.5 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/15">
-                          <div className="text-xs text-amber-400/80">⏳ This attempt is currently under review. You&apos;ll be notified when a mod reviews it.</div>
+                          <div className="text-xs text-amber-400/80">⏳ {t("pendingReviewNotice")}</div>
                         </div>
                       )}
                     </div>
                   );
                 })}
-                <p className="text-xs text-discord-text-muted mt-1 pl-1">🔒 Only you and moderators can see your rejection details. Other creators cannot see your submissions.</p>
+                <p className="text-xs text-discord-text-muted mt-1 pl-1">🔒 {t("privacyNote")}</p>
               </div>
             )}
           </div>
@@ -778,7 +786,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
             <div className="px-4 py-2.5 border-b border-discord-border/30 space-y-2">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">📤</span>
-                <h4 className="text-base font-semibold text-discord-text">Current Submission</h4>
+                <h4 className="text-base font-semibold text-discord-text">{t("currentSubmission")}</h4>
               </div>
               {myAttempt?.deliverables?.text && (
                 <div className="text-xs text-discord-text-secondary bg-discord-bg-dark p-2 rounded border border-discord-border whitespace-pre-wrap">{myAttempt.deliverables.text}</div>
@@ -811,10 +819,10 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                     setEditing(true);
                     setError("");
                   }}
-                    className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer">Edit</button>
+                    className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer">{t("edit")}</button>
                   <button onClick={handleDelete} disabled={deleting}
                     className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1">
-                    <ButtonSpinner loading={deleting}>Delete</ButtonSpinner>
+                    <ButtonSpinner loading={deleting}>{t("delete")}</ButtonSpinner>
                   </button>
                 </div>
               )}
@@ -826,7 +834,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
             <div className="px-4 py-3 border-b border-discord-border/30 space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">✏️</span>
-                <h4 className="text-base font-semibold text-discord-text">Edit Submission</h4>
+                <h4 className="text-base font-semibold text-discord-text">{t("editSubmission")}</h4>
               </div>
               {hasSlots ? (
                 <div className="space-y-2">
@@ -839,14 +847,14 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                   ))}
                 </div>
               ) : (
-                <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label="Upload files" compact />
+                <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label={t("uploadFiles")} compact />
               )}
-              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder="Notes for reviewer (optional)..." className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none" rows={2} />
+              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder={t("notesForReviewer")} className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none" rows={2} />
               {error && <p className="text-xs text-discord-red mt-1">{error}</p>}
               <div className="flex gap-2">
-                <button onClick={() => { setEditing(false); setError(""); }} className="flex-1 py-2 text-xs bg-discord-bg-hover text-discord-text-muted rounded-lg font-semibold hover:bg-discord-border transition cursor-pointer">Cancel</button>
+                <button onClick={() => { setEditing(false); setError(""); }} className="flex-1 py-2 text-xs bg-discord-bg-hover text-discord-text-muted rounded-lg font-semibold hover:bg-discord-border transition cursor-pointer">{t("cancel")}</button>
                 <button onClick={handleEdit} disabled={submitting} className="flex-1 py-2 text-xs bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg font-semibold transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1">
-                  <ButtonSpinner loading={submitting}>Save Changes</ButtonSpinner>
+                  <ButtonSpinner loading={submitting}>{t("saveChanges")}</ButtonSpinner>
                 </button>
               </div>
             </div>
@@ -857,7 +865,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
             <div className="px-4 py-3 space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">⬆</span>
-                <h4 className="text-base font-semibold text-discord-text">Submit New Attempt</h4>
+                <h4 className="text-base font-semibold text-discord-text">{t("submitNewAttempt")}</h4>
               </div>
               {/* Attempts gauge */}
               {(() => {
@@ -867,11 +875,11 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                 const pct = Math.min((used / max) * 100, 100);
                 return (
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="text-discord-text-muted shrink-0 font-medium">Attempts: {used}/{max}</span>
+                    <span className="text-discord-text-muted shrink-0 font-medium">{t("attemptsGauge", { used, max })}</span>
                     <div className="flex-1 h-2 bg-discord-border rounded-full overflow-hidden">
                       <div className={`h-full rounded-full transition-all ${remaining <= 1 ? "bg-red-500" : remaining <= 2 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${pct}%` }} />
                     </div>
-                    {remaining <= 1 && remaining > 0 && <span className="text-red-400 font-bold">Last attempt!</span>}
+                    {remaining <= 1 && remaining > 0 && <span className="text-red-400 font-bold">{t("lastAttempt")}</span>}
                   </div>
                 );
               })()}
@@ -887,17 +895,17 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                   ))}
                 </div>
               ) : (
-                <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label="Upload your deliverables" compact />
+                <FileUpload files={deliverableFiles} onFilesChange={setDeliverableFiles} context="attempt-deliverable" maxFiles={10} maxSizeMb={100} label={t("uploadDeliverables")} compact />
               )}
-              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder="Notes for reviewer (optional)..."
+              <textarea value={deliverableText} onChange={(e) => setDeliverableText(e.target.value)} placeholder={t("notesForReviewer")}
                 className="w-full p-2 bg-discord-bg-dark border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none" rows={2} />
               {error && <p className="text-xs text-discord-red mt-1">{error}</p>}
               <div className="flex gap-2">
                 <button onClick={() => { setExpanded(false); setDeliverableFiles([]); setSlotTexts({}); setSlotFiles({}); setSlotSelections({}); setSlotRatings({}); setError(""); }}
-                  className="flex-1 py-2 text-xs bg-discord-bg-hover text-discord-text-muted rounded-lg font-semibold hover:bg-discord-border transition cursor-pointer">Cancel</button>
+                  className="flex-1 py-2 text-xs bg-discord-bg-hover text-discord-text-muted rounded-lg font-semibold hover:bg-discord-border transition cursor-pointer">{t("cancel")}</button>
                 <button onClick={handleSubmit} disabled={submitting || (task.maxAttempts - (task.myAttemptCount || 0)) <= 0}
                   className="flex-1 py-2 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1">
-                  <ButtonSpinner loading={submitting}>{isLockedForMe ? "Submit Revision" : "Submit Attempt"}</ButtonSpinner>
+                  <ButtonSpinner loading={submitting}>{isLockedForMe ? t("submitRevision") : t("submitAttempt")}</ButtonSpinner>
                 </button>
               </div>
             </div>
@@ -910,47 +918,47 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
         <div className="px-4 py-2 bg-red-500/5 border-t border-discord-border/50">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
-              Rejected
+              {t("rejected")}
             </span>
             <span className="text-xs text-discord-text-muted flex-1">
-              Your previous submission was rejected — you can submit again
+              {t("rejectedSubmitAgain")}
             </span>
             {!appealFiled && !appealDenied && !showAppealForm && (
               <button
                 onClick={() => setShowAppealForm(true)}
                 className="text-xs px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded font-semibold transition"
               >
-                Appeal
+                {t("appeal")}
               </button>
             )}
             {appealFiled && (
               <span className="text-xs px-2.5 py-1 bg-amber-500/10 text-amber-400/70 rounded font-semibold">
-                Appeal Submitted
+                {t("appealSubmitted")}
               </span>
             )}
             {appealDenied && (
               <span className="text-xs px-2.5 py-1 bg-red-500/10 text-red-400/70 rounded font-semibold">
-                Appeal Denied
+                {t("appealDenied")}
               </span>
             )}
           </div>
           {appealFiled && (
-            <p className="text-xs text-green-400 mt-1">Appeal filed. A moderator will review it.</p>
+            <p className="text-xs text-green-400 mt-1">{t("appealFiled")}</p>
           )}
           {appealDenied && (
-            <p className="text-xs text-red-400/70 mt-1">Your appeal was denied by a moderator.</p>
+            <p className="text-xs text-red-400/70 mt-1">{t("appealDeniedByMod")}</p>
           )}
 
           {/* Appeal form */}
           {showAppealForm && (
             <div className="mt-2 p-3 bg-discord-bg-dark rounded-lg border border-discord-border/50">
               <p className="text-xs text-discord-text-muted mb-2">
-                Explain why you believe the rejection was unfair (min 20 chars):
+                {t("appealExplain")}
               </p>
               <textarea
                 value={appealReason}
                 onChange={(e) => setAppealReason(e.target.value)}
-                placeholder="I believe the rejection was unfair because..."
+                placeholder={t("appealPlaceholder")}
                 className="w-full p-2 bg-discord-bg-hover rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none resize-none"
                 rows={3}
               />
@@ -970,14 +978,14 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
                     }}
                     className="text-xs px-3 py-1 bg-discord-bg-hover text-discord-text-muted rounded hover:text-discord-text transition"
                   >
-                    Cancel
+                    {t("cancel")}
                   </button>
                   <button
                     onClick={handleAppeal}
                     disabled={appealSubmitting || appealReason.trim().length < 20}
                     className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold transition disabled:opacity-50 flex items-center gap-1"
                   >
-                    <ButtonSpinner loading={appealSubmitting}>File Appeal</ButtonSpinner>
+                    <ButtonSpinner loading={appealSubmitting}>{t("fileAppeal")}</ButtonSpinner>
                   </button>
                 </div>
               </div>
@@ -992,6 +1000,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
 /* ── Attachment pill with signed URL ──────────────────────────────────────── */
 
 function AttachmentPill({ file }: { file: { name: string; url: string; type: string; size: number } }) {
+  const t = useTranslations("taskCard");
   const [loading, setLoading] = useState(false);
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
@@ -1032,7 +1041,7 @@ function AttachmentPill({ file }: { file: { name: string; url: string; type: str
     >
       <span>{iconMap[ext] || "📁"}</span>
       <span>{file.name}</span>
-      {loading && <span className="text-[10px] text-discord-text-muted animate-pulse">opening...</span>}
+      {loading && <span className="text-[10px] text-discord-text-muted animate-pulse">{t("opening")}</span>}
     </button>
   );
 }
@@ -1062,6 +1071,8 @@ function SlotSubmissionField({
   rating?: number;
   onRatingChange: (r: number) => void;
 }) {
+  const t = useTranslations("taskCard");
+
   const acceptMap: Record<string, string> = {
     "upload-audio": "audio/*",
     "upload-video": "video/*",
@@ -1081,7 +1092,7 @@ function SlotSubmissionField({
       <div className="flex items-center gap-1.5 mb-2">
         <span className="text-base">{slotTypeIcon(slot.type)}</span>
         <span className="text-[10px] font-bold text-discord-text-muted">
-          SLOT {index + 1}
+          {t("slot", { index: index + 1 })}
         </span>
         <span
           className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -1091,7 +1102,7 @@ function SlotSubmissionField({
           {slotTypeLabel(slot.type)}
         </span>
         <span className="text-xs font-medium text-discord-text ml-1">
-          {slot.title || "(untitled)"}
+          {slot.title || t("untitled")}
         </span>
       </div>
 
@@ -1125,7 +1136,7 @@ function SlotSubmissionField({
           maxFiles={slot.type === "upload-video" ? 1 : 5}
           maxSizeMb={slot.maxFileSize ? Number(slot.maxFileSize) * (slot.maxFileSizeUnit === "GB" ? 1024 : slot.maxFileSizeUnit === "KB" ? 0.001 : 1) : 100}
           accept={slot.type === "upload-other" ? slot.fileExtensions?.split(",").map((e) => e.trim()).join(",") : acceptMap[slot.type]}
-          label={`Upload ${slotTypeLabel(slot.type).toLowerCase()}`}
+          label={t("uploadSlotLabel", { type: slotTypeLabel(slot.type).toLowerCase() })}
           compact
         />
       )}
@@ -1135,7 +1146,7 @@ function SlotSubmissionField({
         <textarea
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
-          placeholder="Or paste your text here..."
+          placeholder={t("pasteTextHere")}
           className="w-full mt-1.5 p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
           rows={3}
         />
@@ -1146,7 +1157,7 @@ function SlotSubmissionField({
         <textarea
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
-          placeholder="Enter your response..."
+          placeholder={t("enterYourResponse")}
           className="w-full p-2 bg-discord-bg border border-discord-border rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
           rows={4}
         />
@@ -1179,10 +1190,10 @@ function SlotSubmissionField({
           ))}
           {(slot.minSelections || slot.maxSelections) && (
             <p className="text-[10px] text-discord-text-muted mt-1">
-              {slot.minSelections ? `Min: ${slot.minSelections}` : ""}
+              {slot.minSelections ? t("min", { min: slot.minSelections }) : ""}
               {slot.minSelections && slot.maxSelections ? " · " : ""}
-              {slot.maxSelections ? `Max: ${slot.maxSelections}` : ""}
-              {" · "}Selected: {selections.length}
+              {slot.maxSelections ? t("max", { max: slot.maxSelections }) : ""}
+              {" · "}{t("selected", { count: selections.length })}
             </p>
           )}
         </div>

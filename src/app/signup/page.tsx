@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
+import { useTranslations } from "next-intl";
 
 type SignupMethod = "email" | "phone";
 
 export default function SignupPage() {
   const router = useRouter();
   const { signup, refreshUser } = useAuth();
+  const t = useTranslations("auth");
+  const tn = useTranslations("nav");
+  const tc = useTranslations("common");
   const [method, setMethod] = useState<SignupMethod>("email");
 
   // Shared
@@ -50,7 +54,7 @@ export default function SignupPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to send OTP");
+        setError(data.error || t("failedSendOtp"));
       } else {
         setOtpSent(true);
         // 60s cooldown
@@ -80,7 +84,7 @@ export default function SignupPage() {
       if (result.error) {
         setError(result.error);
       } else {
-        setSuccess("Account created! Check your email to verify your account.");
+        setSuccess(t("accountCreatedEmail"));
         if (result.devVerifyUrl) setDevVerifyUrl(result.devVerifyUrl);
       }
     } else {
@@ -93,15 +97,15 @@ export default function SignupPage() {
         const data = await res.json();
         setLoading(false);
         if (!res.ok) {
-          setError(data.error || "Signup failed");
+          setError(data.error || t("signupFailed"));
         } else {
-          setSuccess("Account created! Redirecting…");
+          setSuccess(t("accountCreatedRedirect"));
           await refreshUser();
           setTimeout(() => router.push("/"), 1500);
         }
       } catch {
         setLoading(false);
-        setError("Network error, please try again.");
+        setError(tc("networkError"));
       }
     }
   };
@@ -111,8 +115,8 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="bg-discord-bg rounded-lg shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-discord-text">Join Creator Hub</h1>
-            <p className="text-sm text-discord-text-secondary mt-2">You need an invite code to register</p>
+            <h1 className="text-2xl font-bold text-discord-text">{t("joinCreatorHub")}</h1>
+            <p className="text-sm text-discord-text-secondary mt-2">{t("inviteCodeRequired")}</p>
           </div>
 
           {/* Method toggle */}
@@ -126,7 +130,7 @@ export default function SignupPage() {
                     : "text-discord-text-secondary hover:text-discord-text"
                   }`}
               >
-                Email
+                {t("email")}
               </button>
               <button
                 type="button"
@@ -136,7 +140,7 @@ export default function SignupPage() {
                     : "text-discord-text-secondary hover:text-discord-text"
                   }`}
               >
-                Phone (中国)
+                {t("phoneChina")}
               </button>
             </div>
           </div>
@@ -152,19 +156,11 @@ export default function SignupPage() {
                 {success}
               </div>
             )}
-            {/* {devVerifyUrl && process.env.NODE_ENV === "development" && (
-              <div className="p-3 bg-discord-accent/10 border border-discord-accent/30 rounded-lg text-sm">
-                <p className="text-discord-text-secondary mb-1 font-semibold">DEV: Click to verify</p>
-                <a href={devVerifyUrl} className="text-discord-accent hover:underline break-all text-xs">
-                  {devVerifyUrl}
-                </a>
-              </div>
-            )} */}
 
             {/* Invite code — always shown */}
             <div>
               <label className="block text-sm font-medium mb-2 text-discord-text-secondary uppercase tracking-wide">
-                Invite Code
+                {t("inviteCode")}
               </label>
               <input
                 type="text"
@@ -179,11 +175,11 @@ export default function SignupPage() {
             {method === "email" ? (
               <>
                 <div className="text-xs font-semibold text-discord-text-muted uppercase tracking-wider pt-1">
-                  Email + Password
+                  {t("emailPassword")}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-discord-text-secondary uppercase tracking-wide">
-                    Email
+                    {t("email")}
                   </label>
                   <input
                     type="email"
@@ -196,7 +192,7 @@ export default function SignupPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-discord-text-secondary uppercase tracking-wide">
-                    Username
+                    {t("username")}
                   </label>
                   <input
                     type="text"
@@ -209,7 +205,7 @@ export default function SignupPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-discord-text-secondary uppercase tracking-wide">
-                    Password
+                    {t("password")}
                   </label>
                   <input
                     type="password"
@@ -220,17 +216,17 @@ export default function SignupPage() {
                     minLength={8}
                     required
                   />
-                  <p className="text-xs text-discord-text-muted mt-1">Minimum 8 characters</p>
+                  <p className="text-xs text-discord-text-muted mt-1">{t("minPassword")}</p>
                 </div>
               </>
             ) : (
               <>
                 <div className="text-xs font-semibold text-discord-text-muted uppercase tracking-wider pt-1">
-                  Phone + OTP
+                  {t("phoneOtp")}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-discord-text-secondary uppercase tracking-wide">
-                    Phone
+                    {t("phone")}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -248,13 +244,13 @@ export default function SignupPage() {
                       className="px-3 py-2 bg-discord-bg-dark border border-discord-border text-discord-text-secondary rounded-lg text-sm hover:bg-discord-bg-darker transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 whitespace-nowrap"
                     >
                       {otpLoading ? <Spinner /> : null}
-                      {otpCooldown > 0 ? `${otpCooldown}s` : otpSent ? "Resend" : "Send OTP"}
+                      {otpCooldown > 0 ? `${otpCooldown}s` : otpSent ? t("resend") : t("sendOtp")}
                     </button>
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-discord-text-secondary uppercase tracking-wide">
-                    OTP Code
+                    {t("otpCode")}
                   </label>
                   <input
                     type="text"
@@ -268,7 +264,7 @@ export default function SignupPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-discord-text-secondary uppercase tracking-wide">
-                    Username
+                    {t("username")}
                   </label>
                   <input
                     type="text"
@@ -288,14 +284,14 @@ export default function SignupPage() {
               className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
             >
               {loading ? <Spinner /> : null}
-              Create Account
+              {t("createAccount")}
             </button>
           </form>
 
           <p className="text-center text-sm text-discord-text-muted mt-6">
-            Already have an account?{" "}
+            {t("haveAccount")}{" "}
             <Link href="/login" className="text-discord-accent hover:underline">
-              Sign in
+              {t("signInLink")}
             </Link>
           </p>
         </div>

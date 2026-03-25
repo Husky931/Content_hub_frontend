@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ButtonSpinner } from "@/components/ui/Spinner";
+import { useTranslations } from "next-intl";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -20,13 +21,17 @@ export function ConfirmDialog({
   open,
   onClose,
   onConfirm,
-  title = "Confirm",
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  title,
+  confirmText,
+  cancelText,
   variant = "danger",
   loading = false,
   children,
 }: ConfirmDialogProps) {
+  const t = useTranslations("common");
+  const resolvedTitle = title ?? t("confirm");
+  const resolvedConfirmText = confirmText ?? t("confirm");
+  const resolvedCancelText = cancelText ?? t("cancel");
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,7 +65,7 @@ export function ConfirmDialog({
       >
         {/* Header */}
         <div className="px-4 pt-5 pb-0">
-          <h3 className="text-xl font-bold text-discord-text">{title}</h3>
+          <h3 className="text-xl font-bold text-discord-text">{resolvedTitle}</h3>
         </div>
 
         {/* Body */}
@@ -75,14 +80,14 @@ export function ConfirmDialog({
             disabled={loading}
             className="px-4 py-2.5 text-sm font-medium text-discord-text bg-discord-bg-light hover:bg-discord-bg-hover rounded transition"
           >
-            {cancelText}
+            {resolvedCancelText}
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
             className={`px-4 py-2.5 text-sm text-white font-medium rounded transition disabled:opacity-50 flex items-center gap-1.5 ${confirmCls}`}
           >
-            <ButtonSpinner loading={loading}>{confirmText}</ButtonSpinner>
+            <ButtonSpinner loading={loading}>{resolvedConfirmText}</ButtonSpinner>
           </button>
         </div>
       </div>

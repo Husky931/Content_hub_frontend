@@ -129,6 +129,7 @@ export const users = pgTable(
     onboardingCompleted: boolean("onboarding_completed")
       .notNull()
       .default(false),
+    locale: varchar("locale", { length: 10 }).notNull().default("en"),
     banReason: text("ban_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

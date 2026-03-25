@@ -70,6 +70,21 @@ async function resetTestData() {
   const d5 = await db.delete(tasks).returning({ id: tasks.id });
   console.log(`    ${d5.length} rows deleted`);
 
+  // 2b. Clear messages in #appeals channel
+  const [appealsChannel] = await db
+    .select({ id: channels.id })
+    .from(channels)
+    .where(eq(channels.slug, "appeals"));
+
+  if (appealsChannel) {
+    console.log("  Deleting messages in #appeals...");
+    const dA = await db
+      .delete(messages)
+      .where(eq(messages.channelId, appealsChannel.id))
+      .returning({ id: messages.id });
+    console.log(`    ${dA.length} rows deleted`);
+  }
+
   // 3. Delete messages & mods only for task channels
   if (taskChannelIds.length > 0) {
     console.log("  Deleting messages in task channels...");
@@ -176,10 +191,9 @@ async function resetTestData() {
       .returning({ id: channelReads.id });
     console.log(`    ${d15.length} rows deleted`);
 
-    console.log("  Deleting messages by non-admin users...");
+    console.log("  Deleting all remaining messages...");
     const d16a = await db
       .delete(messages)
-      .where(ne(messages.userId, adminId))
       .returning({ id: messages.id });
     console.log(`    ${d16a.length} rows deleted`);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { Spinner, ButtonSpinner } from "@/components/ui/Spinner";
@@ -38,9 +39,10 @@ const ROLE_BADGE: Record<string, string> = {
 };
 
 function RoleBadge({ role }: { role: string }) {
+  const t = useTranslations("roles");
   return (
     <span className={`text-xs px-2 py-0.5 rounded font-medium ${ROLE_BADGE[role] ?? "bg-gray-500/20 text-gray-300"}`}>
-      {role.charAt(0).toUpperCase() + role.slice(1)}
+      {t(role as "creator" | "mod" | "supermod" | "admin")}
     </span>
   );
 }
@@ -53,17 +55,18 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function MyAccountSection() {
   const { user } = useAuth();
+  const t = useTranslations("settings");
   if (!user) return null;
 
   const initials = (user.displayName || user.username).slice(0, 2).toUpperCase();
   const currencyLabel =
-    user.currency === "usd" ? "US Dollar (USD)"
-      : user.currency === "rmb" ? "Chinese Yuan (RMB)"
-        : "Not set";
+    user.currency === "usd" ? t("currencyUsd")
+      : user.currency === "rmb" ? t("currencyRmb")
+        : t("currencyNotSet");
 
   return (
     <div className="max-w-2xl">
-      <SectionTitle>My Account</SectionTitle>
+      <SectionTitle>{t("myAccount")}</SectionTitle>
 
       <div className="bg-discord-bg-dark rounded-xl overflow-hidden shadow-lg">
         {/* Banner */}
@@ -92,10 +95,10 @@ function MyAccountSection() {
         {/* Info rows */}
         <div className="border-t border-discord-bg-darker/60 divide-y divide-discord-bg-darker/40">
           {[
-            { label: "Display Name", value: user.displayName || "—" },
+            { label: t("displayName"), value: user.displayName || "—" },
             { label: "Username", value: user.username },
             { label: "Email", value: user.email },
-            { label: "Currency", value: currencyLabel },
+            { label: t("currency"), value: currencyLabel },
           ].map(({ label, value }) => (
             <div key={label} className="px-6 py-4">
               <div className="text-xs font-semibold uppercase tracking-widest text-discord-text-muted mb-1">{label}</div>
@@ -104,7 +107,7 @@ function MyAccountSection() {
           ))}
           {/* Tags row */}
           <div className="px-6 py-4">
-            <div className="text-xs font-semibold uppercase tracking-widest text-discord-text-muted mb-2">Tags</div>
+            <div className="text-xs font-semibold uppercase tracking-widest text-discord-text-muted mb-2">{t("tags")}</div>
             {user.tags && user.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {user.tags.map((tag) => (
@@ -120,7 +123,7 @@ function MyAccountSection() {
                 ))}
               </div>
             ) : (
-              <span className="text-sm text-discord-text-muted">No tags assigned</span>
+              <span className="text-sm text-discord-text-muted">{t("noTags")}</span>
             )}
           </div>
         </div>
@@ -133,6 +136,8 @@ function MyAccountSection() {
 
 function ProfileSection() {
   const { user, refreshUser } = useAuth();
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [saving, setSaving] = useState(false);
@@ -162,9 +167,9 @@ function ProfileSection() {
       const data = await res.json();
       if (!res.ok) { setMessage({ type: "error", text: data.error }); return; }
       await refreshUser();
-      setMessage({ type: "success", text: "Profile saved successfully." });
+      setMessage({ type: "success", text: t("profileSaved") });
     } catch {
-      setMessage({ type: "error", text: "Something went wrong." });
+      setMessage({ type: "error", text: tc("somethingWentWrong") });
     } finally {
       setSaving(false);
     }
@@ -182,9 +187,9 @@ function ProfileSection() {
       const data = await res.json();
       if (!res.ok) { setMessage({ type: "error", text: data.error }); return; }
       await refreshUser();
-      setMessage({ type: "success", text: "Avatar updated." });
+      setMessage({ type: "success", text: t("avatarUpdated") });
     } catch {
-      setMessage({ type: "error", text: "Upload failed." });
+      setMessage({ type: "error", text: t("uploadFailed") });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -200,15 +205,15 @@ function ProfileSection() {
 
   return (
     <div>
-      <SectionTitle>Profile</SectionTitle>
+      <SectionTitle>{t("profile")}</SectionTitle>
       <p className="text-sm text-discord-text-muted mb-8 -mt-2">
-        Customize your public profile. Changes are auto-moderated and applied instantly if approved.
+        {t("customizeProfile")}
       </p>
 
       <div className="flex gap-8">
         {/* Live preview */}
         <div className="w-52 shrink-0">
-          <div className="text-xs font-bold uppercase tracking-widest text-discord-text-muted mb-3">Preview</div>
+          <div className="text-xs font-bold uppercase tracking-widest text-discord-text-muted mb-3">{t("preview")}</div>
           <div className="bg-discord-bg-dark rounded-xl overflow-hidden shadow-lg border border-discord-bg-darker/40">
             <div className="h-14 bg-linear-to-r from-discord-accent/50 to-indigo-600/40" />
             <div className="px-4 pb-5">
@@ -236,7 +241,7 @@ function ProfileSection() {
         <form onSubmit={handleSave} className="flex-1 min-w-0 space-y-6">
           {/* Avatar */}
           <div>
-            <label className="block text-sm font-semibold text-discord-text mb-3">Avatar</label>
+            <label className="block text-sm font-semibold text-discord-text mb-3">{t("avatar")}</label>
             <div className="flex items-center gap-5">
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-16 h-16 rounded-full shrink-0 ring-2 ring-discord-accent/30" />
@@ -254,7 +259,7 @@ function ProfileSection() {
                     disabled={uploading}
                     className="px-4 py-2 bg-discord-accent hover:bg-discord-accent-hover text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center gap-1"
                   >
-                    <ButtonSpinner loading={uploading}>Upload New</ButtonSpinner>
+                    <ButtonSpinner loading={uploading}>{tc("uploadNew")}</ButtonSpinner>
                   </button>
                   {user.avatarUrl && (
                     <button
@@ -262,18 +267,18 @@ function ProfileSection() {
                       onClick={handleRemoveAvatar}
                       className="px-4 py-2 bg-discord-bg-hover hover:bg-discord-bg text-discord-text-secondary text-sm font-semibold rounded-md transition-colors border border-discord-border"
                     >
-                      Remove
+                      {tc("remove")}
                     </button>
                   )}
                 </div>
-                <p className="text-xs text-discord-text-muted">PNG or JPG · Max 2 MB · Min 128×128 px</p>
+                <p className="text-xs text-discord-text-muted">{t("avatarHint")}</p>
               </div>
             </div>
           </div>
 
           {/* Display Name */}
           <div>
-            <label className="block text-sm font-semibold text-discord-text mb-2">Display Name</label>
+            <label className="block text-sm font-semibold text-discord-text mb-2">{t("displayName")}</label>
             <input
               type="text"
               value={displayName}
@@ -282,32 +287,32 @@ function ProfileSection() {
               maxLength={20}
               className="w-full px-4 py-2.5 bg-discord-bg-dark rounded-md text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:ring-2 focus:ring-discord-accent border border-discord-bg-darker/60 focus:border-discord-accent"
             />
-            <p className="mt-1.5 text-xs text-discord-text-muted">Alphanumeric and underscores only, 3–20 characters.</p>
+            <p className="mt-1.5 text-xs text-discord-text-muted">{t("displayNameHint")}</p>
           </div>
 
           {/* Bio */}
           <div>
-            <label className="block text-sm font-semibold text-discord-text mb-2">Bio</label>
+            <label className="block text-sm font-semibold text-discord-text mb-2">{t("bio")}</label>
             <div className="relative">
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 rows={4}
                 maxLength={300}
-                placeholder="Tell us about yourself..."
+                placeholder={t("bioPlaceholder")}
                 className="w-full px-4 py-2.5 bg-discord-bg-dark rounded-md text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:ring-2 focus:ring-discord-accent resize-none border border-discord-bg-darker/60 focus:border-discord-accent"
               />
               <span className="absolute bottom-3 right-3 text-xs text-discord-text-muted select-none">{bio.length}/300</span>
             </div>
             <div className="mt-3 p-4 bg-discord-bg-dark rounded-md border border-discord-bg-darker/60">
-              <div className="text-xs font-semibold text-discord-accent mb-2">LLM Auto-Moderation</div>
+              <div className="text-xs font-semibold text-discord-accent mb-2">{t("bioRulesTitle")}</div>
               <div className="text-xs text-discord-text-muted space-y-1.5">
-                <div className="text-discord-text-secondary">Bio text is checked automatically. The following will be rejected:</div>
-                <div className="text-discord-red">✗ Advertisements or product promotions</div>
-                <div className="text-discord-red">✗ Adult / NSFW content</div>
-                <div className="text-discord-red">✗ Spam or promotional links (affiliate links, referral codes)</div>
-                <div className="text-discord-red">✗ Hate speech or harassment</div>
-                <div className="text-discord-green">✓ Social media links are allowed (Twitter, Instagram, YouTube, etc.)</div>
+                <div className="text-discord-text-secondary">{t("bioRulesIntro")}</div>
+                <div className="text-discord-red">✗ {t("bioRuleAds")}</div>
+                <div className="text-discord-red">✗ {t("bioRuleNsfw")}</div>
+                <div className="text-discord-red">✗ {t("bioRuleSpam")}</div>
+                <div className="text-discord-red">✗ {t("bioRuleHate")}</div>
+                <div className="text-discord-green">✓ {t("bioRuleSocial")}</div>
               </div>
             </div>
           </div>
@@ -319,7 +324,7 @@ function ProfileSection() {
               disabled={saving}
               className="px-6 py-2.5 bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold text-sm rounded-md transition-colors disabled:opacity-50 shadow-sm flex items-center gap-1"
             >
-              <ButtonSpinner loading={saving}>Save Changes</ButtonSpinner>
+              <ButtonSpinner loading={saving}>{tc("save")}</ButtonSpinner>
             </button>
             {message && (
               <span className={`text-sm font-medium ${message.type === "success" ? "text-discord-green" : "text-discord-red"}`}>
@@ -336,6 +341,8 @@ function ProfileSection() {
 // ─── Admin: Overview ───────────────────────────────────────────────────────────
 
 function AdminOverviewSection() {
+  const ta = useTranslations("admin");
+  const tc = useTranslations("common");
   const [stats, setStats] = useState<{ totalUsers: number; activeInvites: number; totalTags: number; totalChannels: number } | null>(null);
 
   useEffect(() => {
@@ -344,18 +351,18 @@ function AdminOverviewSection() {
 
   const cards = stats
     ? [
-      { label: "Total Users", value: stats.totalUsers, color: "text-blue-400", bg: "from-blue-500/10 to-blue-500/5", border: "border-blue-500/20" },
-      { label: "Active Invites", value: stats.activeInvites, color: "text-discord-green", bg: "from-green-500/10 to-green-500/5", border: "border-green-500/20" },
-      { label: "Tags", value: stats.totalTags, color: "text-indigo-400", bg: "from-indigo-500/10 to-indigo-500/5", border: "border-indigo-500/20" },
-      { label: "Channels", value: stats.totalChannels, color: "text-yellow-400", bg: "from-yellow-500/10 to-yellow-500/5", border: "border-yellow-500/20" },
+      { label: ta("totalUsers"), value: stats.totalUsers, color: "text-blue-400", bg: "from-blue-500/10 to-blue-500/5", border: "border-blue-500/20" },
+      { label: ta("activeInvites"), value: stats.activeInvites, color: "text-discord-green", bg: "from-green-500/10 to-green-500/5", border: "border-green-500/20" },
+      { label: ta("tagsLabel"), value: stats.totalTags, color: "text-indigo-400", bg: "from-indigo-500/10 to-indigo-500/5", border: "border-indigo-500/20" },
+      { label: ta("channels"), value: stats.totalChannels, color: "text-yellow-400", bg: "from-yellow-500/10 to-yellow-500/5", border: "border-yellow-500/20" },
     ]
     : [];
 
   return (
     <div className="max-w-2xl">
-      <SectionTitle>Admin Overview</SectionTitle>
+      <SectionTitle>{ta("overview")}</SectionTitle>
       {!stats ? (
-        <div className="text-discord-text-muted text-sm">Loading stats...</div>
+        <div className="text-discord-text-muted text-sm">{tc("loadingStats")}</div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {cards.map((c) => (
@@ -381,6 +388,8 @@ interface Tag { id: string; name: string; color: string; nameCn?: string | null;
 
 
 function AdminUsersSection() {
+  const ta = useTranslations("admin");
+  const tc = useTranslations("common");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -437,12 +446,12 @@ function AdminUsersSection() {
     );
   });
 
-  if (loading) return <div className="text-discord-text-muted text-sm">Loading users...</div>;
+  if (loading) return <div className="text-discord-text-muted text-sm">{tc("loadingUsers")}</div>;
 
   return (
     <div>
       <SectionTitle>
-        User Management{" "}
+        {ta("userManagement")}{" "}
         <span className="text-discord-text-muted text-xl font-normal">({filteredUsers.length}/{users.length})</span>
       </SectionTitle>
 
@@ -455,7 +464,7 @@ function AdminUsersSection() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by email, username, or ID…"
+          placeholder={ta("searchPlaceholder")}
           className="w-full pl-9 pr-4 py-2.5 bg-discord-bg-dark rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:ring-2 focus:ring-discord-accent border border-discord-bg-darker/60 focus:border-discord-accent"
         />
         {search && (
@@ -474,18 +483,18 @@ function AdminUsersSection() {
       {banTarget && (
         <div className="fixed inset-0 z-60 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.7)" }}>
           <div className="bg-discord-bg-dark rounded-xl p-6 w-96 shadow-2xl border border-discord-bg-darker">
-            <h3 className="text-lg font-bold text-discord-text mb-1">Ban User</h3>
-            <p className="text-sm text-discord-text-muted mb-4">Provide a reason for this ban. It will be stored and visible to admins.</p>
+            <h3 className="text-lg font-bold text-discord-text mb-1">{ta("banUser")}</h3>
+            <p className="text-sm text-discord-text-muted mb-4">{ta("banReasonDesc")}</p>
             <textarea
               value={banReason}
               onChange={(e) => setBanReason(e.target.value)}
               rows={3}
-              placeholder="Ban reason..."
+              placeholder={ta("banReason")}
               className="w-full px-3 py-2.5 bg-discord-bg rounded-md text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:ring-2 focus:ring-discord-accent resize-none border border-discord-bg-darker mb-4"
             />
             <div className="flex gap-3 justify-end">
               <button onClick={() => { setBanTarget(null); setBanReason(""); }} className="px-4 py-2 text-sm font-medium text-discord-text-muted hover:text-discord-text transition-colors">
-                Cancel
+                {tc("cancel")}
               </button>
               <button
                 onClick={handleBanConfirm}
@@ -493,7 +502,7 @@ function AdminUsersSection() {
                 className="flex items-center gap-2 px-4 py-2 bg-discord-red hover:bg-red-600 text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-60"
               >
                 {actionLoading ? <Spinner /> : null}
-                Ban User
+                {ta("banUser")}
               </button>
             </div>
           </div>
@@ -536,8 +545,8 @@ function AdminUsersSection() {
                     <span className="font-semibold text-discord-text">{u.displayName || u.username}</span>
                     <span className="text-sm text-discord-text-muted">@{u.username}</span>
                     <RoleBadge role={u.role} />
-                    {u.status === "banned" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-red-500/50 text-red-300">Banned</span>}
-                    {u.status === "pending_verification" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-500/50 text-yellow-300">Pending</span>}
+                    {u.status === "banned" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-red-500/50 text-red-300">{ta("banned")}</span>}
+                    {u.status === "pending_verification" && <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-500/50 text-yellow-300">{ta("pending")}</span>}
                   </div>
                   <div className="text-xs text-discord-text-muted flex items-center gap-3 flex-wrap">
                     <span>{u.email}</span>
@@ -639,7 +648,7 @@ function AdminUsersSection() {
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-green text-white hover:bg-green-500 shadow transition-all disabled:opacity-60"
                       >
                         {isLoading && <Spinner />}
-                        Unban User
+                        {ta("unban")}
                       </button>
                     ) : (
                       <button
@@ -648,7 +657,7 @@ function AdminUsersSection() {
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-discord-red text-white hover:bg-red-600 shadow transition-all disabled:opacity-60"
                       >
                         {isLoading && <Spinner />}
-                        Ban User
+                        {ta("banUser")}
                       </button>
                     )}
                   </div>
@@ -791,6 +800,7 @@ function AdminTagsSection() {
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#5865f2");
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const fetchTags = async () => {
@@ -822,6 +832,21 @@ function AdminTagsSection() {
     setName(""); setNameCn(""); setDescription(""); setColor("#5865f2");
     await fetchTags();
     setCreating(false);
+  };
+
+  const handleDelete = async (tag: Tag) => {
+    if (!confirm(`Delete tag "${tag.name}"? This will also unlink it from any channels or lessons that require it.`)) return;
+    setDeletingId(tag.id);
+    setError("");
+    const res = await fetch("/api/admin/tags", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: tag.id }) });
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Failed to delete tag");
+      setDeletingId(null);
+      return;
+    }
+    await fetchTags();
+    setDeletingId(null);
   };
 
   if (loading) return <div className="text-discord-text-muted text-sm">Loading tags...</div>;
@@ -884,6 +909,13 @@ function AdminTagsSection() {
               {tag.description && <p className="text-xs text-discord-text-muted">{tag.description}</p>}
             </div>
             <code className="text-xs text-discord-text-muted font-mono shrink-0">{tag.id.slice(0, 8)}…</code>
+            <button
+              onClick={() => handleDelete(tag)}
+              disabled={deletingId === tag.id}
+              className="ml-2 px-2.5 py-1 text-xs font-medium text-red-400 hover:text-white hover:bg-red-500/80 rounded-md transition-colors disabled:opacity-50 flex items-center gap-1 shrink-0"
+            >
+              {deletingId === tag.id ? <Spinner /> : "Delete"}
+            </button>
           </div>
         ))}
       </div>
@@ -2135,6 +2167,7 @@ function AdminChannelsSection() {
       setName(""); setDescription("");
       setRequiredTagId(""); setSelectedMods([]);
       await fetchChannels();
+      window.dispatchEvent(new Event("channels-updated"));
     } else {
       const data = await res.json();
       setCreateError(data.error || "Failed to create channel");
@@ -2199,6 +2232,7 @@ function AdminChannelsSection() {
     }
 
     await fetchChannels();
+    window.dispatchEvent(new Event("channels-updated"));
     setEditingId(null);
     setSaving(false);
   };
@@ -2212,6 +2246,7 @@ function AdminChannelsSection() {
       const res = await fetch(`/api/admin/channels/${channelId}`, { method: "DELETE" });
       if (res.ok) {
         await fetchChannels();
+        window.dispatchEvent(new Event("channels-updated"));
         setDeletingId(null);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -2707,6 +2742,9 @@ interface UserSettingsModalProps {
 export function UserSettingsModal({ isOpen, onClose, initialSection = "my-account" }: UserSettingsModalProps) {
   const { user, logout } = useAuth();
   const { navTick } = useSettingsModal();
+  const ts = useTranslations("settings");
+  const ta = useTranslations("admin");
+  const tc = useTranslations("common");
   const [section, setSection] = useState<Section>(initialSection);
   const [prevSyncKey, setPrevSyncKey] = useState({ isOpen, initialSection, navTick });
   if (isOpen !== prevSyncKey.isOpen || initialSection !== prevSyncKey.initialSection || navTick !== prevSyncKey.navTick) {
@@ -2733,24 +2771,24 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
   type NavItem = { id: Section; label: string };
 
   const userItems: NavItem[] = [
-    { id: "my-account", label: "My Account" },
-    { id: "profile", label: "Profile" },
+    { id: "my-account", label: ts("myAccount") },
+    { id: "profile", label: ts("profile") },
   ];
 
   const adminItems: NavItem[] = [
-    { id: "admin-overview", label: "Overview" },
-    { id: "admin-users", label: "Users" },
-    { id: "admin-invites", label: "Invite Codes" },
-    { id: "admin-tags", label: "Tags" },
-    { id: "admin-tasks", label: "Tasks" },
-    { id: "admin-templates", label: "Task Templates" },
-    { id: "admin-channels", label: "Channels" },
-    { id: "admin-training", label: "Training" },
-    { id: "admin-upload-reviews", label: "Upload Reviews" },
+    { id: "admin-overview", label: ta("overview") },
+    { id: "admin-users", label: ta("users") },
+    { id: "admin-invites", label: ta("inviteCodes") },
+    { id: "admin-tags", label: ta("tagsLabel") },
+    { id: "admin-tasks", label: ta("tasks") },
+    { id: "admin-templates", label: ta("taskTemplates") },
+    { id: "admin-channels", label: ta("channels") },
+    { id: "admin-training", label: ta("training") },
+    { id: "admin-upload-reviews", label: ta("uploadReviews") },
   ];
 
   const supermodItems: NavItem[] = [
-    { id: "admin-audit", label: "Audit" },
+    { id: "admin-audit", label: ta("audit") },
   ];
 
   const NavBtn = ({ id, label }: NavItem) => (
@@ -2780,7 +2818,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
         <div className="w-56 shrink-0 bg-discord-sidebar flex flex-col overflow-y-auto py-14 px-3">
           <div className="mb-5">
             <div className="px-3 mb-2 text-xs font-bold uppercase tracking-widest text-discord-text-muted">
-              User Settings
+              {tc("userSettings")}
             </div>
             {userItems.map((item) => <NavBtn key={item.id} {...item} />)}
           </div>
@@ -2788,10 +2826,10 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
           {["admin", "supermod", "mod"].includes(user.role) && (
             <div className="mb-5">
               <div className="px-3 mb-2 text-xs font-bold uppercase tracking-widest text-discord-text-muted">
-                Admin Settings
+                {ta("adminSettings")}
               </div>
               {user.role === "admin" && adminItems.map((item) => <NavBtn key={item.id} {...item} />)}
-              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: "Tasks" }, { id: "admin-templates" as Section, label: "Task Templates" }, { id: "admin-upload-reviews" as Section, label: "Upload Reviews" }].map((item) => <NavBtn key={item.id} {...item} />)}
+              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: ta("tasks") }, { id: "admin-templates" as Section, label: ta("taskTemplates") }, { id: "admin-upload-reviews" as Section, label: ta("uploadReviews") }].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "supermod" && [...adminItems, ...supermodItems].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "admin" && supermodItems.map((item) => <NavBtn key={item.id} {...item} />)}
             </div>
@@ -2806,7 +2844,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              Log Out
+              {tc("logOut")}
             </button>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
+import { useTranslations } from "next-intl";
 
 interface MyAttemptInfo {
   id: string;
@@ -80,14 +81,17 @@ function getChannelColor(slug: string) {
 }
 
 export default function TaskListPage() {
+  const tc = useTranslations("common");
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-discord-bg text-discord-text-muted">Loading...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-discord-bg text-discord-text-muted">{tc("loading")}</div>}>
       <TaskListContent />
     </Suspense>
   );
 }
 
 function TaskListContent() {
+  const t = useTranslations("tasks");
+  const tc = useTranslations("common");
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -187,10 +191,10 @@ function TaskListContent() {
     const d = new Date(deadline);
     const now = new Date();
     const diff = d.getTime() - now.getTime();
-    if (diff < 0) return "Expired";
+    if (diff < 0) return t("expired");
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return "Due today";
-    return `${days} day${days !== 1 ? "s" : ""} left`;
+    if (days === 0) return t("dueToday");
+    return days === 1 ? t("daysLeft", { days }) : t("daysLeftPlural", { days });
   };
 
   const formatDate = (dateStr: string) => {
@@ -211,7 +215,7 @@ function TaskListContent() {
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Create Task
+              {t("createTask")}
             </button>
           )}
           <div className="relative flex-1 min-w-[180px]">
@@ -222,7 +226,7 @@ function TaskListContent() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
+              placeholder={t("searchPlaceholder")}
               className="w-full pl-10 pr-3 py-2 bg-discord-bg-dark border border-discord-border rounded-md text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent"
             />
           </div>
@@ -231,7 +235,7 @@ function TaskListContent() {
             onChange={(e) => setChannelFilter(e.target.value)}
             className="px-3 py-2 bg-discord-bg-dark border border-discord-border rounded-md text-sm text-discord-text focus:outline-none"
           >
-            <option value="">All Channels</option>
+            <option value="">{t("allChannels")}</option>
             {channelSlugs.map((s) => (
               <option key={s} value={s}>
                 #{s}
@@ -243,9 +247,9 @@ function TaskListContent() {
             onChange={(e) => setSortBy(e.target.value)}
             className="px-3 py-2 bg-discord-bg-dark border border-discord-border rounded-md text-sm text-discord-text focus:outline-none"
           >
-            <option value="newest">Sort: Newest</option>
-            <option value="pay">Sort: Highest Pay</option>
-            <option value="deadline">Sort: Deadline</option>
+            <option value="newest">{t("sortNewest")}</option>
+            <option value="pay">{t("sortHighestPay")}</option>
+            <option value="deadline">{t("sortDeadline")}</option>
           </select>
           <div className="flex bg-discord-bg-dark border border-discord-border rounded-md overflow-hidden">
             {(["available", "my-submissions", "all"] as const).map((mode) => (
@@ -258,9 +262,9 @@ function TaskListContent() {
                     : "text-discord-text-muted hover:text-discord-text"
                 }`}
               >
-                {mode === "available" ? "Available" : mode === "my-submissions" ? (
-                  <>My Submissions{mySubmissionCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-discord-accent/30 text-[10px]">{mySubmissionCount}</span>}</>
-                ) : "All"}
+                {mode === "available" ? t("available") : mode === "my-submissions" ? (
+                  <>{t("mySubmissions")}{mySubmissionCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-discord-accent/30 text-[10px]">{mySubmissionCount}</span>}</>
+                ) : tc("all")}
               </button>
             ))}
           </div>
@@ -270,38 +274,38 @@ function TaskListContent() {
         <div className="flex gap-4 mb-3 px-3 py-2 bg-discord-bg-dark rounded-md text-xs flex-wrap">
           <span className="flex items-center gap-1 text-gray-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-gray-400" />
-            {stats.draft} draft
+            {stats.draft} {t("draft").toLowerCase()}
           </span>
           <span className="flex items-center gap-1 text-green-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-green-400" />
-            {stats.active} active
+            {stats.active} {t("active").toLowerCase()}
           </span>
           <span className="flex items-center gap-1 text-amber-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-amber-400" />
-            {stats.locked} locked
+            {stats.locked} {t("locked").toLowerCase()}
           </span>
           <span className="flex items-center gap-1 text-orange-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-orange-400" />
-            {stats.underReview} under review
+            {stats.underReview} {t("underReview")}
           </span>
           <span className="flex items-center gap-1 text-blue-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-blue-400" />
-            {stats.approved} approved
+            {stats.approved} {t("approved").toLowerCase()}
           </span>
           <span className="flex items-center gap-1 text-discord-text-muted font-medium">
             <span className="w-2 h-2 rounded-full bg-discord-text-muted" />
-            {stats.paid} paid
+            {stats.paid} {t("paid").toLowerCase()}
           </span>
           <span className="flex items-center gap-1 text-gray-500 font-medium">
             <span className="w-2 h-2 rounded-full bg-gray-500" />
-            {stats.archived} archived
+            {stats.archived} {t("archived").toLowerCase()}
           </span>
         </div>
 
         {/* Task list */}
         {loading ? (
           <div className="text-center text-discord-text-muted py-8">
-            Loading tasks...
+            {tc("loading")}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-discord-text-muted">
@@ -310,8 +314,8 @@ function TaskListContent() {
             </svg>
             <span className="text-sm">
               {viewMode === "my-submissions"
-                ? "You haven\u2019t submitted any tasks yet"
-                : "No tasks match your filters"}
+                ? t("noSubmissions")
+                : t("noTasks")}
             </span>
           </div>
         ) : (
@@ -373,7 +377,7 @@ function TaskListContent() {
                           {/* Show attempt status badge if user has submitted */}
                           {myAttempt && attemptStyle && (
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${attemptStyle.bg} ${attemptStyle.text}`}>
-                              {attemptStyle.label}
+                              {myAttempt.status === "submitted" ? t("pendingReview") : myAttempt.status === "approved" ? t("accepted") : myAttempt.status === "rejected" ? t("rejected") : myAttempt.status === "blocked" ? t("blocked") : t("paid")}
                             </span>
                           )}
                         </div>
@@ -459,7 +463,7 @@ function TaskListContent() {
                             disabled={publishingId === task.id}
                             className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                           >
-                            <ButtonSpinner loading={publishingId === task.id}>Publish</ButtonSpinner>
+                            <ButtonSpinner loading={publishingId === task.id}>{t("publish")}</ButtonSpinner>
                           </button>
                         </>
                       )}
@@ -484,7 +488,7 @@ function TaskListContent() {
                           disabled={archivingId === task.id}
                           className="text-xs px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
                         >
-                          <ButtonSpinner loading={archivingId === task.id}>Archive</ButtonSpinner>
+                          <ButtonSpinner loading={archivingId === task.id}>{t("archive")}</ButtonSpinner>
                         </button>
                       )}
                       <div className="text-right">
@@ -500,7 +504,7 @@ function TaskListContent() {
                       <span
                         className={`text-xs font-semibold px-2 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}
                       >
-                        {statusStyle.label}
+                        {task.status === "draft" ? t("draft") : task.status === "active" ? t("active") : task.status === "locked" ? t("locked") : task.status === "approved" ? t("approved") : task.status === "paid" ? t("paid") : t("archived")}
                       </span>
                       {/* Expand chevron in my-submissions view */}
                       {viewMode === "my-submissions" && myAttempt && (
@@ -535,7 +539,7 @@ function TaskListContent() {
                                   Attempt #{task.myAllAttempts!.length - idx}
                                 </span>
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${aStyle.bg} ${aStyle.text}`}>
-                                  {aStyle.label}
+                                  {attempt.status === "submitted" ? t("pendingReview") : attempt.status === "approved" ? t("accepted") : attempt.status === "rejected" ? t("rejected") : attempt.status === "blocked" ? t("blocked") : t("paid")}
                                 </span>
                                 <span className="text-[10px] text-discord-text-muted">
                                   {formatDate(attempt.createdAt)}

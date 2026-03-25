@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
 import { FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
+import { useTranslations } from "next-intl";
 
 interface AppealData {
   id: string;
@@ -48,6 +49,7 @@ interface AppealCardProps {
 
 export function AppealCard({ appeal, onResolved }: AppealCardProps) {
   const { user } = useAuth();
+  const t = useTranslations("appeals");
   const [expanded, setExpanded] = useState(appeal.status === "pending");
   const [arbitratorNote, setArbitratorNote] = useState("");
   const [resolving, setResolving] = useState(false);
@@ -85,12 +87,12 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to resolve appeal");
+        setError(data.error || t("failedToResolve"));
         return;
       }
       onResolved?.();
     } catch {
-      setError("Network error");
+      setError(t("failedToResolve"));
     } finally {
       setResolving(false);
     }
@@ -100,14 +102,14 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
     pending: {
       bg: "bg-amber-500/20",
       text: "text-amber-300",
-      label: "Pending",
+      label: t("pending"),
     },
     granted: {
       bg: "bg-green-500/20",
       text: "text-green-400",
-      label: "Upheld",
+      label: t("upheld"),
     },
-    denied: { bg: "bg-red-500/20", text: "text-red-400", label: "Denied" },
+    denied: { bg: "bg-red-500/20", text: "text-red-400", label: t("denied") },
   }[appeal.status];
 
   return (
@@ -130,7 +132,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           {statusBadge.label}
         </span>
         <span className="text-sm font-medium text-discord-text truncate">
-          {appeal.task?.title || "Unknown Task"}
+          {appeal.task?.title || t("unknownTask")}
         </span>
         {appeal.channelName && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-discord-bg-hover text-discord-text-muted font-medium">
@@ -138,7 +140,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           </span>
         )}
         <span className="text-xs text-discord-text-muted ml-auto shrink-0">
-          by {creatorName} · {formatDate(appeal.createdAt)}
+          {t("by", { name: creatorName, date: formatDate(appeal.createdAt) })}
         </span>
         <svg
           className={`w-4 h-4 text-discord-text-muted transition-transform shrink-0 ${expanded ? "rotate-180" : ""
@@ -163,14 +165,14 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           {appeal.attempt?.rejectionReason && (
             <div className="mt-3 p-3 bg-red-500/10 rounded-lg">
               <div className="text-xs font-semibold text-red-400 mb-1">
-                REJECTION REASON
+                {t("rejectionReason")}
               </div>
               <p className="text-sm text-red-300">
                 {appeal.attempt.rejectionReason}
               </p>
               {appeal.reviewer && (
                 <p className="text-xs text-red-400/60 mt-1">
-                  Rejected by {reviewerName}
+                  {t("rejectedBy", { name: reviewerName })}
                 </p>
               )}
             </div>
@@ -179,7 +181,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           {/* Creator's appeal reason */}
           <div className="mt-3 p-3 bg-blue-500/10 rounded-lg">
             <div className="text-xs font-semibold text-blue-400 mb-1">
-              CREATOR&apos;S APPEAL
+              {t("creatorsAppeal")}
             </div>
             <p className="text-sm text-blue-300">{appeal.reason}</p>
           </div>
@@ -188,7 +190,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           {appeal.attempt?.deliverables && (
             <div className="mt-3 p-3 bg-discord-bg-dark rounded-lg">
               <div className="text-xs font-semibold text-discord-text-muted mb-2">
-                SUBMISSION
+                {t("submission")}
               </div>
               {appeal.attempt.deliverables.text && (
                 <p className="text-sm text-discord-text-secondary mb-2">
@@ -208,7 +210,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           {appeal.arbitratorNote && !isPending && (
             <div className="mt-3 p-3 bg-discord-bg-dark rounded-lg">
               <div className="text-xs font-semibold text-discord-text-muted mb-1">
-                ARBITRATOR NOTE
+                {t("arbitratorNote")}
               </div>
               <p className="text-sm text-discord-text-secondary">
                 {appeal.arbitratorNote}
@@ -222,7 +224,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
               <textarea
                 value={arbitratorNote}
                 onChange={(e) => setArbitratorNote(e.target.value)}
-                placeholder="Arbitration notes (optional)..."
+                placeholder={t("arbitrationNotesPlaceholder")}
                 className="w-full p-2 bg-discord-bg-hover rounded text-sm text-discord-text placeholder-discord-text-muted focus:outline-none resize-none mb-2"
                 rows={2}
               />
@@ -235,14 +237,14 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
                   disabled={resolving}
                   className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  <ButtonSpinner loading={resolving}>Uphold Appeal</ButtonSpinner>
+                  <ButtonSpinner loading={resolving}>{t("upholdAppeal")}</ButtonSpinner>
                 </button>
                 <button
                   onClick={() => handleResolve("denied")}
                   disabled={resolving}
                   className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1"
                 >
-                  <ButtonSpinner loading={resolving}>Deny Appeal</ButtonSpinner>
+                  <ButtonSpinner loading={resolving}>{t("denyAppeal")}</ButtonSpinner>
                 </button>
               </div>
             </div>
@@ -252,7 +254,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           {isOwner && !isMod && isPending && (
             <div className="mt-3 p-3 bg-amber-500/10 rounded-lg text-center">
               <p className="text-sm text-amber-300">
-                Your appeal is under review. A moderator will respond soon.
+                {t("appealUnderReview")}
               </p>
             </div>
           )}

@@ -34,6 +34,7 @@ export async function GET() {
         avatarUrl: users.avatarUrl,
         bio: users.bio,
         currency: users.currency,
+        locale: users.locale,
         onboardingCompleted: users.onboardingCompleted,
         createdAt: users.createdAt,
       })

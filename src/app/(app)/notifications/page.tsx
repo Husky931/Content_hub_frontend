@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { getSocket, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 
 interface Notification {
@@ -26,6 +27,8 @@ const TYPE_ICONS: Record<string, { icon: string; bg: string }> = {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const t = useTranslations("notifications");
+  const tc = useTranslations("common");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -76,10 +79,10 @@ export default function NotificationsPage() {
     const now = new Date();
     const diff = now.getTime() - d.getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 60) return t("minutesAgo", { mins });
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
+    if (hours < 24) return t("hoursAgo", { hours });
+    return t("daysAgo", { days: Math.floor(hours / 24) });
   };
 
   const handleNotificationClick = async (notif: Notification) => {
@@ -127,7 +130,7 @@ export default function NotificationsPage() {
       <div className="h-12 px-4 flex items-center bg-discord-bg shrink-0">
         {unreadCount > 0 && (
           <span className="text-sm px-2.5 py-1 bg-discord-red/20 text-discord-red font-semibold rounded">
-            {unreadCount} unread
+            {t("unread", { count: unreadCount })}
           </span>
         )}
         <div className="ml-auto">
@@ -136,7 +139,7 @@ export default function NotificationsPage() {
               onClick={markAllRead}
               className="text-sm px-3 py-1 text-discord-accent hover:text-discord-accent/80 hover:bg-discord-accent/10 rounded transition"
             >
-              Mark all read
+              {t("markAllRead")}
             </button>
           )}
         </div>
@@ -144,13 +147,13 @@ export default function NotificationsPage() {
 
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <p className="text-center text-discord-text-muted py-8">Loading...</p>
+          <p className="text-center text-discord-text-muted py-8">{tc("loading")}</p>
         ) : notifications.length === 0 ? (
           <div className="text-center text-discord-text-muted py-12">
             <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
-            <p className="text-sm">No notifications yet</p>
+            <p className="text-sm">{t("noNotifications")}</p>
           </div>
         ) : (
           <div className="space-y-2 max-w-2xl mx-auto">

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ButtonSpinner } from "@/components/ui/Spinner";
@@ -54,14 +55,18 @@ interface AttemptItem {
 }
 
 export default function ReviewPage() {
+  const tc = useTranslations("common");
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-full bg-discord-bg text-discord-text-muted">Loading...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-full bg-discord-bg text-discord-text-muted">{tc("loading")}</div>}>
       <ReviewContent />
     </Suspense>
   );
 }
 
 function ReviewContent() {
+  const t = useTranslations("review");
+  const tc = useTranslations("common");
+  const tt = useTranslations("tasks");
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -179,12 +184,12 @@ function ReviewContent() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setReviewError(data.error || "Failed to claim task for review");
+        setReviewError(data.error || t("failedToClaim"));
         return false;
       }
       return true;
     } catch {
-      setReviewError("Network error while claiming");
+      setReviewError(t("networkErrorClaiming"));
       return false;
     } finally {
       setClaiming(false);
@@ -414,16 +419,16 @@ function ReviewContent() {
         {/* Task Queue */}
         <div className="w-96 border-r border-discord-border overflow-y-auto p-4">
           <h3 className="text-sm font-semibold text-discord-text-muted mb-3 uppercase tracking-wide">
-            Tasks with Pending Reviews
+            {t("reviewQueue")}
           </h3>
           {loading ? (
-            <p className="text-sm text-discord-text-muted">Loading...</p>
+            <p className="text-sm text-discord-text-muted">{tc("loading")}</p>
           ) : tasksWithAttempts.length === 0 ? (
             <div className="text-center text-discord-text-muted py-8">
               <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-sm">All caught up!</p>
+              <p className="text-sm">{t("noTasksToReview")}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -452,7 +457,7 @@ function ReviewContent() {
                       <div className="flex items-center gap-1.5">
                         {task.status === "locked" && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-semibold">
-                            LOCKED
+                            {tt("locked").toUpperCase()}
                           </span>
                         )}
                         <span className="text-xs px-1.5 py-0.5 rounded bg-discord-accent/20 text-discord-accent">
@@ -463,8 +468,10 @@ function ReviewContent() {
                     {/* Submission count */}
                     <div className="text-xs text-discord-text-muted">
                       {task.status === "locked" && task.attempts.length === 0
-                        ? "Locked for revision"
-                        : `${task.attempts.length} submission${task.attempts.length !== 1 ? "s" : ""} pending`}
+                        ? t("lockForRevision")
+                        : task.attempts.length !== 1
+                          ? t("submissionsPlural", { count: task.attempts.length })
+                          : t("submissions", { count: task.attempts.length })}
                     </div>
                     {/* Submitters + time */}
                     {task.attempts.length > 0 && (
@@ -491,7 +498,7 @@ function ReviewContent() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                         <span className="text-xs text-amber-400 font-medium">
-                          {isMyTask ? "You are reviewing" : `Being reviewed by ${task.reviewClaimedBy}`}
+                          {isMyTask ? t("claimForReview") : t("claimedBy", { name: task.reviewClaimedBy ?? "" })}
                         </span>
                       </div>
                     )}
@@ -510,7 +517,7 @@ function ReviewContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              <p>Select a task to review its submissions</p>
+              <p>{t("selectTask")}</p>
             </div>
           ) : (
             <div className="max-w-2xl">
@@ -522,7 +529,7 @@ function ReviewContent() {
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                Back to queue
+                {tc("back")}
               </button>
 
               {/* Task info */}
@@ -536,7 +543,9 @@ function ReviewContent() {
                   </span>
                 </div>
                 <p className="text-sm text-discord-text-muted">
-                  {selectedTask.attempts.length} submission{selectedTask.attempts.length !== 1 ? "s" : ""} to review
+                  {selectedTask.attempts.length !== 1
+                    ? t("submissionsPlural", { count: selectedTask.attempts.length })
+                    : t("submissions", { count: selectedTask.attempts.length })}
                 </p>
               </div>
 
@@ -571,7 +580,7 @@ function ReviewContent() {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                     </svg>
-                    Unlock Task
+                    {t("unlock")}
                   </button>
                 </div>
               )}
@@ -580,7 +589,7 @@ function ReviewContent() {
               {claimedByOther && (
                 <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                   <p className="text-sm text-amber-400">
-                    This task is being reviewed by {selectedTask.reviewClaimedBy}. You cannot review it at this time.
+                    {t("claimedBy", { name: selectedTask.reviewClaimedBy ?? "" })}
                   </p>
                 </div>
               )}
@@ -662,13 +671,10 @@ function ReviewContent() {
                       <>
                         <div className="mb-4">
                           <p className="text-sm text-discord-text-muted">
-                            Submitted by{" "}
-                            <span className="text-discord-text font-medium">
-                              {selectedAttempt.displayName || selectedAttempt.username}
-                            </span>{" "}
-                            — {formatTime(selectedAttempt.createdAt)}
+                            {t("submittedBy", { name: selectedAttempt.displayName || selectedAttempt.username })}
+                            {" — "}{formatTime(selectedAttempt.createdAt)}
                             {!isViewingLocked && (
-                              <span className="ml-2 text-xs text-discord-text-muted italic">(read-only — task is locked)</span>
+                              <span className="ml-2 text-xs text-discord-text-muted italic">({tt("locked")})</span>
                             )}
                           </p>
                         </div>
@@ -678,7 +684,7 @@ function ReviewContent() {
                           <div className="mb-4 p-3 bg-discord-bg-dark rounded-lg border border-discord-border">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-base">📎</span>
-                              <h4 className="text-sm font-semibold text-discord-text">Attachments</h4>
+                              <h4 className="text-sm font-semibold text-discord-text">{t("taskAttachments")}</h4>
                               <span className="text-[10px] text-discord-text-muted">(added by task creator)</span>
                             </div>
                             <div className="flex flex-wrap gap-1.5">
@@ -713,7 +719,7 @@ function ReviewContent() {
                             {selectedTask.checklist && selectedTask.checklist.length > 0 && (
                               <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
                                 <h4 className="text-xs font-semibold text-discord-text-muted mb-1 uppercase">
-                                  Review Checklist
+                                  {t("checklist")}
                                 </h4>
                                 <p className="text-[10px] text-discord-text-muted mb-3">
                                   All items start checked. Uncheck any item that fails — unchecked items block approval.
@@ -765,12 +771,12 @@ function ReviewContent() {
                               <>
                                 <div className="mb-4">
                                   <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                                    Review Note (optional)
+                                    {t("reviewNote")}
                                   </label>
                                   <textarea
                                     value={reviewNote}
                                     onChange={(e) => setReviewNote(e.target.value)}
-                                    placeholder="Provide feedback to the creator..."
+                                    placeholder={t("reviewNotePlaceholder")}
                                     className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-discord-accent resize-none"
                                     rows={3}
                                   />
@@ -778,12 +784,12 @@ function ReviewContent() {
 
                                 <div className="mb-6">
                                   <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                                    Rejection Reason (required if rejecting)
+                                    {t("rejectionReason")}
                                   </label>
                                   <textarea
                                     value={rejectionReason}
                                     onChange={(e) => setRejectionReason(e.target.value)}
-                                    placeholder="Why is this submission being rejected..."
+                                    placeholder={t("rejectionReasonPlaceholder")}
                                     className="w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:border-red-500/50 resize-none"
                                     rows={2}
                                   />
@@ -812,7 +818,7 @@ function ReviewContent() {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
                                   </ButtonSpinner>
-                                  {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
+                                  {t("approve")}
                                 </button>
                                 <button
                                   onClick={() => handleReview("rejected")}
@@ -824,7 +830,7 @@ function ReviewContent() {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                   </ButtonSpinner>
-                                  Reject
+                                  {t("reject")}
                                 </button>
                               </div>
                             )}
@@ -868,11 +874,8 @@ function ReviewContent() {
                     <>
                       <div className="mb-4">
                         <p className="text-sm text-discord-text-muted">
-                          Submitted by{" "}
-                          <span className="text-discord-text font-medium">
-                            {selectedAttempt.displayName || selectedAttempt.username}
-                          </span>{" "}
-                          — {formatTime(selectedAttempt.createdAt)}
+                          {t("submittedBy", { name: selectedAttempt.displayName || selectedAttempt.username })}
+                          {" — "}{formatTime(selectedAttempt.createdAt)}
                         </p>
                       </div>
 
@@ -989,7 +992,7 @@ function ReviewContent() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                             </ButtonSpinner>
-                            {hasFailedChecklist ? "Approve (blocked)" : "Approve"}
+                            {t("approve")}
                           </button>
                           {selectedTask.status === "active" && (
                             <button
@@ -1000,7 +1003,7 @@ function ReviewContent() {
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                               </svg>
-                              Lock for Revision
+                              {t("lockForRevision")}
                             </button>
                           )}
                           <button
@@ -1031,13 +1034,12 @@ function ReviewContent() {
         open={lockConfirmOpen}
         onClose={() => setLockConfirmOpen(false)}
         onConfirm={handleLockForRevision}
-        title="Lock for Revision"
-        confirmText="Lock Task"
+        title={t("lockForRevision")}
+        confirmText={t("lockForRevision")}
         variant="warning"
         loading={locking}
       >
-        Lock task for <strong>{selectedAttempt?.displayName || selectedAttempt?.username}</strong> for
-        48h exclusive revision? Their current submission will be sent back for revision and other creators will not be able to submit.
+        {t("lockConfirm")}
       </ConfirmDialog>
 
       {/* Unlock confirmation */}
@@ -1045,12 +1047,12 @@ function ReviewContent() {
         open={unlockConfirmOpen}
         onClose={() => setUnlockConfirmOpen(false)}
         onConfirm={handleUnlock}
-        title="Unlock Task"
-        confirmText="Unlock"
+        title={t("unlock")}
+        confirmText={t("unlock")}
         variant="warning"
         loading={unlocking}
       >
-        Unlock this task and reopen it for all creators? The exclusive revision period will end early.
+        {t("unlockConfirm")}
       </ConfirmDialog>
     </div>
   );
@@ -1065,11 +1067,12 @@ function DeliverableDisplay({
   deliverables: any;
   slots?: DeliverableSlot[] | null;
 }) {
+  const t = useTranslations("review");
   if (!deliverables) {
     return (
       <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
-        <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">Deliverables</h4>
-        <p className="text-sm text-discord-text-muted italic">No deliverables submitted.</p>
+        <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">{t("deliverables")}</h4>
+        <p className="text-sm text-discord-text-muted italic">{t("noDeliverables")}</p>
       </div>
     );
   }
@@ -1080,7 +1083,7 @@ function DeliverableDisplay({
     return (
       <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border space-y-3">
         <h4 className="text-xs font-semibold text-discord-text-muted mb-1 uppercase">
-          Deliverables ({deliverables.slots.length} slot{deliverables.slots.length !== 1 ? "s" : ""})
+          {t("deliverables")} ({deliverables.slots.length})
         </h4>
         {deliverables.slots.map((sd: SlotDeliverable, i: number) => {
           const slotDef = slotMap.get(sd.slotId);
@@ -1166,7 +1169,7 @@ function DeliverableDisplay({
   // Legacy format: { text?, files? }
   return (
     <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
-      <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">Deliverables</h4>
+      <h4 className="text-xs font-semibold text-discord-text-muted mb-3 uppercase">{t("deliverables")}</h4>
       {deliverables.text && (
         <div className="text-sm text-discord-text whitespace-pre-wrap bg-discord-sidebar p-3 rounded mb-3">
           {deliverables.text}
@@ -1180,7 +1183,7 @@ function DeliverableDisplay({
         </div>
       )}
       {!deliverables.text && (!deliverables.files || deliverables.files.length === 0) && (
-        <p className="text-sm text-discord-text-muted italic">No recognizable deliverables.</p>
+        <p className="text-sm text-discord-text-muted italic">{t("noDeliverables")}</p>
       )}
     </div>
   );

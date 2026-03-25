@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSocket, onSocketReady, WS_EVENTS } from "@/lib/realtime";
+import { useTranslations } from "next-intl";
 
 interface TaskSummaryBarProps {
   channelSlug: string;
@@ -17,6 +18,7 @@ interface TaskCounts {
 
 export function TaskSummaryBar({ channelSlug }: TaskSummaryBarProps) {
   const router = useRouter();
+  const t = useTranslations("taskSummary");
   const [counts, setCounts] = useState<TaskCounts | null>(null);
 
   const fetchCounts = useCallback(() => {
@@ -75,26 +77,26 @@ export function TaskSummaryBar({ channelSlug }: TaskSummaryBarProps) {
         />
       </svg>
       <span className="text-sm font-medium text-discord-text-secondary">
-        {counts.total} task{counts.total !== 1 ? "s" : ""}
+        {t("taskCount", { count: counts.total })}
       </span>
       <span className="text-xs text-discord-text-muted">
-        — click to expand task list
+        {t("clickToExpand")}
       </span>
 
       <div className="ml-auto flex items-center gap-2">
         {counts.locked > 0 && (
           <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
-            {counts.locked} locked
+            {t("locked", { count: counts.locked })}
           </span>
         )}
         {counts.approved > 0 && (
           <span className="text-xs px-2 py-0.5 rounded bg-discord-text-muted/20 text-discord-text-muted font-semibold">
-            {counts.approved} done
+            {t("done", { count: counts.approved })}
           </span>
         )}
         {counts.active > 0 && (
           <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 font-semibold">
-            {counts.active} available
+            {t("available", { count: counts.active })}
           </span>
         )}
       </div>

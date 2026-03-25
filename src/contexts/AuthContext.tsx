@@ -20,6 +20,7 @@ interface User {
   avatarUrl: string | null;
   bio: string | null;
   currency: "usd" | "rmb" | null;
+  locale: string;
   onboardingCompleted: boolean;
   createdAt: string;
   tags: UserTag[];
@@ -53,6 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        // Sync locale cookie with user's DB preference
+        if (data.user?.locale) {
+          const currentCookie = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1];
+          if (currentCookie !== data.user.locale) {
+            document.cookie = `NEXT_LOCALE=${data.user.locale};path=/;max-age=${365 * 24 * 60 * 60};samesite=lax`;
+          }
+        }
       } else {
         setUser(null);
       }

@@ -4,19 +4,21 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 type Step = "welcome" | "currency" | "profile" | "done";
-
-const STEPS: { id: Step; label: string; num: number }[] = [
-  { id: "welcome", label: "Welcome", num: 1 },
-  { id: "currency", label: "Currency", num: 2 },
-  { id: "profile", label: "Profile", num: 3 },
-  { id: "done", label: "Done", num: 4 },
-];
 
 export default function OnboardingPage() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
+  const t = useTranslations("onboarding");
+
+  const STEPS: { id: Step; label: string; num: number }[] = [
+    { id: "welcome", label: t("welcome"), num: 1 },
+    { id: "currency", label: t("currency"), num: 2 },
+    { id: "profile", label: t("profile"), num: 3 },
+    { id: "done", label: t("done"), num: 4 },
+  ];
   const [step, setStep] = useState<Step>("welcome");
   const [currency, setCurrency] = useState<"usd" | "rmb" | null>(null);
   const [displayName, setDisplayName] = useState("");
@@ -50,7 +52,7 @@ export default function OnboardingPage() {
       setStep("done");
       await refreshUser();
     } catch {
-      setError("Something went wrong");
+      setError(t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -64,9 +66,9 @@ export default function OnboardingPage() {
 
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-discord-text mb-1">Onboarding Flow</h1>
+            <h1 className="text-2xl font-bold text-discord-text mb-1">{t("onboardingFlow")}</h1>
             <p className="text-sm text-discord-text-muted">
-              First-time setup after sign-up. The user selects their preferred payout currency (irreversible) and completes initial profile setup.
+              {t("onboardingDescription")}
             </p>
           </div>
 
@@ -129,11 +131,10 @@ export default function OnboardingPage() {
                     </svg>
                   </div>
                   <h2 className="text-xl font-bold text-discord-text mb-3 text-center">
-                    Welcome to Creator Hub!
+                    {t("welcomeTitle")}
                   </h2>
                   <p className="text-sm text-discord-text-muted mb-6 text-center">
-                    You&apos;ve been invited to join the platform. Before you start browsing tasks and
-                    earning, we need to set up a few things.
+                    {t("invitedDescription")}
                   </p>
                   <div className="flex items-start gap-3 p-4 mb-6 bg-discord-bg/50 border border-discord-border rounded-lg">
                     <div className="shrink-0 w-5 h-5 mt-0.5 text-discord-accent">
@@ -142,14 +143,14 @@ export default function OnboardingPage() {
                       </svg>
                     </div>
                     <p className="text-sm text-discord-text-muted">
-                      This setup takes about 1 minute. You&apos;ll choose your payout currency and set up your profile.
+                      {t("setupTime")}
                     </p>
                   </div>
                   <button
                     onClick={() => setStep("currency")}
                     className="flex items-center gap-2 px-6 py-3 bg-discord-accent hover:bg-discord-accent-hover text-white font-medium rounded-lg transition-colors"
                   >
-                    Get Started
+                    {t("getStarted")}
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                     </svg>
@@ -161,13 +162,13 @@ export default function OnboardingPage() {
               {step === "currency" && (
                 <div>
                   <h2 className="text-xl font-bold text-discord-text mb-2">
-                    Choose Your Currency
+                    {t("currencyTitle")}
                   </h2>
                   <p className="text-sm text-discord-text-muted mb-1">
-                    Select the currency for your earnings and payouts.
+                    {t("selectCurrencyDescription")}
                   </p>
                   <p className="text-xs text-discord-red mb-6">
-                    This choice is permanent and cannot be changed later.
+                    {t("currencyPermanent")}
                   </p>
 
                   <div className="space-y-3 mb-6">
@@ -182,8 +183,8 @@ export default function OnboardingPage() {
                       <div className="flex items-center gap-3">
                         <span className="text-2xl font-bold text-discord-text-secondary">$</span>
                         <div>
-                          <div className="font-medium text-discord-text">US Dollar (USD)</div>
-                          <div className="text-xs text-discord-text-muted">Payments in US Dollars</div>
+                          <div className="font-medium text-discord-text">{t("usdLabel")}</div>
+                          <div className="text-xs text-discord-text-muted">{t("paymentsUsd")}</div>
                         </div>
                         {currency === "usd" && (
                           <div className="ml-auto w-5 h-5 rounded-full bg-discord-accent flex items-center justify-center">
@@ -206,8 +207,8 @@ export default function OnboardingPage() {
                       <div className="flex items-center gap-3">
                         <span className="text-2xl font-bold text-discord-text-secondary">¥</span>
                         <div>
-                          <div className="font-medium text-discord-text">Chinese Yuan (RMB)</div>
-                          <div className="text-xs text-discord-text-muted">Payments in Chinese Yuan</div>
+                          <div className="font-medium text-discord-text">{t("rmbLabel")}</div>
+                          <div className="text-xs text-discord-text-muted">{t("paymentsRmb")}</div>
                         </div>
                         {currency === "rmb" && (
                           <div className="ml-auto w-5 h-5 rounded-full bg-discord-accent flex items-center justify-center">
@@ -228,14 +229,14 @@ export default function OnboardingPage() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                       </svg>
-                      Back
+                      {t("back")}
                     </button>
                     <button
                       onClick={() => currency && setStep("profile")}
                       disabled={!currency}
                       className="flex items-center gap-2 px-6 py-3 bg-discord-accent hover:bg-discord-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Continue
+                      {t("continue")}
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
@@ -248,22 +249,22 @@ export default function OnboardingPage() {
               {step === "profile" && (
                 <div>
                   <h2 className="text-xl font-bold text-discord-text mb-2">
-                    Set Up Your Profile
+                    {t("profileTitle")}
                   </h2>
                   <p className="text-sm text-discord-text-muted mb-6">
-                    These are optional — you can always update them later in settings.
+                    {t("profileOptional")}
                   </p>
 
                   <div className="space-y-4 mb-6">
                     <div>
                       <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                        Display Name
+                        {t("displayName")}
                       </label>
                       <input
                         type="text"
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder={user?.username || "Your display name"}
+                        placeholder={user?.username || t("displayNamePlaceholder")}
                         maxLength={100}
                         className="w-full p-3 bg-discord-bg rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:ring-2 focus:ring-discord-accent"
                       />
@@ -271,12 +272,12 @@ export default function OnboardingPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-discord-text-secondary mb-1">
-                        Bio
+                        {t("bio")}
                       </label>
                       <textarea
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
-                        placeholder="Tell us a bit about yourself..."
+                        placeholder={t("bioPlaceholder")}
                         rows={3}
                         maxLength={500}
                         className="w-full p-3 bg-discord-bg rounded-lg text-sm text-discord-text placeholder-discord-text-muted focus:outline-none focus:ring-2 focus:ring-discord-accent resize-none"
@@ -296,14 +297,14 @@ export default function OnboardingPage() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                       </svg>
-                      Back
+                      {t("back")}
                     </button>
                     <button
                       onClick={handleComplete}
                       disabled={submitting}
                       className="flex items-center gap-2 px-6 py-3 bg-discord-accent hover:bg-discord-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-40"
                     >
-                      <ButtonSpinner loading={submitting}>Complete Setup</ButtonSpinner>
+                      <ButtonSpinner loading={submitting}>{t("completeSetup")}</ButtonSpinner>
                       {!submitting && (
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -325,16 +326,16 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                   <h2 className="text-xl font-bold text-discord-text mb-3">
-                    All done. Welcome to Content Hub!
+                    {t("allDoneWelcome")}
                   </h2>
                   <p className="text-sm text-discord-text-muted mb-6">
-                    Your account is ready. Start exploring tasks and earning.
+                    {t("allSetDescription")}
                   </p>
                   <button
                     onClick={() => router.push("/channels")}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-discord-accent hover:bg-discord-accent-hover text-white font-medium rounded-lg transition-colors"
                   >
-                    OK
+                    {t("ok")}
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                     </svg>

@@ -11,6 +11,7 @@ import { getSocket, joinChannel, leaveChannel, onSocketReady, WS_EVENTS } from "
 import { Spinner } from "@/components/ui/Spinner";
 import { SystemMessage } from "@/components/channel/SystemMessage";
 import { TrainingView } from "@/components/training/TrainingView";
+import { useTranslations } from "next-intl";
 
 interface Message {
   id: string;
@@ -172,6 +173,7 @@ function ChannelPageContent() {
   const expandTaskId = searchParams.get("task");
   const { user } = useAuth();
   const { openSettings } = useSettingsModal();
+  const t = useTranslations("channels");
   const [channel, setChannel] = useState<ChannelInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
@@ -612,7 +614,7 @@ function ChannelPageContent() {
           </div>
           <div className="flex-1 min-w-0">
             <p className={`italic text-discord-text-muted ${isReply ? "text-xs" : "text-sm"}`}>
-              This message was deleted
+              {t("messageDeleted")}
             </p>
           </div>
         </div>
@@ -695,7 +697,7 @@ function ChannelPageContent() {
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    Private Message
+                    {t("privateMessage")}
                   </button>
                 </div>
               )}
@@ -708,19 +710,19 @@ function ChannelPageContent() {
                 <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-                PRIVATE
+                {t("private").toUpperCase()}
               </span>
             )}
             {msg.type === "mod" && !isPrivate && (
               <span className="text-xs px-1.5 py-0.5 bg-discord-accent/20 text-discord-accent rounded">
-                MOD
+                {t("mod")}
               </span>
             )}
             <span className="text-xs text-discord-text-muted">
               {formatTime(msg.createdAt)}
             </span>
             {msg.updatedAt && (
-              <span className="text-xs text-discord-text-muted/60 italic">(edited)</span>
+              <span className="text-xs text-discord-text-muted/60 italic">{t("edited")}</span>
             )}
 
             {/* Action buttons — visible on hover */}
@@ -735,7 +737,7 @@ function ChannelPageContent() {
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
                     </svg>
-                    Reply
+                    {t("reply")}
                   </button>
                 )}
                 {/* Edit — own messages only */}
@@ -747,7 +749,7 @@ function ChannelPageContent() {
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                    Edit
+                    {t("edit")}
                   </button>
                 )}
                 {/* Delete */}
@@ -764,7 +766,7 @@ function ChannelPageContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     )}
-                    Delete
+                    {t("delete")}
                   </button>
                 )}
               </div>
@@ -793,16 +795,16 @@ function ChannelPageContent() {
                   className="text-xs px-2 py-0.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded disabled:opacity-50 flex items-center gap-1"
                 >
                   {editSaving && <Spinner />}
-                  Save
+                  {t("save")}
                 </button>
                 <button
                   onClick={handleEditCancel}
                   className="text-xs px-2 py-0.5 text-discord-text-muted hover:text-discord-text"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
                 <span className="text-xs text-discord-text-muted/50">
-                  Esc to cancel · Enter to save
+                  {t("escToCancel")}
                 </span>
               </div>
             </div>
@@ -860,7 +862,7 @@ function ChannelPageContent() {
             {isCollapsed ? "+" : "−"}
           </span>
           <span>
-            {totalReplies} {totalReplies === 1 ? "reply" : "replies"}
+            {t("replyCount", { count: totalReplies })}
           </span>
         </button>
 
@@ -890,7 +892,7 @@ function ChannelPageContent() {
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Create Task
+              {t("createTask")}
             </button>
           )}
           {activeTasks.length > 0 && (
@@ -901,7 +903,7 @@ function ChannelPageContent() {
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              View Channel Tasks
+              {t("viewChannelTasks")}
             </button>
           )}
         </div>
@@ -913,10 +915,10 @@ function ChannelPageContent() {
           <div className="flex flex-col items-center justify-center h-full text-discord-text-muted">
             <div className="text-4xl mb-4">#</div>
             <h3 className="text-xl font-bold text-discord-text mb-2">
-              Welcome to #{channel?.name || slug}
+              {t("welcomeToChannel", { channel: channel?.name || slug })}
             </h3>
             <p className="text-sm">
-              {channel?.description || "This is the start of the channel."}
+              {channel?.description || t("channelStart")}
             </p>
           </div>
         )}
@@ -984,10 +986,7 @@ function ChannelPageContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <span>
-              Private message to{" "}
-              <span className="font-medium text-purple-400">
-                {privateTo.displayName || privateTo.username}
-              </span>
+              {t("privateMessageTo", { name: privateTo.displayName || privateTo.username })}
             </span>
             <button
               onClick={() => setPrivateTo(null)}
@@ -1007,10 +1006,7 @@ function ChannelPageContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v4M3 10l6 6M3 10l6-6" />
             </svg>
             <span>
-              Replying to{" "}
-              <span className="font-medium text-discord-accent">
-                {replyingTo.user?.displayName || replyingTo.user?.username}
-              </span>
+              {t("replyingTo", { name: replyingTo.user?.displayName || replyingTo.user?.username })}
               <span className="ml-1.5 text-discord-text-muted/70">
                 {replyingTo.content.length > 60
                   ? replyingTo.content.slice(0, 60) + "…"
@@ -1033,8 +1029,8 @@ function ChannelPageContent() {
           <div className="p-3 bg-discord-bg-dark rounded-lg text-center text-sm text-discord-text-muted border border-discord-border">
             <span className="mr-1.5">🔒</span>
             {!hasTagAccess
-              ? "You need the required tag to interact with this channel. Complete the related training to earn it."
-              : "You do not have permission to send messages in this channel"}
+              ? t("tagRequired")
+              : t("noPermission")}
           </div>
         ) : (
           <form onSubmit={handleSend} className="flex gap-2">
@@ -1069,7 +1065,7 @@ function ChannelPageContent() {
                           onClick={() => insertMention(u.username)}
                           className="text-xs px-2 py-1 rounded bg-discord-accent/20 text-discord-accent hover:bg-discord-accent/30 font-medium"
                         >
-                          @Mention
+                          {t("mention")}
                         </button>
                         <button
                           type="button"
@@ -1079,7 +1075,7 @@ function ChannelPageContent() {
                           <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
-                          Private
+                          {t("private")}
                         </button>
                       </div>
                     </div>
@@ -1113,10 +1109,10 @@ function ChannelPageContent() {
                 maxLength={2000}
                 placeholder={
                   privateTo
-                    ? `Private message to ${privateTo.displayName || privateTo.username}…`
+                    ? t("privateMessagePlaceholder", { name: privateTo.displayName || privateTo.username })
                     : replyingTo
-                      ? `Reply to ${replyingTo.user?.displayName || replyingTo.user?.username}…`
-                      : `Message #${channel?.name || slug}`
+                      ? t("replyToPlaceholder", { name: replyingTo.user?.displayName || replyingTo.user?.username })
+                      : t("messageChannel", { channel: channel?.name || slug })
                 }
                 className={`w-full p-3 bg-discord-bg-hover text-sm text-discord-text placeholder-discord-text-muted focus:outline-none pr-16 ${replyingTo || privateTo ? "rounded-b-lg rounded-t-none" : "rounded-lg"
                   }`}
@@ -1134,7 +1130,7 @@ function ChannelPageContent() {
                 }`}
             >
               {sending && <Spinner />}
-              Send
+              {t("send")}
             </button>
           </form>
         )}
