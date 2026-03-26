@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, inArray, ne, notInArray } from "drizzle-orm";
 import {
   appeals,
@@ -33,7 +33,7 @@ async function resetTestData() {
     throw new Error("DATABASE_URL is required");
   }
 
-  const sql = neon(DATABASE_URL);
+  const sql = postgres(DATABASE_URL);
   const db = drizzle(sql);
 
   console.log("Clearing task-channel test data...\n");

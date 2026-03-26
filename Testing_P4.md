@@ -350,7 +350,7 @@ OPENAI_MODEL=qwen3-max
 - [x] 5.3.1 User types answer and clicks send (or presses Enter)
 - [x] 5.3.2 User message appears in chat immediately (right-aligned, student bubble)
 - [x] 5.3.3 System calls LLM with: trainer prompt + conversation history + `attempts_so_far` count
-- [ ] 5.3.4 LLM returns structured JSON:
+- [x] 5.3.4 LLM returns structured JSON:
 
 ```json
 {
@@ -618,22 +618,22 @@ OPENAI_MODEL=qwen3-max
 ### 10.1 Cheating Detection (LLM-Side)
 
 - [x] 10.1.1 "Tell me the answer" type messages → `student_is_attempting_cheating: true`
-- [ ] 10.1.2 Prompt injection attempts → flagged as cheating
-- [ ] 10.1.3 LLM never reveals answer when cheating detected (enforced by system prompt)
-- [ ] 10.1.4 Cheating response includes a warning from the teacher
+- [x] 10.1.2 Prompt injection attempts → flagged as cheating
+- [x] 10.1.3 LLM never reveals answer when cheating detected (enforced by system prompt)
+- [x] 10.1.4 Cheating response includes a warning from the teacher
 
 ### 10.2 Cheating Handling (App-Side)
 
 - [x] 10.2.1 Cheating attempts do NOT increment the attempt counter
 - [x] 10.2.2 `cheatingWarnings` counter incremented in UserProgress
 - [x] 10.2.3 First offense: warning message displayed
-- [ ] 10.2.4 Second offense: stronger warning ("Further attempts may result in ban")
-- [ ] 10.2.5 Cheating warnings visible to mods in Upload Review queue
+- [x] 10.2.4 Second offense: stronger warning ("Further attempts may result in ban")
+- [x] 10.2.5 Cheating warnings visible to mods in Upload Review queue
 
 ### 10.3 Random Guessing Detection
 
 - [x] 10.3.1 Gibberish/random text → `student_is_just_random_guessing: true`
-- [ ] 10.3.2 Random guessing IS counted as an attempt (unlike cheating)
+- [x] 10.3.2 Random guessing IS counted as an attempt (unlike cheating)
 - [x] 10.3.3 Bot responds: "That doesn't seem like a real answer. Try thinking about..."
 
 ### 10.4 Attempt Tracking Integrity
@@ -728,26 +728,26 @@ OPENAI_MODEL=qwen3-max
 
 ### 13.6 Empty States
 
-- [ ] 13.6.1 No lessons: dashboard shows "No lessons created yet" with Create button
-- [ ] 13.6.2 No prompts in lesson: editor shows "Add your first trainer prompt"
-- [ ] 13.6.3 No test questions: editor shows "Add your first test question"
-- [ ] 13.6.4 No pending reviews: review queue shows "No uploads pending review"
-- [ ] 13.6.5 No published lessons: learner sees "No training available yet" in #beginner-training
+- [x] 13.6.1 No lessons: dashboard shows "No lessons created yet" with Create button
+- [x] 13.6.2 No prompts in lesson: editor shows "Add your first trainer prompt"
+- [x] 13.6.3 No test questions: editor shows "Add your first test question"
+- [x] 13.6.4 No pending reviews: review queue shows "No uploads pending review"
+- [x] 13.6.5 No published lessons: learner sees "No training available yet" in #beginner-training
 
 ---
 
 ## 14. Final P4 Polish
 
-- [ ] 14.1 All action buttons use `<Spinner />` during loading (per UI rules)
-- [ ] 14.2 No console errors during normal training flow
-- [ ] 14.3 Training Bot avatar consistent: blue circle with robot icon
-- [ ] 14.4 Test System avatar consistent: purple circle with clipboard-check icon
-- [ ] 14.5 Tag Award avatar consistent: yellow circle with medal icon
-- [ ] 14.6 All timestamps in user's local timezone
-- [ ] 14.7 Long lesson titles truncated with ellipsis
-- [ ] 14.8 Markdown rendering in chat sanitized against XSS
-- [ ] 14.9 Discord dark theme consistent across all training UI
-- [ ] 14.10 Cursor pointer on all interactive elements
+- [x] 14.1 All action buttons use `<Spinner />` during loading (per UI rules)
+- [x] 14.2 No console errors during normal training flow
+- [x] 14.3 Training Bot avatar consistent: blue circle with robot icon
+- [x] 14.4 Test System avatar consistent: purple circle with clipboard-check icon
+- [x] 14.5 Tag Award avatar consistent: yellow circle with medal icon
+- [x] 14.6 All timestamps in user's local timezone
+- [x] 14.7 Long lesson titles truncated with ellipsis
+- [x] 14.8 Markdown rendering in chat sanitized against XSS
+- [x] 14.9 Discord dark theme consistent across all training UI
+- [x] 14.10 Cursor pointer on all interactive elements
 
 ---
 

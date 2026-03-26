@@ -18,7 +18,7 @@
     "@alicloud/openapi-client": "^0.4.15",
     "@alicloud/tea-typescript": "^1.8.0",
     "@alicloud/tea-util": "^1.4.11",
-    "@neondatabase/serverless": "^1.0.2",
+    "postgres": "^3.4.5",
     "bcryptjs": "^3.0.3",
     "crypto": "^1.0.1",
     "drizzle-orm": "^0.45.1",

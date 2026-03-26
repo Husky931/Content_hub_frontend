@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import { hashSync } from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { users, channels, tags, inviteCodes } from "./schema";
@@ -11,7 +11,7 @@ async function seed() {
     throw new Error("DATABASE_URL is required");
   }
 
-  const sql = neon(DATABASE_URL);
+  const sql = postgres(DATABASE_URL);
   const db = drizzle(sql);
 
   console.log("Seeding database (idempotent)...\n");

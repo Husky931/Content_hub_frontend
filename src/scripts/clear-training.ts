@@ -1,8 +1,8 @@
 import "dotenv/config";
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 
 async function main() {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = postgres(process.env.DATABASE_URL!);
 
   await sql`DELETE FROM upload_submissions`;
   console.log("✓ upload_submissions cleared");
